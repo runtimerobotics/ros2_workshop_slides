@@ -325,6 +325,102 @@ SCENES['build-robot'] = async (panel) => {
   } };
 };
 
+// ---------- Day 2 · TF2: explore the tree, any frame to any frame ----------
+SCENES['tf-tree'] = async (panel) => {
+  const s = base3d({ cam: [2.0, 1.6, 1.9], target: [.35, .4, -.1] });
+  const r = await panda(); s.world.add(r);   // world → panda_link0 is identity
+  const camMount = new THREE.Group(); camMount.position.set(1.0, .6, .9); camMount.rotation.set(0, .55, -2.6, 'ZYX');
+  const body = box(.1, .16, .06, 0x39425e); camMount.add(body);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .04, 20), new THREE.MeshStandardMaterial({ color: 0x111111 }));
+  lens.rotation.z = Math.PI / 2; lens.position.x = .06; camMount.add(lens);
+  const cup = new THREE.Group();
+  const cupMesh = new THREE.Mesh(new THREE.CylinderGeometry(.035, .03, .1, 24), new THREE.MeshStandardMaterial({ color: C.orange }));
+  cupMesh.rotation.x = Math.PI / 2; cupMesh.position.z = .05; cup.add(cupMesh);
+  const table = box(.5, .9, .02, 0x2a3350); table.position.set(.55, 0, -.01);
+  s.world.add(camMount, cup, table);
+  const PARENT = { panda_link0: 'world', panda_link1: 'panda_link0', panda_link2: 'panda_link1', panda_link3: 'panda_link2', panda_link4: 'panda_link3', panda_link5: 'panda_link4',
+                   panda_link6: 'panda_link5', panda_link7: 'panda_link6', panda_link8: 'panda_link7', panda_hand: 'panda_link8', camera_link: 'world', cup: 'camera_link' };
+  const OBJ = { world: s.world, camera_link: camMount, cup, ...Object.fromEntries(Object.keys(PARENT).filter(n => n.startsWith('panda')).map(n => [n, r.links[n]])) };
+  const NAMED = ['world', 'panda_link0', 'panda_hand', 'camera_link', 'cup'];
+  for (const [n, o] of Object.entries(OBJ)) if (n !== 'world') o.add(frame(NAMED.includes(n) ? .1 : .05, NAMED.includes(n) ? n : '', n === 'cup' ? 'warn' : 'small'));
+  s.world.add(frame(.18, 'world', 'big'));
+  const chainLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: C.orange, depthTest: false, transparent: true }));
+  chainLine.renderOrder = 4; chainLine.frustumCulled = false; s.world.add(chainLine);
+  const u = ui(panel);
+  const names = Object.keys(OBJ);
+  const pick = (lbl, val) => {
+    const l = document.createElement('label'); l.className = 'scene-slider';
+    l.innerHTML = `<span>${lbl}</span><select>${names.map(n => `<option${n === val ? ' selected' : ''}>${n}</option>`).join('')}</select><output></output>`;
+    const sel = l.querySelector('select'); sel.addEventListener('change', () => { auto = false; autoBtn.classList.remove('on'); sel.blur(); });
+    panel.append(l); return sel;
+  };
+  let auto = true;
+  const autoBtn = u.button('tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  const tSel = pick('target', 'panda_hand'), sSel = pick('source', 'cup');
+  const tree = u.readout(), out = u.readout();
+  tree.classList.add('tree');
+  const TOUR = [['panda_hand', 'cup'], ['world', 'panda_hand'], ['camera_link', 'cup'], ['panda_link0', 'camera_link'], ['cup', 'panda_hand']];
+  const up = n => { const o = [n]; while (PARENT[o[o.length - 1]]) o.push(PARENT[o[o.length - 1]]); return o; };
+  const depth = n => up(n).length - 1;
+  const inv = new THREE.Matrix4(), rel = n => new THREE.Matrix4().multiplyMatrices(inv, OBJ[n].matrixWorld);
+  const e = new THREE.Euler(), p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
+  return { ...s, update(t) {
+    setArm(r, HOME.map((v, j) => v + (j === 0 ? .5 * Math.sin(t * .5) : j === 3 ? .35 * Math.sin(t * .7) : j === 1 ? .25 * Math.sin(t * .6) : 0)), .04);
+    cup.position.set(.55 + .12 * Math.sin(t * .4), .25 * Math.sin(t * .3), 0);
+    if (auto) { const k = Math.floor(t / 4) % TOUR.length; tSel.value = TOUR[k][0]; sSel.value = TOUR[k][1]; }
+    s.scene.updateMatrixWorld(true); inv.copy(s.world.matrixWorld).invert();
+    const target = tSel.value, source = sSel.value, a = up(target), b = up(source);
+    const common = a.find(n => b.includes(n)), chain = [...a.slice(0, a.indexOf(common) + 1), ...b.slice(0, b.indexOf(common)).reverse()];
+    chainLine.geometry.setFromPoints(chain.map(n => new THREE.Vector3().setFromMatrixPosition(rel(n))));
+    const T = new THREE.Matrix4().multiplyMatrices(rel(target).invert(), rel(source));
+    T.decompose(p, q, sc); e.setFromQuaternion(q, 'ZYX');
+    tree.innerHTML = names.map(n => `${'&nbsp;&nbsp;'.repeat(depth(n))}${chain.includes(n) ? `<b>${n}</b>` : n}`).join('<br>');
+    out.innerHTML = `<b>lookup_transform</b>('${target}', '${source}')<br>translation ${[p.x, p.y, p.z].map(v => v.toFixed(3)).join(', ')}<br>rotation rpy ${[e.x, e.y, e.z].map(v => v.toFixed(3)).join(', ')}<br>chain: ${chain.length - 1} transforms`;
+  } };
+};
+
+// ---------- Day 1 · Launch: a robot model launch file running ----------
+SCENES['launch-display'] = async (panel) => {
+  const s = base3d({ cam: [1.5, 1.0, 1.5], target: [0, .45, 0] });
+  const r = await panda(); s.world.add(r);
+  const vis = {}; r.traverse(o => { if (o.isURDFVisual) (vis[o.parent.urdfName] ??= []).push(o); });
+  const tfFrames = ['panda_link0', 'panda_link2', 'panda_link4', 'panda_link6', 'panda_hand'].map(n => { const f = frame(.1, n === 'panda_hand' || n === 'panda_link0' ? n : '', 'small'); r.links[n].add(f); return f; });
+  const wait = label('waiting for /joint_states', 'warn'); wait.position.set(0, 0, .45); r.add(wait);
+  const CODE = [
+    ['# imports: launch, launch_ros', 'c'], ['def generate_launch_description():', ''], ["    model = LaunchConfiguration('model')", ''],
+    ['    return LaunchDescription([', ''], ["        DeclareLaunchArgument('model', default_value='panda.urdf'),", 'arg'],
+    ["        Node(package='robot_state_publisher', executable='robot_state_publisher',", 'rsp'], ["             parameters=[{'robot_description': ParameterValue(", 'rsp'],
+    ["                 Command(['xacro ', model]), value_type=str)}]),", 'rsp'], ["        Node(package='joint_state_publisher_gui',", 'jsp'],
+    ["             executable='joint_state_publisher_gui'),", 'jsp'], ["        Node(package='rviz2', executable='rviz2'),", 'rviz'], ['    ])', '']];
+  const code = document.createElement('div'); code.className = 'scene-code';
+  code.innerHTML = CODE.map(([l, k]) => `<span data-k="${k}">${l.replace(/</g, '&lt;')}</span>`).join('');
+  panel.replaceChildren(code);
+  const u = { readout: html => { const d = document.createElement('div'); d.className = 'scene-readout scene-log'; d.innerHTML = html; panel.append(d); return d; } };
+  const log = u.readout(), out = u.readout();
+  const LOG = [
+    [0, '$ ros2 launch my_robot display.launch.py model:=panda.urdf'], [1.2, '[INFO] [launch]: All log files can be found below ~/.ros/log/…'],
+    [1.4, '[INFO] [launch]: Default logging verbosity is set to INFO'], [2.8, '[INFO] [robot_state_publisher-1]: process started with pid [41210]'],
+    [5.0, '[INFO] [joint_state_publisher_gui-2]: process started with pid [41211]'], [8.0, '[INFO] [rviz2-3]: process started with pid [41212]'],
+    [18.0, '^C[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)'], [18.4, '[INFO] [rviz2-3]: process has finished cleanly [pid 41212]'],
+    [18.6, '[INFO] [joint_state_publisher_gui-2]: process has finished cleanly [pid 41211]'], [18.8, '[INFO] [robot_state_publisher-1]: process has finished cleanly [pid 41210]']];
+  const hand = new THREE.Vector3(), CYCLE = 21;
+  return { ...s, update(t) {
+    const tc = t % CYCLE, rsp = tc >= 2.8 && tc < 19, jsp = tc >= 5 && tc < 19, rviz = tc >= 8 && tc < 19;
+    const step = tc < 1.2 ? '' : tc < 2.8 ? 'arg' : tc < 5 ? 'rsp' : tc < 8 ? 'jsp' : tc < 18 ? 'rviz' : '';
+    code.querySelectorAll('span').forEach(sp => sp.classList.toggle('on', sp.dataset.k === step));
+    for (const [n, list] of Object.entries(vis)) list.forEach(v => (v.visible = n === 'panda_link0' ? rsp : jsp));   // moving links need joint states
+    wait.visible = rsp && !jsp;
+    tfFrames.forEach(f => (f.visible = rviz));
+    const q = HOME.map(() => 0);
+    if (tc > 6.5 && jsp) { const k = Math.floor((tc - 6.5) / 1.6) % 7; q[k] = .7 * Math.sin(((tc - 6.5) % 1.6) / 1.6 * Math.PI); }
+    setArm(r, q, .04);
+    log.innerHTML = LOG.filter(([at]) => tc >= at).map(([, l]) => l.replace(/</g, '&lt;')).join('<br>');
+    r.updateMatrixWorld(true); r.links.panda_hand.getWorldPosition(hand); r.worldToLocal(hand);
+    out.innerHTML = jsp ? `<b>ros2 node list</b> /robot_state_publisher /joint_state_publisher${rviz ? ' /rviz' : ''}<br><b>tf2_echo panda_link0 panda_hand</b> ${[hand.x, hand.y, hand.z].map(v => v.toFixed(3)).join(', ')}`
+                        : rsp ? '<b>ros2 node list</b> /robot_state_publisher<br>/tf_static only: moving links have no transform yet' : '<b>ros2 node list</b> (empty)';
+  } };
+};
+
 // ---------- Day 2 · Sensors: 360° lidar in a room ----------
 SCENES['lidar'] = async (panel) => {
   const s = base3d({ cam: [0.2, 4.2, 3.6], target: [0, 0, 0], grid: 0 });

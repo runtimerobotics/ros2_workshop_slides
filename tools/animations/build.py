@@ -565,8 +565,97 @@ b += [packet("res", back(265), .85, .97, d), flash(35, 240, 190, 50, .97, d, 4),
 svgs["Action lifecycle"] = svg(350, "An action client sends a goal through the goal service, requests the result, receives feedback on a topic while a progress bar fills, and finally receives the result", "".join(b)) + legend(("req", "request"), ("res", "response"), ("fb", "feedback message"))
 
 
+# ---------- ROS 2 distributions over time ----------
+# Dates from docs.ros.org/en/jazzy/Releases.html (decimal years). TODAY is the workshop date.
+TODAY, Y0, Y1 = 2026.83, 2015.5, 2031.5
+X0, X1 = 170, 885
+yx = lambda y: round(X0 + (y - Y0) / (Y1 - Y0) * (X1 - X0), 1)
+SWEEP = .72   # fraction of the cycle spent sweeping from Y0 to TODAY
+tf_ = lambda y: round(min(max((y - Y0) / (TODAY - Y0), 0), 1) * SWEEP, 4)
+DISTROS = [  # name, release, eol, kind
+    ("alpha · beta", 2015.67, 2017.95, "pre"), ("Ardent Apalone", 2017.94, 2018.95, "std"), ("Bouncy Bolson", 2018.50, 2019.50, "std"),
+    ("Crystal Clemmys", 2018.95, 2019.95, "std"), ("Dashing Diademata", 2019.41, 2021.41, "lts"), ("Eloquent Elusor", 2019.89, 2020.88, "std"),
+    ("Foxy Fitzroy", 2020.43, 2023.47, "lts"), ("Galactic Geochelone", 2021.39, 2022.94, "std"), ("Humble Hawksbill", 2022.39, 2027.38, "lts"),
+    ("Iron Irwini", 2023.39, 2024.93, "std"), ("Jazzy Jalisco", 2024.39, 2029.38, "lts"), ("Kilted Kaiju", 2025.39, 2026.95, "std"),
+    ("Lyrical Luth", 2026.39, 2031.38, "lts"), ("Rolling Ridley", 2020.43, Y1, "rolling"), ("Makoa Mata-mata", 2027.39, 2028.95, "future")]
+FILL = {"pre": "#5b6478", "std": "#6aa8ff", "lts": "#58e0d2", "rolling": "#ffb15a", "eol": "#3a4560"}
+d = "18s"
+b = []
+for y in range(2016, 2032):
+    x = yx(y)
+    b.append(f'<line class="tick" x1="{x}" y1="24" x2="{x}" y2="330"/><text class="k" x="{x}" y="14">{y}</text>')
+for i, (name, rel, eol, kind) in enumerate(DISTROS):
+    y = 34 + i * 19.5
+    x0, x1 = yx(rel), yx(eol)
+    if kind == "future":
+        b.append(f'<g opacity="0"><rect class="bar future" x="{x0}" y="{y}" width="{x1 - x0}" height="13" rx="3"/><text class="dname dim" x="{X0 - 8}" y="{y + 7}">{name}</text>{vis(SWEEP + .02, 1, d)}</g>')
+        continue
+    ts, te = tf_(rel), tf_(min(eol, TODAY))
+    w_now = max(yx(min(eol, TODAY)) - x0, 0)
+    grow = (f'<rect class="bar" fill="{FILL[kind]}" x="{x0}" y="{y}" height="13" rx="3" width="0">'
+            f'<animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;0;{w_now};{w_now}" keyTimes="0;{ts};{max(te, ts + .001)};1"/>')
+    if eol < TODAY:   # turns grey once the sweep passes its end of life
+        grow += f'<animate attributeName="fill" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="{FILL[kind]};{FILL["eol"]}" keyTimes="0;{te}"/>'
+    b.append(grow + '</rect>')
+    if eol > TODAY and kind != "rolling":   # remaining support shown as an outline after the sweep reaches today
+        b.append(f'<rect class="bar ahead" x="{yx(TODAY)}" y="{y}" width="{x1 - yx(TODAY)}" height="13" rx="3" opacity="0">{vis(SWEEP, 1, d)}</rect>')
+    b.append(f'<text class="dname" x="{X0 - 8}" y="{y + 7}" opacity="0">{name}{vis(ts, 1, d)}</text>')
+b.append(f'<line class="today" x1="{yx(Y0)}" y1="22" x2="{yx(Y0)}" y2="330"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="{yx(Y0)};{yx(TODAY)};{yx(TODAY)}" keyTimes="0;{SWEEP};1"/>'
+         f'<animate attributeName="x2" dur="{d}" repeatCount="indefinite" values="{yx(Y0)};{yx(TODAY)};{yx(TODAY)}" keyTimes="0;{SWEEP};1"/></line>')
+b.append(f'<text class="cap" x="{yx(TODAY) + 6}" y="342" opacity="0">today · supported: Humble, Jazzy, Kilted, Lyrical{vis(SWEEP, 1, d)}</text>')
+demo["distros"] = slide(OV, "ROS 2 distributions over time", "docs.ros.org › Distributions", "ROS 2 distributions over time",
+    svg(350, "Animated timeline of ROS 2 distributions from the 2015 alphas to today: Ardent 2017 through Lyrical 2026, with LTS releases lasting five years, Rolling since 2020, and Makoa planned for May 2027.", "".join(b))
+    + legend(("lts", "LTS · 5 years"), ("std", "non-LTS · about 1.5 years"), ("eol", "end of life"), ("rolling", "Rolling"), ("future", "planned")),
+    "Releases are named alphabetically after turtles and arrive every May 23, World Turtle Day. Even years are LTS with five years of support; odd years get about 18 months. On the workshop date Humble, Jazzy, Kilted, and Lyrical are supported. Source: docs.ros.org Releases page.")
+
+# ---------- History of ROS and ROS 2, animated ----------
+H0, H1, HT = 2006.6, 2027.2, 2026.83
+hx = lambda y: round(40 + (y - H0) / (H1 - H0) * 820, 1)
+ht = lambda y: round(min(max((y - H0) / (HT - H0), 0), 1) * .78, 4)
+d = "20s"
+ROS1 = [("B", 2010.17), ("C", 2010.59), ("D", 2011.17), ("E", 2011.66), ("F", 2012.31), ("G", 2012.99), ("H", 2013.68), ("I", 2014.56), ("J", 2015.39), ("K", 2016.39), ("L", 2017.39), ("M", 2018.39), ("N", 2020.39)]
+ROS2 = [("A", 2017.94), ("B", 2018.50), ("C", 2018.95), ("D", 2019.41), ("E", 2019.89), ("F", 2020.43), ("G", 2021.39), ("H", 2022.39), ("I", 2023.39), ("J", 2024.39), ("K", 2025.39), ("L", 2026.39)]
+EVENTS = [  # year, lane (1 above / 2 below), title, detail
+    (2007.3, 1, "2007 · Stanford STAIR", "Willow Garage starts ROS"), (2010.17, 1, "2010 · Box Turtle", "ROS 1.0, built for the PR2"),
+    (2012.3, 1, "2012 · OSRF founded", "first ROSCon"), (2014.8, 1, "2014 · Indigo LTS", "ROS 2 design begins"),
+    (2015.67, 2, "2015 · ROS 2 alpha", "rebuilt on DDS"), (2017.94, 2, "2017 · Ardent", "first ROS 2 release"),
+    (2020.39, 1, "2020 · Noetic", "last ROS 1 release"), (2020.43, 2, "2020 · Foxy LTS", "Rolling starts"),
+    (2022.9, 2, "2022 · Humble LTS", "Open Robotics joins Intrinsic"), (2025.41, 1, "May 2025", "ROS 1 end of life"),
+    (2024.39, 2, "2024 · Jazzy LTS", "this workshop"), (2026.39, 2, "2026 · Lyrical LTS", "newest release")]
+L1, L2 = 140, 230
+b = [f'<text class="lane1" x="4" y="{L1 + 1}">ROS 1</text><text class="lane2" x="4" y="{L2 + 1}">ROS 2</text>']
+for y in range(2008, 2027, 2):
+    b.append(f'<text class="k" x="{hx(y)}" y="{(L1 + L2) / 2 + 1}">{y}</text>')
+def lane_bar(y, c, x0, x1, t0, t1):
+    w = x1 - x0
+    return (f'<rect class="{c}" x="{x0}" y="{y - 3}" height="6" rx="3" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" '
+            f'values="0;0;{w};{w}" keyTimes="0;{t0};{max(t1, t0 + .001)};1"/></rect>')
+b.append(lane_bar(L1, "lane-ros1", hx(2007.3), hx(2025.41), ht(2007.3), ht(2025.41)))
+b.append(lane_bar(L2, "lane-ros2", hx(2015.67), hx(HT), ht(2015.67), ht(HT)))
+b.append(f'<text class="eol" x="{hx(2025.41) + 6}" y="{L1 + 4}" opacity="0">EOL{vis(ht(2025.41), 1, d)}</text>')
+for letters, y, cls, up in ((ROS1, L1, "lane1", 1), (ROS2, L2, "lane2", -1)):   # letters sit between the lanes
+    for ch, yr in letters:
+        x = hx(yr)
+        b.append(f'<g opacity="0"><circle class="{cls}-dot" cx="{x}" cy="{y}" r="5"/><text class="letter {cls}" x="{x}" y="{y + 15 * up}">{ch}</text>{vis(ht(yr), 1, d)}</g>')
+rows = {1: [[], [], []], 2: [[], [], []]}
+for i, (yr, lane, title, detail) in enumerate(EVENTS):
+    x = hx(yr)
+    row = next(k for k, used in enumerate(rows[lane]) if all(abs(u_ - x) >= 135 for u_ in used))   # first row with room
+    rows[lane][row].append(x)
+    y = (L1 - 46 - row * 40) if lane == 1 else (L2 + 30 + row * 40)
+    cls = "card1" if lane == 1 else "card2"
+    b.append(f'<g opacity="0"><line class="stem" x1="{x}" y1="{L1 if lane == 1 else L2}" x2="{x}" y2="{y + (30 if lane == 1 else 0)}"/>'
+             f'<rect class="{cls}" x="{x - 64}" y="{y}" width="128" height="30" rx="4"/><text class="ct" x="{x}" y="{y + 10}">{title}</text>'
+             f'<text class="cd" x="{x}" y="{y + 22}">{detail}</text>{vis(ht(yr), 1, d)}</g>')
+b.append(f'<line class="today" x1="{hx(H0)}" y1="40" x2="{hx(H0)}" y2="342"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="{hx(H0)};{hx(HT)};{hx(HT)}" keyTimes="0;.78;1"/>'
+         f'<animate attributeName="x2" dur="{d}" repeatCount="indefinite" values="{hx(H0)};{hx(HT)};{hx(HT)}" keyTimes="0;.78;1"/></line>')
+demo["history"] = slide(OV, "History of ROS and ROS 2", "From a lab project to an industry standard", "History of ROS and ROS 2",
+    svg(345, "Animated history: ROS 1 from Stanford and Willow Garage in 2007 through Box Turtle, OSRF, and Noetic to its end of life in May 2025; ROS 2 from the 2015 alphas through Ardent, Foxy, Humble, Jazzy, and Lyrical. Letters mark each distribution.", "".join(b))
+    + legend(("lane-ros1", "ROS 1 · 13 distributions"), ("lane-ros2", "ROS 2 · 12 distributions so far")),
+    "Each letter is a distribution, named alphabetically. ROS 1 ran from Box Turtle to Noetic; ROS 2 restarted at A with Ardent. ROS 1 reached end of life on May 31, 2025. Pause with K to talk about any milestone.")
+
 # ---------- write into index.html ----------
-TALL = {"ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
+TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
 svgs["Links and joints"] = urdf_svg
 svgs["Simulation loop"] = gz_svg

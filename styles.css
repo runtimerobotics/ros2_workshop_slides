@@ -313,3 +313,19 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 @media (max-width: 900px) { .scene3d { grid-template-columns: 1fr; }.scene-view { min-height: 46vh; } }
 @media print { .scene-view > canvas, .scene-view .label-layer { display: none; }.scene-snap { display: block; width: 100%; height: 100%; object-fit: contain; }.scene-snap:not([src]) { display: none; }.scene-view:not(:has(.scene-snap[src]))::after { content: "Interactive 3D scene: open the deck in a browser"; position: absolute; inset: 0; display: grid; place-items: center; color: #666; font: .9rem "IBM Plex Mono", monospace; } }
 @media screen { .slide.active .scene-view:not(.loading):not(:has(canvas))::after { content: "3D scene did not load: check that scenes3d.js, vendor/ and assets/ are published"; position: absolute; inset: 0; display: grid; place-items: center; padding: 2rem; text-align: center; color: var(--pink); font: .85rem "IBM Plex Mono", monospace; } }
+/* timelines */
+.ros-anim .tick { stroke: rgba(255,255,255,.06); }.ros-anim text.dname { fill: var(--ink); font-size: 12px; font-weight: 500; text-anchor: end; }.ros-anim text.dname.dim { fill: var(--muted); }
+.ros-anim .bar.future { fill: none; stroke: var(--muted); stroke-dasharray: 4 4; }.ros-anim .bar.ahead { fill: none; stroke: rgba(255,255,255,.35); stroke-dasharray: 3 3; }
+.ros-anim .today { stroke: var(--orange); stroke-width: 2; }.ros-anim .lane-ros1 { fill: var(--orange); }.ros-anim .lane-ros2 { fill: var(--cyan); }
+.ros-anim text.lane1 { fill: var(--orange); font-weight: 700; text-anchor: start; }.ros-anim text.lane2 { fill: var(--cyan); font-weight: 700; text-anchor: start; }
+.ros-anim text.letter { font: 600 11px "IBM Plex Mono", monospace; text-anchor: middle; }.ros-anim .lane1-dot { fill: var(--orange); }.ros-anim .lane2-dot { fill: var(--cyan); }
+.ros-anim text.eol { fill: var(--pink); font: 600 11px "IBM Plex Mono", monospace; text-anchor: start; }.ros-anim .stem { stroke: rgba(255,255,255,.25); }
+.ros-anim .card1 { fill: rgba(255,177,90,.12); stroke: var(--orange); }.ros-anim .card2 { fill: rgba(88,224,210,.1); stroke: var(--cyan); }
+.ros-anim text.ct { font-size: 11px; font-weight: 700; }.ros-anim text.cd { fill: var(--muted); font-size: 10px; font-weight: 500; }
+.anim-legend .lts { background: #58e0d2; }.anim-legend .std { background: #6aa8ff; }.anim-legend .eol { background: #3a4560; }.anim-legend .rolling { background: #ffb15a; }.anim-legend .future { background: transparent; border: 1px dashed var(--muted); }
+.anim-legend .lane-ros1 { background: var(--orange); }.anim-legend .lane-ros2 { background: var(--cyan); }
+.scene-panel select { width: 100%; padding: .3rem; border: 1px solid var(--line); border-radius: .3rem; background: var(--bg-2); color: var(--ink); font: .74rem "IBM Plex Mono", monospace; }
+.scene-code { padding: .6rem .7rem; border: 1px solid rgba(106,168,255,.25); border-radius: .35rem; background: #080d19; font: .66rem/1.5 "IBM Plex Mono", monospace; color: var(--muted); white-space: pre-wrap; }
+.scene-code span { display: block; padding: 0 .2rem; border-radius: .2rem; }.scene-code span.on { background: rgba(88,224,210,.16); color: var(--cyan); }.scene-code span[data-k="c"] { color: #6c7590; }
+.scene-log { border-left-color: var(--blue); font-size: .66rem; min-height: 7.5em; }
+.scene-readout.tree { line-height: 1.32; }
