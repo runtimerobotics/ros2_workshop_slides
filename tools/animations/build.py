@@ -386,7 +386,7 @@ for k in range(20):
 demo["topic"] = slide("Day 1 · Topics", "Turtlesim demo: topics", "Turtlesim demo", "Topics: drive and listen",
     svg(320, "Terminal 1 publishes velocity commands on /turtle1/cmd_vel once per second and the turtle drives a circle; terminal 2 echoes /turtle1/pose and the position values change as it drives.", "".join(b))
     + legend(("req", "Twist on /turtle1/cmd_vel · 1 Hz"), ("fb", "Pose on /turtle1/pose · about 60 Hz")),
-    "Run exactly this: ros2 run turtlesim turtlesim_node, then the two terminals. Linear 2.0 m/s with angular 1.0 rad/s gives a 2 m radius circle. Point out that the publisher and the echo never talk to each other; both just use topics.")
+    "Run exactly this: ros2 run turtlesim turtlesim_node, then the two terminals. Linear 2.0 m/s with angular 1.0 rad/s gives a 2 m radius circle. Point out that the publisher and the echo never talk to each other; both just use topics. Docs: Tutorials › Beginner: CLI tools › Understanding topics.")
 
 # ---------- Turtlesim demo: services ----------
 d = "12s"
@@ -414,7 +414,7 @@ b = [term(20, 20, 430, 290, "terminal"),
 demo["service"] = slide("Day 1 · Services and actions", "Turtlesim demo: services", "Turtlesim demo", "Services: ask once, get one answer",
     svg(320, "A service call to /spawn creates turtle2 at x 2, y 2 and returns its name; a second call to /turtle1/teleport_absolute moves turtle1 to x 8, y 8 facing up, drawing a line, and returns an empty response.", "".join(b))
     + legend(("req", "request"), ("res", "response")),
-    "Each call blocks the terminal until the single response arrives. The pen draws the teleport because turtle1's pen is down; ask how participants would turn it off (hint: the /turtle1/set_pen service).")
+    "Each call blocks the terminal until the single response arrives. The pen draws the teleport because turtle1's pen is down; ask how participants would turn it off (hint: the /turtle1/set_pen service). Docs: Tutorials › Beginner: CLI tools › Understanding services.")
 
 # ---------- Turtlesim demo: actions ----------
 d = "12s"
@@ -424,7 +424,9 @@ b = [term(20, 20, 430, 290, "terminal"),
      term_lines(34, 62, 19, [("type", "$ ros2 action send_goal --feedback \\", .01), ("type", "  /turtle1/rotate_absolute \\", .04),
                              ("type", "  turtlesim/action/RotateAbsolute \\", .06), ("type", f"  {Q}{{theta: 1.57}}{Q}", .08)], d),
      shown(34, 145, "Goal accepted with ID: 8b1f…", .27, d, 1, "code ok"),
-     shown(34, 169, "Feedback: remaining: 1.18", .36, d), shown(34, 188, "Feedback: remaining: 0.69", .5, d), shown(34, 207, "Feedback: remaining: 0.21", .64, d),
+     # The CLI prints each feedback as "Feedback:" then an indented field; show the latest value.
+     shown(34, 169, "Feedback:", .36, d), shown(34, 188, "    remaining: 1.18", .36, d, .5),
+     shown(34, 188, "    remaining: 0.69", .5, d, .64), shown(34, 188, "    remaining: 0.21", .64, d),
      shown(34, 236, "Goal finished with status: SUCCEEDED", .82, d, 1, "code ok")]
 b += [wire(f"M450,{y} L{WX},{y}") for y in lanes.values()]
 b += [node(470, 45, 140, 44, "action", "goal", "pill"), node(470, 135, 140, 44, "action", "feedback", "pill topic"), node(470, 225, 140, 44, "action", "result", "pill"),
@@ -439,7 +441,7 @@ b.append(packet("res", f"M{WX},247 L450,247", .76, .82, d))
 demo["action"] = slide("Day 1 · Services and actions", "Turtlesim demo: actions", "Turtlesim demo", "Actions: a goal with progress",
     svg(320, "An action goal asks /turtle1/rotate_absolute to turn the turtle to 1.57 radians. The goal is accepted, the turtle turns slowly while feedback reports the remaining angle, and the result reports success.", "".join(b))
     + legend(("req", "goal / result request"), ("res", "accepted / result"), ("fb", "feedback")),
-    "Turtlesim rotates at a fixed speed, so the feedback counts down. Press Ctrl+C during a second goal to show cancellation; the turtle stops where it is.")
+    "Turtlesim rotates at a fixed speed, so the feedback counts down. Press Ctrl+C during a second goal to show cancellation; the turtle stops where it is. Docs: Tutorials › Beginner: CLI tools › Understanding actions.")
 
 # ---------- Turtlesim demo: parameters ----------
 d = "12s"
@@ -461,7 +463,7 @@ demo["params"] = slide("Day 1 · Runtime orchestration", "Turtlesim demo: parame
     svg(305, "ros2 param get reads background_r as 69; ros2 param set changes it to 200 and the turtlesim window turns pink; setting it back to 69 turns it blue again.", "".join(b))
     + legend(("req", "get / set request"), ("res", "response"))
     + '      <p class="callout">Every node gets parameter services automatically: <code>/turtlesim/get_parameters</code>, <code>/turtlesim/set_parameters</code>, and more.</p>\n',
-    "Run ros2 service list while turtlesim runs to show the parameter services. A node can reject a value in its parameter callback, and the CLI then prints the reason.")
+    "Run ros2 service list while turtlesim runs to show the parameter services. A node can reject a value in its parameter callback, and the CLI then prints the reason. Docs: Tutorials › Beginner: CLI tools › Understanding parameters.")
 
 # ---------- Turtlesim demo: launch (mimic) ----------
 d = "12s"
@@ -492,7 +494,7 @@ for k in range(9):
 demo["launch"] = slide("Day 1 · Runtime orchestration", "Turtlesim demo: launch", "Turtlesim demo", "Launch: one command, a whole system",
     svg(335, "ros2 launch starts two turtlesim nodes in namespaces turtlesim1 and turtlesim2 plus a mimic node. Publishing velocity to turtlesim1 makes turtle 1 drive a circle; mimic copies its pose into commands for turtlesim2, so turtle 2 drives the same circle.", "".join(b))
     + legend(("req", "cmd_vel"), ("fb", "pose")),
-    "This is the official 'Creating a launch file' tutorial. One launch file starts three nodes, namespaces keep the turtles apart, and remappings wire mimic between them without code changes.")
+    "This is the official 'Creating a launch file' tutorial. One launch file starts three nodes, namespaces keep the turtles apart, and remappings wire mimic between them without code changes. Docs: Tutorials › Intermediate › Launch › Creating a launch file.")
 
 # ---------- Turtlesim demo: ros2 bag ----------
 d = "14s"
@@ -522,7 +524,7 @@ b.append(flash(400, 90, 120, 140, .44, d, 2))
 demo["bag"] = slide("Day 1 · Runtime orchestration", "Turtlesim demo: ros2 bag", "Turtlesim demo", "ros2 bag: record once, replay anytime",
     svg(335, "While the turtle is driven with teleop, ros2 bag record stores cmd_vel and pose messages in a bag. After stopping, ros2 bag play sends the recorded commands back and the turtle repeats the same path.", "".join(b))
     + legend(("req", "cmd_vel"), ("fb", "pose")),
-    "This follows the 'Recording and playing back data' tutorial. Clear the window or restart turtlesim before playing so participants can see the turtle redraw the same path.")
+    "This follows the 'Recording and playing back data' tutorial. Clear the window or restart turtlesim before playing so participants can see the turtle redraw the same path. Docs: Tutorials › Beginner: CLI tools › Recording and playing back data.")
 
 # ---------- Improved pub/sub, service, action diagrams (svg + legend only) ----------
 d = "4.5s"

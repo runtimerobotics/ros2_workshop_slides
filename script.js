@@ -19,6 +19,12 @@
 
   document.documentElement.classList.add('js-ready');
 
+  // Animated diagrams: near the end of a cycle every terminal line and result is visible.
+  const cycleOf = svg => parseFloat(svg.querySelector('animate, animateMotion, animateTransform')?.getAttribute('dur')) || 0;
+  const freeze = svg => { svg.setCurrentTime(cycleOf(svg) * .9); svg.pauseAnimations(); };
+  const restart = svg => { svg.setCurrentTime(0); svg.unpauseAnimations(); };
+  const activeAnims = () => [...slides[index].querySelectorAll('svg.ros-anim')];
+
   function clamp(value) { return Math.max(0, Math.min(value, slides.length - 1)); }
 
   function requestedIndex() {
@@ -42,12 +48,8 @@
     const note = slides[index].querySelector('.notes');
     notesContent.textContent = note ? note.textContent.trim() : 'No speaker notes for this slide.';
     renderSteps();
-    slides[index].querySelectorAll('svg.ros-anim').forEach(svg => {
-      // Reduced motion: freeze near the end of the cycle so terminals and results are visible.
-      const cycle = parseFloat(svg.querySelector('animate, animateMotion, animateTransform')?.getAttribute('dur')) || 0;
-      svg.setCurrentTime(reduceMotion.matches ? cycle * .9 : 0);
-      if (reduceMotion.matches) svg.pauseAnimations(); else svg.unpauseAnimations();
-    });
+    document.body.classList.remove('anim-paused');
+    slides[index].querySelectorAll('svg.ros-anim').forEach(svg => (reduceMotion.matches ? freeze(svg) : restart(svg)));
     if (updateHash) history.replaceState(null, '', `#${index + 1}`);
   }
 
@@ -126,6 +128,11 @@
     else if (event.key === 'Home') show(0);
     else if (event.key === 'End') show(slides.length - 1);
     else if (event.key.toLowerCase() === 'g') { event.preventDefault(); slideSelect.focus(); slideSelect.showPicker?.(); }
+    else if (event.key.toLowerCase() === 'k' && activeAnims().length) {
+      const paused = document.body.classList.toggle('anim-paused');
+      activeAnims().forEach(svg => (paused ? svg.pauseAnimations() : svg.unpauseAnimations()));
+    }
+    else if (event.key.toLowerCase() === 'r' && activeAnims().length) { document.body.classList.remove('anim-paused'); activeAnims().forEach(restart); }
     else if (event.key.toLowerCase() === 'o') toggleOverview();
     else if (event.key.toLowerCase() === 'n') toggleNotes();
     else if (event.key.toLowerCase() === 'f') fullscreen();
@@ -142,6 +149,9 @@
     if (Math.abs(delta) > 55) (delta < 0 ? advance : retreat)();
     touchStart = null;
   }, { passive: true });
+
+  window.addEventListener('beforeprint', () => document.querySelectorAll('svg.ros-anim').forEach(freeze));
+  window.addEventListener('afterprint', () => { document.querySelectorAll('svg.ros-anim').forEach(svg => svg.unpauseAnimations()); show(index, false); });
 
   window.addEventListener('hashchange', () => show(requestedIndex(), false));
   show(requestedIndex(), false);

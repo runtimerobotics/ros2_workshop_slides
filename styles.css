@@ -274,3 +274,16 @@ aside.notes { display: none; }
 @media (max-height: 760px) and (min-width: 901px) { .ros-anim.tall { max-height: 50vh; } }
 @media (min-width: 901px) { .split.code-wide { grid-template-columns: 1.6fr 1fr; gap: clamp(1.2rem, 3vw, 3rem); } }
 @media (max-height: 760px) and (min-width: 901px) { .split.code-wide pre { font-size: .76rem; } }
+body.anim-paused::after { content: "Animation paused · K resumes · R restarts"; position: fixed; z-index: 30; left: 50%; bottom: 1.1rem; transform: translateX(-50%); padding: .45rem .9rem; border: 1px solid var(--orange); border-radius: 99px; background: rgba(7,11,22,.9); color: var(--orange); font: 500 .74rem "IBM Plex Mono", monospace; }
+@media print { body.anim-paused::after { display: none; } }
+@media (max-width: 680px) {
+  pre, pre code { overflow-wrap: anywhere; }
+  .tf-tree { flex-direction: column; transform: none; margin: 2vh auto; }.tf-line { width: 2px; height: 1.4rem; }.tf-branch { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin: 1rem 0 0; }.tf-branch i { display: none; }.tf-branch span { width: auto; }
+  .state-line { flex-wrap: wrap; gap: .5rem; }.state-line i { width: 1rem; }
+  .pattern-table code, .command-map code { overflow-wrap: anywhere; }
+}
+.split > *, .lab-layout > * { min-width: 0; }
+@media (max-width: 680px) { code { overflow-wrap: anywhere; } }
+@media (max-width: 680px) { .control-loop > div { min-width: 0; overflow-wrap: anywhere; }.transform-equation { grid-template-columns: 1fr; gap: .6rem; } }
+.arrow-list code, .callout code { overflow-wrap: anywhere; }
+@media (max-width: 680px) { .table-row > * { min-width: 0; overflow-wrap: anywhere; } }

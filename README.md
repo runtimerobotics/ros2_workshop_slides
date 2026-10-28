@@ -32,11 +32,15 @@ Open <http://localhost:8000>.
 | Space / Right | Reveal the next teaching step or advance |
 | Left | Hide the previous step or return to the previous slide |
 | G | Choose a slide from the list (or use the menu at the top right) |
+| K | Pause or resume the animation on this slide |
+| R | Restart the animation on this slide |
 | O | Slide overview |
 | N | Speaker notes |
 | F | Fullscreen |
 | P | Print or save as PDF |
 | ? | Shortcut help |
+
+Printing (P) freezes every animation on its finished frame so the PDF shows complete terminals and diagrams.
 
 Each slide has a stable URL hash such as `#12`, so links can open a specific slide.
 
