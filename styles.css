@@ -404,3 +404,4 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 .split > div > svg.ros-anim { max-height: 50vh; margin: .4rem 0; }.lab-layout svg.ros-anim { max-height: 25vh; margin: .3rem 0; }
 .agenda-days + .ros-anim { flex-shrink: 0; height: 13vh; margin: 1vh auto 0; }
 .baseline-line { color: var(--muted); font-size: .9rem; margin: 0 0 .4rem; }
+.split > div > .nested-code + svg.ros-anim { max-height: 26vh; }

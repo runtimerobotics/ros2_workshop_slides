@@ -1791,6 +1791,142 @@ b += [at('<text class="code ok" x="120" y="88">= 0.5 m/s</text><text class="code
       f'<g opacity="0"><g transform="translate(-22 0)">{rover(0, 0, .8)}</g><animateMotion dur="{d}" repeatCount="indefinite" path="M100,240 A70,70 0 1,1 101,240" keyPoints="0;0;1;1" keyTimes="0;.56;.98;1" rotate="auto"/>{vis(.56, 1, d)}</g>']
 svgs["Message interfaces"] = svg(270, "ros2 interface show prints Twist: a Vector3 linear and a Vector3 angular, each with float64 x, y and z. Then a real message fills linear.x with 0.5 m/s and angular.z with 1.0 rad/s, a note gives the conventions, and a rover drives the circle those values describe.", "".join(b), vb_w=460,
                                 trace=[(0, 1), (.1, "4-7"), (.28, "8-11"), (.5, "4-5"), (.56, 0)])
+# ---------- Topic command-line tools: six commands, six views of the same topic ----------
+d = "18s"
+b = [ellipse_node(120, 40, "/lidar_driver", 80, 20), '<rect class="pill topic" x="360" y="22" width="120" height="36" rx="6"/><text class="s" x="420" y="40">/scan</text>', ellipse_node(720, 40, "rviz2", 60, 20),
+     '<path class="trail" d="M200,40 L360,40"/><path class="trail" d="M480,40 L660,40"/>']
+for k in range(12): t0 = round(.01 + k * .08, 3); b += [packet("req", "M200,40 L360,40", t0, t0 + .03, d), packet("req", "M480,40 L660,40", t0 + .03, t0 + .06, d)]
+CMDS = [("ros2 topic list -t", ["/parameter_events [rcl_interfaces/msg/ParameterEvent]", "/rosout [rcl_interfaces/msg/Log]", "/scan [sensor_msgs/msg/LaserScan]"]),
+        ("ros2 topic info /scan -v", ["Publisher count: 1   node: lidar_driver", "Subscription count: 1   node: rviz2", "QoS: BEST_EFFORT · VOLATILE · KEEP_LAST (5)"]),
+        ("ros2 topic echo /scan", ["header: frame_id: base_scan", "angle_increment: 0.0175", "ranges: [0.42, 0.43, 0.45, …]"]),
+        ("ros2 topic hz /scan", ["average rate: 5.000", "min: 0.199s max: 0.201s std dev: 0.0005s", "window: 25"]),
+        ("ros2 topic bw /scan", ["7.43 KB/s from 25 messages", "Message size mean: 1.49 KB", ""]),
+        ("ros2 topic pub /cmd_vel … \"{linear: {x: 0.2}}\"", ["publisher: beginning loop", "publishing #1: geometry_msgs.msg.Twist(linear=…x=0.2…)", ""])]
+b.append(term(10, 90, 880, 160, "terminal"))
+FOCUS = [None, (360, 22, 120, 36), (360, 22, 120, 36), None, None, None]
+for k, (cmd, outs) in enumerate(CMDS):
+    s0, e0 = round(k / 6, 3), round((k + 1) / 6, 3)
+    b.append(typed(26, 130, "$ " + cmd, s0 + .005, d, .03, e0))
+    for j, o in enumerate(outs):
+        if o: b.append(shown(26, 160 + j * 24, o, round(s0 + .045 + j * .01, 3), d, e0, "code ok" if j == 0 else "code"))
+b += [at('<text class="code hot" x="550" y="74">tick every 0.2 s</text>', .5, .667, d), at(rover(820, 78, .8), .83, 1, d), packet("res", "M30,268 L30,278 L800,278 L820,92", .86, .92, d)]
+svgs["Topic command-line tools"] = svg(290, "A lidar driver publishes /scan to rviz2 while a terminal runs six commands: topic list -t shows names and types, info -v shows one publisher, one subscriber and best-effort QoS, echo prints a sample, hz measures 5 Hz, bw measures about 7 KB/s, and topic pub injects a /cmd_vel message that reaches a robot.", "".join(b), " tall")
+
+# ---------- Package anatomy: what colcon installs, and what it leaves behind ----------
+d = "12s"
+b = [chip(10, 10, 210, 30, "launch/demo.launch.py"), chip(10, 50, 210, 30, "workshop_runtime/talker.py"), chip(10, 90, 210, 30, "launch/extra.launch.py"),
+     '<rect class="hub" x="300" y="35" width="150" height="60" rx="8"/><text class="s" x="375" y="60">colcon build</text><text class="k" x="375" y="80">reads setup.py</text>',
+     chip(530, 10, 360, 30, "install/share/workshop_runtime/launch/"), chip(530, 50, 360, 30, "install/lib/workshop_runtime/talker"),
+     packet("req", "M220,25 L300,55 L450,55 L530,25", .05, .25, d), at('<text class="code ok" x="840" y="30">✓</text>', .25, 1, d),
+     packet("req", "M220,65 L300,70 L450,70 L530,65", .3, .5, d), at('<text class="code ok" x="840" y="70">✓</text>', .5, 1, d),
+     packet("bad", "M220,105 L290,105", .55, .65, d), burst(295, 105, .65, d), at('<text class="code hot" x="460" y="114">not in data_files → not installed</text>', .65, 1, d),
+     at('<text class="code hot" x="460" y="134">ros2 launch … extra.launch.py: file not found</text>', .75, 1, d)]
+svgs["Package anatomy"] = svg(145, "colcon build reads setup.py: demo.launch.py, listed in data_files, is copied into install/share, and talker.py becomes an executable in install/lib through entry_points. extra.launch.py is not listed, so it stops at the build and ros2 launch cannot find it.", "".join(b),
+                             trace=[(0, "2-5"), (.28, "7-9"), (.55, 0)], trace_pre=1)
+
+# ---------- Workshop packages: three ros2 pkg create commands ----------
+d = "14s"
+PK = [(10, "workshop_runtime", "ament_python", ["talker · listener", "param · service · action nodes", "launch files · util.py · tests"]),
+      (310, "workshop_interfaces", "ament_cmake", ["msg/Num.msg", "srv/AddThreeInts.srv", "action/Fibonacci.action"]),
+      (610, "workshop_cpp", "ament_cmake · optional", ["C++ talker", "C++ listener", ""])]
+b = ['<text class="code dim" x="10" y="16">~/ros2_ws/src/</text>']
+for k, (x, n, bt, items) in enumerate(PK):
+    t0 = round(.05 + k * .2, 2)
+    inner = f'<rect class="node" x="{x}" y="28" width="280" height="150" rx="8"/><text class="s left" x="{x + 14}" y="52">{n}</text><text class="k left" x="{x + 14}" y="72">{bt}</text>'
+    b.append(at(inner, t0, 1, d))
+    for j, it in enumerate(items):
+        if it: b.append(at(f'<rect class="block" x="{x + 14}" y="{86 + j * 28}" width="252" height="22" rx="4"/><text class="code" x="{x + 22}" y="{101 + j * 28}">{it}</text>', round(t0 + .06 + j * .03, 2), 1, d))
+b += [at('<path class="edge" d="M290,110 L310,110" marker-end="url(#mm-arrow)"/>', .7, 1, d), at('<text class="code ok" x="10" y="204">workshop_runtime imports the interfaces from workshop_interfaces</text>', .7, 1, d)]
+svgs["Workshop packages"] = svg(214, "Three ros2 pkg create commands make three packages in ~/ros2_ws/src: workshop_runtime, ament_python, filling with nodes, launch files and tests; workshop_interfaces, ament_cmake, with Num.msg, AddThreeInts.srv and Fibonacci.action; and the optional workshop_cpp with a C++ talker and listener. Then an arrow shows workshop_runtime depending on workshop_interfaces.", "".join(b), " tall",
+                               trace=[(0, 1), (.05, 2), (.25, 3), (.45, 4), (.7, 0)])
+
+# ---------- Install dependencies with rosdep ----------
+d = "14s"
+KEYS = [("rclpy", "ros-jazzy-rclpy"), ("turtlesim", "ros-jazzy-turtlesim"), ("python3-pytest", "python3-pytest")]
+b = [chip(5, 5, 130, 110, "", "package.xml"), '<rect class="hub" x="160" y="35" width="100" height="50" rx="8"/><text class="s" x="210" y="55">rosdep</text><text class="k" x="210" y="73">key → apt</text>', chip(285, 5, 170, 110, "", "apt · Ubuntu 24.04")]
+for k, (key, apt) in enumerate(KEYS):
+    t0 = round(.12 + k * .1, 2)
+    b += [f'<text class="code" x="13" y="{46 + k * 24}">{key}</text>', packet("req", f"M125,{42 + k * 24} L160,60", t0, round(t0 + .04, 2), d), packet("res", f"M260,60 L290,{42 + k * 24}", round(t0 + .05, 2), round(t0 + .09, 2), d),
+          at(f'<text class="code ok" x="293" y="{46 + k * 24}">{apt}</text>', round(t0 + .09, 2), 1, d)]
+b += [at('<text class="k" x="210" y="104">rosdep update</text>', .02, 1, d), typed(5, 146, "$ colcon build --symlink-install", .58, d, .05), at('<text class="code ok" x="5" y="168">Summary: 3 packages finished ✓</text>', .7, 1, d)]
+svgs["Install dependencies with rosdep"] = svg(176, "rosdep reads the keys in package.xml, rclpy, turtlesim and python3-pytest, looks each up and installs the matching apt packages for Ubuntu. colcon build then finishes all packages.", "".join(b), vb_w=460,
+                                             trace=[(0, "2-3"), (.1, 7), (.56, 8)])
+
+# ---------- Your first publisher: what each line does at run time ----------
+d = "14s"
+b = [f'<g opacity="0"><ellipse class="node" cx="80" cy="40" rx="70" ry="22"/><text class="s" x="80" y="40">/talker</text>{vis(.08, 1, d)}</g>',
+     at('<rect class="pill topic" x="270" y="22" width="130" height="36" rx="6"/><text class="s" x="335" y="40">/chatter</text><text class="msgtype" x="335" y="72">std_msgs/msg/String · depth 10</text>', .16, 1, d),
+     at('<circle cx="80" cy="140" r="38" fill="none" stroke="var(--line)" stroke-width="2"/><text class="k" x="80" y="196">timer 0.5 s</text>', .24, 1, d),
+     f'<line x1="80" y1="140" x2="80" y2="108" stroke="var(--orange)" stroke-width="3" opacity="0"><animateTransform attributeName="transform" type="rotate" dur="2s" repeatCount="indefinite" values="0 80 140;360 80 140"/>{vis(.24, 1, d)}</line>',
+     term(160, 100, 290, 120, "ros2 topic echo /chatter")]
+for k in range(4):
+    t0 = round(.36 + k * .15, 3)
+    b += [ring(80, 140, t0, t0 + .04, d, 38, 54), at(f'<rect class="block app" x="140" y="{16 if k % 2 else 20}" width="0" height="0"/>', t0, t0 + .01, d),
+          at(f'<text class="code hot" x="150" y="98">String(data=\'Hello {k}\')</text>', t0, round(t0 + .1, 3), d),
+          packet("req", "M150,40 L270,40", round(t0 + .04, 3), round(t0 + .08, 3), d), shown(172, 140 + k * 20, f"data: Hello {k}", round(t0 + .09, 3), d, 1, "code ok")]
+svgs["Your first publisher"] = svg(228, "Running talker.py: the /talker node appears, then its publisher on /chatter with type String and depth 10, then a 0.5 second timer. Each time the timer fires, tick builds String Hello 0, Hello 1 and so on, publishes it, and ros2 topic echo prints it.", "".join(b), vb_w=460,
+                              trace=[(0, 19), (.04, 20), (.08, 7), (.14, "8-9"), (.22, 10), (.3, 11)] + [x for k in range(4) for x in ((round(.36 + k * .15, 3), 14), (round(.4 + k * .15, 3), 15), (round(.45 + k * .15, 3), 16))])
+
+# ---------- Your first subscriber ----------
+d = "14s"
+b = [ellipse_node(60, 30, "/talker", 55, 18), '<rect class="pill topic" x="150" y="14" width="110" height="32" rx="6"/><text class="s" x="205" y="30">/chatter</text>',
+     at(ellipse_node(380, 30, "/listener", 64, 18), .06, 1, d), '<path class="trail" d="M115,30 L150,30"/><path class="trail" d="M260,30 L316,30"/>',
+     at('<rect class="block" x="320" y="62" width="120" height="26" rx="4"/><text class="k" x="380" y="80">queue · depth 10</text>', .12, 1, d), term(5, 100, 450, 110, "ros2 run workshop_runtime listener")]
+for k in range(4):
+    t0 = round(.22 + k * .13, 3)
+    b += [packet("req", "M115,30 L150,30 L260,30 L316,30", t0, round(t0 + .05, 3), d), packet("req", "M380,48 L380,75", round(t0 + .05, 3), round(t0 + .07, 3), d),
+          shown(15, 140 + k * 18, f"[INFO] [listener]: I heard: Hello {k + 3}", round(t0 + .08, 3), d, .76, "code ok")]
+b += [at('<text class="code hot" x="15" y="140">topic \'chatter2\': nothing arrives</text><text class="code dim" x="15" y="160">type, name and QoS must match</text>', .78, 1, d),
+      at('<line class="xmark" x1="270" y1="20" x2="290" y2="40"/><line class="xmark" x1="290" y1="20" x2="270" y2="40"/>', .78, 1, d), packet("req", "M115,30 L150,30 L260,30", .8, .85, d), burst(270, 30, .85, d)]
+svgs["Your first subscriber"] = svg(214, "The /listener node subscribes to /chatter. Messages from /talker arrive, wait in a depth-10 queue, and on_msg logs I heard: Hello 3, Hello 4 and so on. Then the subscription is changed to chatter2 and nothing arrives, because type, name and QoS must match.", "".join(b), vb_w=460,
+                               trace=[(0, 16), (.06, 7), (.12, "8-9")] + [x for k in range(4) for x in ((round(.27 + k * .13, 3), 11), (round(.29 + k * .13, 3), 12))] + [(.78, "8-9")])
+
+# ---------- Your first publisher in C++: compile once, then the same messages ----------
+d = "14s"
+b = [chip(5, 10, 130, 30, "talker.cpp"), '<rect class="hub" x="160" y="5" width="140" height="40" rx="8"/><text class="s" x="230" y="25">colcon · CMake</text>', chip(325, 10, 130, 30, "talker binary", cls="block app"),
+     '<rect x="160" y="52" width="140" height="8" rx="4" fill="var(--line)"/>', f'<rect class="req" x="160" y="52" height="8" rx="4" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;0;140;140" keyTimes="0;.04;.24;1"/></rect>',
+     swap([(.04, .12, "find_package(rclcpp)"), (.12, .2, "compiling talker.cpp"), (.2, .26, "linking talker")], 230, 80, d, "code dim", "middle"), packet("res", "M135,25 L160,25", .02, .04, d), packet("res", "M300,25 L325,25", .24, .27, d),
+     at(ellipse_node(90, 130, "/talker (C++)", 82, 20), .3, 1, d), at('<rect class="pill topic" x="270" y="114" width="120" height="32" rx="6"/><text class="s" x="330" y="130">/chatter</text>', .3, 1, d), term(5, 165, 450, 60, "ros2 topic echo /chatter")]
+for k in range(3):
+    t0 = round(.4 + k * .18, 3)
+    b += [packet("req", "M172,130 L270,130", t0, round(t0 + .05, 3), d), swap([(round(t0 + .05, 3), round(t0 + .18, 3) if k < 2 else 1, f"data: Hello {k}")], 15, 210, d, "code ok")]
+svgs["Your first publisher in C++"] = svg(232, "talker.cpp goes through colcon and CMake, finds rclcpp, compiles and links into an executable in install/lib. Run, the C++ /talker publishes Hello 0, Hello 1 and Hello 2 on /chatter, exactly like the Python version.", "".join(b), vb_w=460,
+                                     trace=[(0, "1-2"), (.3, 20), (.32, 21), (.34, 6), (.36, 7), (.38, 8)] + [x for k in range(3) for x in ((round(.4 + k * .18, 3), "9-10"), (round(.44 + k * .18, 3), 11))])
+
+# ---------- Your first subscriber in C++: Python talks, C++ listens ----------
+d = "12s"
+LAYERS = ["rclpy", "rcl", "rmw · DDS"]
+b = []
+for col, (x, lang) in enumerate(((5, "Python talker"), (275, "C++ listener"))):
+    b.append(f'<text class="k" x="{x + 90}" y="14">{lang}</text>')
+    for i, n in enumerate(LAYERS if col == 0 else ["rclcpp", "rcl", "rmw · DDS"]): b.append(chip(x, 22 + i * 40, 180, 32, n, cls="block app" if i == 0 else "block"))
+b += ['<path class="wire" d="M95,142 L95,156 L365,156 L365,142"/>', packet("req", "M95,38 L95,150 L365,150 L365,38", .05, .45, d),
+      term(5, 170, 450, 60, "ros2 run workshop_cpp listener"), shown(15, 214, "[INFO] [listener]: I heard: 'Hello 7'", .46, d, 1, "code ok"), cap("same message, any language", .5, 1, d, 230, 248)]
+svgs["Your first subscriber in C++"] = svg(256, "A message from a Python talker goes down through rclpy, rcl and the DDS middleware, crosses to the other side, and comes up through rcl and rclcpp into a C++ listener, which logs I heard: Hello 7.", "".join(b), vb_w=460,
+                                      trace=[(0, "18-19"), (.05, "6-8"), (.4, "9-10"), (.6, 0)])
+
+# ---------- Create custom msg and srv files ----------
+d = "14s"
+b = [chip(5, 5, 150, 50, "int64 num", "Num.msg"), chip(5, 65, 150, 80, "", "AddThreeInts.srv"), '<text class="code" x="13" y="100">a b c · ---</text><text class="code" x="13" y="122">sum</text>',
+     '<rect class="hub" x="170" y="45" width="110" height="50" rx="8"/><text class="s" x="225" y="66">rosidl</text><text class="k" x="225" y="84">generators</text>',
+     packet("res", "M145,30 L170,60", .05, .1, d), packet("res", "M145,105 L170,80", .08, .13, d)]
+b += [at(chip(305, 5, 150, 44, "Num(num=0)", "Python", "block app"), .16, 1, d), at(chip(305, 57, 150, 44, "msg::Num", "C++", "block app"), .2, 1, d),
+      packet("req", "M280,70 L305,25", .13, .16, d), packet("req", "M280,70 L305,75", .17, .2, d),
+      at('<text class="code" x="5" y="172">call: a=1 b=2 c=3</text>', .4, 1, d), packet("req", "M150,168 L290,168", .5, .6, d),
+      at('<text class="code ok" x="300" y="172">→ sum=6</text>', .62, 1, d)]
+svgs["Create custom msg and srv files"] = svg(180, "Num.msg and AddThreeInts.srv go through the rosidl generators and come out as a Python class and a C++ struct. Then a call sends the request a 1, b 2, c 3 and receives the response sum 6.", "".join(b), vb_w=460,
+                                        trace=[(0, "1-2"), (.05, "4-5"), (.09, "7-12"), (.4, "8-10"), (.62, 12)])
+
+# ---------- Lab: command the turtle ----------
+d = "14s"
+b = ['<rect class="win" x="5" y="25" width="170" height="170" fill="#4556ff"/><rect class="termbar" x="5" y="5" width="170" height="22" rx="5"/><text class="k" x="90" y="16">TurtleSim</text>',
+     f'<path class="pen" d="M90,150 A44,44 0 1,1 90.1,150" pathLength="1" stroke-dasharray="1 1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.24;.74;1"/></path>',
+     f'<g>{TURTLE}<animateMotion dur="{d}" repeatCount="indefinite" path="M90,150 A44,44 0 1,1 90.1,150" rotate="auto" keyPoints="0;0;1;1" keyTimes="0;.24;.74;1"/></g>',
+     term(190, 5, 265, 190, "terminal"),
+     tl(200, 44, 19, [("show", "Vector3 linear · Vector3 angular", .04), ("type", "$ ros2 topic pub --rate 2 …", .16), ("ok", "publishing #1 … linear.x=1.5", .22), ("ok", "publishing #2 …", .3), ("type", "$ ros2 topic hz /turtle1/pose", .78), ("ok", "average rate: 62.5", .86)], d),
+     at('<text class="code dim" x="200" y="178">radius = 1.5 / 1.2 = 1.25 m</text>', .4, 1, d)]
+svgs["Lab: command the turtle"] = svg(200, "ros2 interface show prints Twist's fields, then ros2 topic pub sends linear x 1.5 and angular z 1.2 twice a second and the turtle draws a circle of radius 1.25 m. ros2 topic hz on the pose reports an average rate of 62.5 Hz.", "".join(b), vb_w=460,
+                                trace=[(0, 1), (.14, "3-5"), (.76, 7)])
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
