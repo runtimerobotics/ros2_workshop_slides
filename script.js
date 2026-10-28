@@ -9,7 +9,13 @@
   const overview = document.getElementById('overview');
   const overviewGrid = document.getElementById('overview-grid');
   const help = document.getElementById('help');
+  const stepIndicator = document.getElementById('step-indicator');
+  const stepLabel = document.getElementById('step-label');
+  const stepBar = document.getElementById('step-bar');
+  const stepState = slides.map(() => 0);
   let index = 0;
+
+  document.documentElement.classList.add('js-ready');
 
   function clamp(value) { return Math.max(0, Math.min(value, slides.length - 1)); }
 
@@ -32,10 +38,40 @@
     document.title = `${slides[index].dataset.title} · ROS 2 Workshop`;
     const note = slides[index].querySelector('.notes');
     notesContent.textContent = note ? note.textContent.trim() : 'No speaker notes for this slide.';
+    renderSteps();
     if (updateHash) history.replaceState(null, '', `#${index + 1}`);
   }
 
-  function step(delta) { show(index + delta); }
+  function renderSteps() {
+    const items = [...slides[index].querySelectorAll('[data-step]')];
+    const visible = Math.min(stepState[index], items.length);
+    items.forEach((item, itemIndex) => {
+      item.classList.toggle('step-visible', itemIndex < visible);
+      item.classList.toggle('step-current', itemIndex === visible - 1);
+    });
+    stepIndicator.classList.toggle('visible', items.length > 0);
+    stepLabel.textContent = `Step ${visible} / ${items.length}`;
+    stepBar.style.width = items.length ? `${(visible / items.length) * 100}%` : '0%';
+  }
+
+  function advance() {
+    const total = slides[index].querySelectorAll('[data-step]').length;
+    if (stepState[index] < total) {
+      stepState[index] += 1;
+      renderSteps();
+      return;
+    }
+    show(index + 1);
+  }
+
+  function retreat() {
+    if (stepState[index] > 0) {
+      stepState[index] -= 1;
+      renderSteps();
+      return;
+    }
+    show(index - 1);
+  }
   function toggleOverview(force) {
     const open = typeof force === 'boolean' ? force : !overview.classList.contains('open');
     overview.classList.toggle('open', open);
@@ -64,16 +100,16 @@
     overviewGrid.append(card);
   });
 
-  document.getElementById('prev').addEventListener('click', () => step(-1));
-  document.getElementById('next').addEventListener('click', () => step(1));
+  document.getElementById('prev').addEventListener('click', retreat);
+  document.getElementById('next').addEventListener('click', advance);
   document.getElementById('close-overview').addEventListener('click', () => toggleOverview(false));
   document.getElementById('close-notes').addEventListener('click', () => toggleNotes(false));
   document.getElementById('close-help').addEventListener('click', () => toggleHelp(false));
 
   document.addEventListener('keydown', event => {
     if (event.target.matches('input, textarea, select')) return;
-    if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); step(1); }
-    else if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); step(-1); }
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'PageDown' || event.key === ' ') { event.preventDefault(); advance(); }
+    else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') { event.preventDefault(); retreat(); }
     else if (event.key === 'Home') show(0);
     else if (event.key === 'End') show(slides.length - 1);
     else if (event.key.toLowerCase() === 'o') toggleOverview();
@@ -89,7 +125,7 @@
   document.addEventListener('touchend', event => {
     if (touchStart === null) return;
     const delta = event.changedTouches[0].clientX - touchStart;
-    if (Math.abs(delta) > 55) step(delta < 0 ? 1 : -1);
+    if (Math.abs(delta) > 55) (delta < 0 ? advance : retreat)();
     touchStart = null;
   }, { passive: true });
 

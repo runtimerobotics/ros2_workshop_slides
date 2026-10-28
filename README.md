@@ -22,7 +22,8 @@ Open <http://localhost:8000>.
 
 | Key | Action |
 | --- | --- |
-| Left / Right | Previous / next slide |
+| Space / Right | Reveal the next teaching step or advance |
+| Left | Hide the previous step or return to the previous slide |
 | O | Slide overview |
 | N | Speaker notes |
 | F | Fullscreen |
@@ -30,6 +31,8 @@ Open <http://localhost:8000>.
 | ? | Shortcut help |
 
 Each slide has a stable URL hash such as `#12`, so links can open a specific slide.
+
+Complex concepts use progressive reveals so the presenter can explain one stage at a time. Motion automatically reduces when the operating system's **Reduce Motion** preference is enabled.
 
 ## Publish with GitHub Pages
 

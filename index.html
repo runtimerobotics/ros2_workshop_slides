@@ -83,9 +83,34 @@ ros2 topic echo /chatter</code></pre>
       <aside class="notes">Pair participants before troubleshooting. Confirm the ROS distribution and network domain before debugging application code.</aside>
     </section>
 
+    <section class="slide" data-section="Welcome" data-title="How the workshop works">
+      <div class="slide-head"><p class="eyebrow">Learning rhythm</p><h2>How the workshop works</h2></div>
+      <div class="learning-loop">
+        <div data-step><span>01</span><strong>See the idea</strong><p>Start with one diagram and one concrete robot example.</p></div>
+        <div data-step><span>02</span><strong>Inspect the system</strong><p>Use ROS 2 tools before writing or changing code.</p></div>
+        <div data-step><span>03</span><strong>Try one change</strong><p>Run a focused exercise with a visible expected result.</p></div>
+        <div data-step><span>04</span><strong>Explain the evidence</strong><p>Describe what changed and which observation proves it.</p></div>
+      </div>
+      <p class="callout">On slides with staged content, press <kbd>Space</kbd> or <kbd>→</kbd> to reveal the next step.</p>
+      <aside class="notes">Demonstrate the progressive reveal. Encourage participants to keep a terminal history and record the evidence that confirms each lab.</aside>
+    </section>
+
     <section class="slide section-break" data-section="Day 1 · Architecture" data-title="ROS 2 architecture">
       <p class="chapter-number">01</p><p class="eyebrow">Day 1 · 09:30-11:00</p><h2>Fundamentals of ROS 2 architecture</h2><p class="chapter-prompt">How do independent programs discover and exchange data?</p>
       <aside class="notes">Begin the first 90-minute block. Use 35 minutes for concepts, 20 minutes for the graph demo, and 35 minutes for the hands-on task.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="One robot, many programs">
+      <div class="slide-head"><p class="eyebrow">Why ROS 2 exists</p><h2>One robot, many programs</h2></div>
+      <div class="robot-programs">
+        <div class="robot-center">robot task</div>
+        <div class="program p1" data-step><strong>Camera driver</strong><span>produces images</span></div>
+        <div class="program p2" data-step><strong>Object detector</strong><span>interprets images</span></div>
+        <div class="program p3" data-step><strong>Motion planner</strong><span>chooses a path</span></div>
+        <div class="program p4" data-step><strong>Motor controller</strong><span>executes motion</span></div>
+      </div>
+      <p class="takeaway">ROS 2 gives these programs a shared way to discover, exchange typed data, and report state.</p>
+      <aside class="notes">Begin with the software boundaries participants already understand. Then introduce ROS names for the runtime pieces.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Architecture" data-title="The ROS 2 mental model">
@@ -113,6 +138,20 @@ ros2 topic echo /chatter</code></pre>
       <aside class="notes">DDS is the common default middleware family, but ROS 2 exposes a middleware abstraction. Avoid treating DDS as the only possible implementation.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Architecture" data-title="Names, namespaces, and domains">
+      <div class="slide-head"><p class="eyebrow">Finding the right peer</p><h2>Names, namespaces, and domains</h2></div>
+      <div class="scope-example">
+        <div data-step><small>Domain 7</small><strong>/robot_1/camera</strong><span>robot 1 image stream</span></div>
+        <div data-step><small>Domain 7</small><strong>/robot_2/camera</strong><span>robot 2 image stream</span></div>
+        <div data-step class="isolated"><small>Domain 12</small><strong>/robot_1/camera</strong><span>same name, isolated graph</span></div>
+      </div>
+      <div class="split compact-split"><div><h3>Namespace</h3><p>Organizes names inside one ROS graph.</p></div><div><h3>ROS_DOMAIN_ID</h3><p>Separates discovery into independent graphs.</p></div></div>
+      <pre class="wide-code"><code>export ROS_DOMAIN_ID=7
+ros2 node list
+ros2 topic list</code></pre>
+      <aside class="notes">Use namespaces for multiple robots that should communicate. Use domain IDs when the graphs should not discover each other.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Architecture" data-title="Quality of Service">
       <div class="slide-head"><p class="eyebrow">Communication policy</p><h2>Quality of Service changes behavior</h2></div>
       <div class="qos-spectrum">
@@ -123,6 +162,19 @@ ros2 topic echo /chatter</code></pre>
       <div class="compact-grid"><p><strong>History</strong><br>Keep last N or all samples</p><p><strong>Durability</strong><br>Volatile or transient local</p><p><strong>Deadline</strong><br>Expected update period</p><p><strong>Liveliness</strong><br>Publisher health contract</p></div>
       <p class="callout warning">A publisher and subscriber must have compatible QoS policies to communicate.</p>
       <aside class="notes">Show a camera subscriber failing because it expects reliable data while the camera offers best effort. Then use ros2 topic info --verbose.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="QoS compatibility">
+      <div class="slide-head"><p class="eyebrow">Why a visible topic can stay silent</p><h2>QoS compatibility</h2></div>
+      <div class="qos-match">
+        <div data-step><small>Publisher offers</small><strong>Best effort</strong><span>sensor data profile</span></div>
+        <div class="match-result mismatch" data-step><b>×</b><span>no match</span></div>
+        <div data-step><small>Subscriber requests</small><strong>Reliable</strong><span>delivery required</span></div>
+      </div>
+      <div class="qos-fix" data-step><strong>Fix:</strong> change the subscriber to best effort or change the publisher to offer reliable delivery.</div>
+      <pre class="wide-code"><code>ros2 topic info /scan --verbose
+ros2 topic echo /scan --qos-reliability best_effort</code></pre>
+      <aside class="notes">Requested reliability cannot exceed what the publisher offers. Use the verbose topic view to compare both endpoints.</aside>
     </section>
 
     <section class="slide lab-slide" data-section="Day 1 · Architecture" data-title="Lab: inspect the graph">
@@ -157,6 +209,24 @@ rqt_graph</code></pre>
       </div>
       <p class="takeaway">Publishers do not address subscribers directly. They write typed samples to a named topic.</p>
       <aside class="notes">Emphasize one-to-many and many-to-many communication. The topic name and type form the primary contract, with QoS completing it.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Topics" data-title="A message journey">
+      <div class="slide-head"><p class="eyebrow">One sample, end to end</p><h2>A message journey</h2></div>
+      <div class="message-journey">
+        <div data-step><span>1</span><strong>Read sensor</strong><small>driver callback</small></div>
+        <i></i>
+        <div data-step><span>2</span><strong>Create message</strong><small>type + values</small></div>
+        <i></i>
+        <div data-step><span>3</span><strong>Publish</strong><small>topic + QoS</small></div>
+        <i></i>
+        <div data-step><span>4</span><strong>Transport</strong><small>serialize + deliver</small></div>
+        <i></i>
+        <div data-step><span>5</span><strong>Run callback</strong><small>subscriber uses data</small></div>
+        <b class="travelling-sample" aria-hidden="true"></b>
+      </div>
+      <p class="takeaway">When data is missing, inspect the journey from left to right.</p>
+      <aside class="notes">The moving dot represents a sample. Pause at each stage and name the evidence: driver log, message fields, topic endpoint, QoS match, subscriber callback.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Topics" data-title="Message interfaces">
@@ -218,6 +288,17 @@ ros2 topic hz /turtle1/pose</code></pre>
       <aside class="notes">Ask participants to classify examples: emergency stop state, save map, dock robot, set LED color.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Services and actions" data-title="Communication pattern checklist">
+      <div class="slide-head"><p class="eyebrow">Three questions</p><h2>Communication pattern checklist</h2></div>
+      <div class="decision-path">
+        <div data-step><strong>Does the data repeat?</strong><span>Yes</span><b>Topic</b></div>
+        <div data-step><strong>Does the request finish quickly?</strong><span>Yes</span><b>Service</b></div>
+        <div data-step><strong>Does the work need progress or cancellation?</strong><span>Yes</span><b>Action</b></div>
+      </div>
+      <div class="example-strip"><span>robot pose: topic</span><span>clear costmap: service</span><span>navigate to pose: action</span></div>
+      <aside class="notes">The questions are a practical starting point, not a formal protocol rule. Discuss ownership and failure semantics for ambiguous cases.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Services and actions" data-title="Service request and response">
       <div class="slide-head"><p class="eyebrow">Synchronous exchange</p><h2>Service request and response</h2></div>
       <div class="sequence">
@@ -270,6 +351,22 @@ ros2 param set /turtlesim background_r 20
 ros2 param dump /turtlesim</code></pre></div>
       <p class="callout">Use parameters for configuration. Use topics for changing operational data.</p>
       <aside class="notes">Show that parameter behavior depends on node implementation. A set request may succeed only if the node declares and accepts the parameter.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Workspaces and overlays">
+      <div class="slide-head"><p class="eyebrow">Where ROS finds your package</p><h2>Workspaces and overlays</h2></div>
+      <div class="overlay-stack">
+        <div data-step><small>Overlay</small><strong>~/ros2_ws/install</strong><span>your workshop packages</span></div>
+        <div data-step><small>Underlay</small><strong>/opt/ros/jazzy</strong><span>installed ROS 2 packages</span></div>
+        <div data-step><small>Operating system</small><strong>Ubuntu 24.04</strong><span>libraries and tools</span></div>
+      </div>
+      <pre class="wide-code"><code>source /opt/ros/jazzy/setup.bash
+cd ~/ros2_ws
+colcon build --symlink-install
+source install/setup.bash
+ros2 pkg prefix workshop_runtime</code></pre>
+      <p class="callout warning">A successful build does not update an already-open terminal until you source the overlay.</p>
+      <aside class="notes">This slide addresses the most common beginner problem: a package builds but ros2 cannot find the new executable or launch file.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Timers schedule callbacks">
@@ -332,6 +429,18 @@ ros2 launch workshop_runtime demo.launch.py</code></pre></div>
       </div>
       <div class="definition-row"><p><strong>Frame</strong> names a coordinate system.</p><p><strong>Transform</strong> stores translation, rotation, and time.</p><p><strong>Tree</strong> gives one parent to each child frame.</p></div>
       <aside class="notes">Use the convention that frame IDs omit a leading slash. Explain map to odom and odom to base_link as separate responsibilities.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 2 · TF2" data-title="Coordinate axes and rotation">
+      <div class="slide-head"><p class="eyebrow">Right-handed frames</p><h2>Coordinate axes and rotation</h2></div>
+      <div class="axis-stage">
+        <div class="axis-frame base-axis" data-step><span class="axis x">x</span><span class="axis y">y</span><span class="axis z">z</span><strong>base_link</strong></div>
+        <div class="axis-transform" data-step><span>translate</span><b>+</b><span>rotate</span></div>
+        <div class="axis-frame sensor-axis" data-step><span class="axis x">x</span><span class="axis y">y</span><span class="axis z">z</span><strong>camera_link</strong></div>
+      </div>
+      <div class="compact-grid"><p><strong>+x</strong><br>forward</p><p><strong>+y</strong><br>left</p><p><strong>+z</strong><br>up</p><p><strong>Rotation</strong><br>right-hand rule</p></div>
+      <p class="callout">Always confirm the convention used by the specific sensor or robot package.</p>
+      <aside class="notes">ROS body frames commonly use x forward, y left, z up. Optical camera frames use a different convention, so verify the documented frame.</aside>
     </section>
 
     <section class="slide" data-section="Day 2 · TF2" data-title="Transform a stamped observation">
@@ -402,6 +511,19 @@ urdf_to_graphiz /tmp/robot.urdf</code></pre><p class="callout">Keep dimensions a
       <aside class="notes">Xacro expands to URDF. Debug the expanded file when macro errors obscure the final structure.</aside>
     </section>
 
+    <section class="slide" data-section="Day 2 · URDF" data-title="URDF build order">
+      <div class="slide-head"><p class="eyebrow">A stable modeling sequence</p><h2>URDF build order</h2></div>
+      <div class="build-order">
+        <div data-step><span>1</span><strong>Kinematic tree</strong><p>Links, joints, origins, axes, limits</p></div>
+        <div data-step><span>2</span><strong>Simple visuals</strong><p>Boxes and cylinders confirm scale</p></div>
+        <div data-step><span>3</span><strong>Collision geometry</strong><p>Simple shapes for contact and planning</p></div>
+        <div data-step><span>4</span><strong>Mass and inertia</strong><p>Credible values for every moving link</p></div>
+        <div data-step><span>5</span><strong>Meshes and plugins</strong><p>Detail only after the structure works</p></div>
+      </div>
+      <p class="takeaway">Validate in RViz after each stage. A small error stays easy to locate.</p>
+      <aside class="notes">This order separates structural errors from mesh and simulation errors. Encourage frequent check_urdf runs.</aside>
+    </section>
+
     <section class="slide lab-slide" data-section="Day 2 · URDF" data-title="Lab: model a two-link arm">
       <div class="slide-head"><p class="eyebrow">Hands-on · 40 minutes</p><h2>Lab: model a two-link arm</h2></div>
       <div class="lab-layout"><div><ol class="steps"><li>Create base, shoulder, forearm, and tool links.</li><li>Add two revolute joints with limits.</li><li>Add simple collision and inertia.</li><li>Publish the description.</li><li>Inspect frames and motion in RViz.</li></ol><p class="challenge"><strong>Challenge:</strong> convert repeated geometry into a Xacro macro.</p></div><pre><code>ros2 launch urdf_tutorial display.launch.py \
@@ -429,6 +551,19 @@ ros2 run tf2_tools view_frames</code></pre></div>
       <div class="bridge-diagram"><div><small>ROS 2</small><strong>nodes + interfaces</strong><span>/cmd_vel · /scan · /clock</span></div><b>ros_gz_bridge</b><div><small>Gazebo</small><strong>world + physics</strong><span>models · systems · sensors</span></div></div>
       <div class="compare compact"><article><h3>URDF</h3><p>Robot kinematic description used throughout ROS.</p></article><article><h3>SDF</h3><p>Simulation description for worlds, models, sensors, and plugins.</p></article></div>
       <aside class="notes">Avoid implying that all Gazebo interfaces appear in ROS automatically. Bridge only the data the application needs.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 2 · Gazebo" data-title="Simulation startup checklist">
+      <div class="slide-head"><p class="eyebrow">First run</p><h2>Simulation startup checklist</h2></div>
+      <div class="startup-checks">
+        <div data-step><span>01</span><strong>World opens</strong><p>Gazebo runs without model errors.</p></div>
+        <div data-step><span>02</span><strong>Robot appears</strong><p>Scale, pose, and joints look credible.</p></div>
+        <div data-step><span>03</span><strong>Clock flows</strong><p><code>/clock</code> advances and nodes use simulation time.</p></div>
+        <div data-step><span>04</span><strong>Interfaces exist</strong><p>Required topics and services are bridged.</p></div>
+        <div data-step><span>05</span><strong>One command works</strong><p>A small input produces expected motion.</p></div>
+      </div>
+      <p class="callout">Check one layer at a time before launching the full application.</p>
+      <aside class="notes">Use this checklist during the lab. It keeps model, bridge, and controller problems separate.</aside>
     </section>
 
     <section class="slide" data-section="Day 2 · Gazebo" data-title="Stable simulation starts with the model">
@@ -469,6 +604,22 @@ ros2 topic echo /clock</code></pre></div>
       <aside class="notes">Message names shown are typical ROS-facing interfaces. Gazebo transport types differ before bridging.</aside>
     </section>
 
+    <section class="slide" data-section="Day 2 · Sensors" data-title="Reading a LaserScan message">
+      <div class="slide-head"><p class="eyebrow">From array index to direction</p><h2>Reading a LaserScan message</h2></div>
+      <div class="scan-explainer">
+        <div class="scan-fan" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><b>lidar</b></div>
+        <div class="scan-fields">
+          <p data-step><code>angle_min</code><span>direction of the first sample</span></p>
+          <p data-step><code>angle_increment</code><span>angle between samples</span></p>
+          <p data-step><code>ranges[i]</code><span>distance for sample i</span></p>
+          <p data-step><code>range_min / range_max</code><span>valid sensor limits</span></p>
+        </div>
+      </div>
+      <pre class="wide-code"><code>angle_i = angle_min + i * angle_increment
+distance_i = ranges[i]</code></pre>
+      <aside class="notes">Invalid readings may appear as infinity or NaN. Check the message definition and sensor documentation before filtering.</aside>
+    </section>
+
     <section class="slide" data-section="Day 2 · Sensors" data-title="Validate sensor data">
       <div class="slide-head"><p class="eyebrow">Evidence before algorithms</p><h2>Validate sensor data</h2></div>
       <div class="validation-ladder"><div><span>1</span><strong>Exists</strong><small>topic + type</small></div><div><span>2</span><strong>Flows</strong><small>rate + bandwidth</small></div><div><span>3</span><strong>Aligns</strong><small>frame + timestamp</small></div><div><span>4</span><strong>Looks plausible</strong><small>RViz + known scene</small></div><div><span>5</span><strong>Matches reality</strong><small>noise + limits</small></div></div>
@@ -494,6 +645,19 @@ rviz2
     <section class="slide section-break day-break" data-section="Day 3" data-title="Day 3: robot manipulation">
       <p class="chapter-number">DAY 3</p><p class="eyebrow">Wednesday · 4 November 2026</p><h2>Robot manipulation</h2><p class="chapter-prompt">A model becomes useful when it can produce safe, executable motion.</p>
       <aside class="notes">Day-three opening. Connect the previous robot model and simulation work to manipulation planning.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 3" data-title="Manipulation vocabulary">
+      <div class="slide-head"><p class="eyebrow">Names used throughout day 3</p><h2>Manipulation vocabulary</h2></div>
+      <div class="vocabulary">
+        <div data-step><strong>Joint state</strong><span>current position and motion of each joint</span></div>
+        <div data-step><strong>End effector</strong><span>tool or gripper at the end of the arm</span></div>
+        <div data-step><strong>Pose</strong><span>position and orientation in a named frame</span></div>
+        <div data-step><strong>Trajectory</strong><span>joint states assigned to times</span></div>
+        <div data-step><strong>Planning scene</strong><span>robot state plus collision objects</span></div>
+        <div data-step><strong>Controller</strong><span>tracks commands using hardware feedback</span></div>
+      </div>
+      <aside class="notes">Keep this slide available as a reference. Ask participants to point to each concept in RViz during later demos.</aside>
     </section>
 
     <section class="slide section-break" data-section="Day 3 · Manipulators" data-title="Manipulator fundamentals">
@@ -553,6 +717,18 @@ ros2 topic pub --once /joint_states \
       <aside class="notes">MoveIt 2 does not replace a trajectory controller. It produces and monitors trajectories that a controller executes.</aside>
     </section>
 
+    <section class="slide" data-section="Day 3 · Control and MoveIt" data-title="The planning scene">
+      <div class="slide-head"><p class="eyebrow">What the planner believes</p><h2>The planning scene</h2></div>
+      <div class="scene-layers">
+        <div data-step><small>Robot state</small><strong>joint positions</strong><span>current configuration</span></div>
+        <div data-step><small>Robot model</small><strong>links + collision</strong><span>geometry and limits</span></div>
+        <div data-step><small>World</small><strong>tables + obstacles</strong><span>collision objects</span></div>
+        <div data-step><small>Attached bodies</small><strong>held object</strong><span>moves with the tool</span></div>
+      </div>
+      <p class="takeaway">A planner can avoid only the objects represented in its planning scene.</p>
+      <aside class="notes">Compare the Gazebo world and the MoveIt planning scene. They are separate representations and must be synchronized by the application.</aside>
+    </section>
+
     <section class="slide" data-section="Day 3 · Control and MoveIt" data-title="Controller lifecycle">
       <div class="slide-head"><p class="eyebrow">Runtime ownership</p><h2>Controller lifecycle</h2></div>
       <div class="state-line"><span>unconfigured</span><i></i><span>inactive</span><i></i><span class="active-state">active</span><i></i><span>finalized</span></div>
@@ -596,6 +772,18 @@ ros2 topic echo /joint_states</code></pre></div>
       <aside class="notes">Explain why a plan can be collision-free yet too aggressive for the physical robot if limits are wrong.</aside>
     </section>
 
+    <section class="slide" data-section="Day 3 · Motion planning" data-title="Planning request constraints">
+      <div class="slide-head"><p class="eyebrow">What defines an acceptable solution</p><h2>Planning request constraints</h2></div>
+      <div class="constraint-rings">
+        <div data-step><strong>Goal</strong><span>joint values or tool pose</span></div>
+        <div data-step><strong>Tolerance</strong><span>acceptable error around the goal</span></div>
+        <div data-step><strong>Path constraints</strong><span>conditions maintained during motion</span></div>
+        <div data-step><strong>Planning time</strong><span>search budget before failure</span></div>
+      </div>
+      <p class="callout warning">A narrow orientation tolerance can make an otherwise reachable goal difficult to plan.</p>
+      <aside class="notes">Change one constraint at a time during troubleshooting. Preserve collision checking rather than disabling safety checks.</aside>
+    </section>
+
     <section class="slide" data-section="Day 3 · Motion planning" data-title="Planning failures are evidence">
       <div class="slide-head"><p class="eyebrow">Structured diagnosis</p><h2>Planning failures are evidence</h2></div>
       <div class="fault-pairs"><p><strong>No IK solution</strong><span>Pose, orientation, frame, or joint limits make the goal unreachable.</span></p><p><strong>Start state invalid</strong><span>Current state collides or lies outside configured limits.</span></p><p><strong>Planning timed out</strong><span>Search is difficult or constraints are too narrow.</span></p><p><strong>Execution aborted</strong><span>Controller, tolerances, or observed state diverged from the plan.</span></p></div>
@@ -631,6 +819,19 @@ ros2 node info /move_group</code></pre></div>
       <aside class="notes">The planning scene must reflect the object attachment after grasp. Otherwise the held object may be ignored during collision checking.</aside>
     </section>
 
+    <section class="slide" data-section="Day 3 · Cartesian motion" data-title="Object state during pick and place">
+      <div class="slide-head"><p class="eyebrow">Planning scene updates</p><h2>Object state during pick and place</h2></div>
+      <div class="object-states">
+        <div data-step><span class="object-cube"></span><strong>World object</strong><small>collides with robot and world</small></div>
+        <i></i>
+        <div data-step><span class="object-cube attached"></span><strong>Attached object</strong><small>moves with the end effector</small></div>
+        <i></i>
+        <div data-step><span class="object-cube placed"></span><strong>World object</strong><small>returns at the placed pose</small></div>
+      </div>
+      <p class="takeaway">Attach after closing the gripper. Detach only after the object reaches its supported placement.</p>
+      <aside class="notes">The physical gripper and the planning scene must change consistently. Otherwise the plan can collide with the held object or forget it entirely.</aside>
+    </section>
+
     <section class="slide" data-section="Day 3 · Cartesian motion" data-title="Grasp feasibility filters">
       <div class="slide-head"><p class="eyebrow">Candidate evaluation</p><h2>Grasp feasibility filters</h2></div>
       <div class="filter-funnel"><div><strong>Sampled grasp poses</strong><span>geometry + strategy</span></div><div><strong>Reachable</strong><span>inverse kinematics</span></div><div><strong>Collision-free</strong><span>hand + arm + object</span></div><div><strong>Executable</strong><span>approach + close + lift</span></div></div>
@@ -661,6 +862,19 @@ ros2 action list -t
       <aside class="notes">Evaluate reasoning rather than only the final animation. Each team should explain one failure and how evidence led to the fix.</aside>
     </section>
 
+    <section class="slide" data-section="Capstone" data-title="The complete ROS 2 workflow">
+      <div class="slide-head"><p class="eyebrow">Three-day concept map</p><h2>The complete ROS 2 workflow</h2></div>
+      <div class="concept-map">
+        <div data-step><small>Day 1</small><strong>Communicate</strong><span>graph, interfaces, launch</span></div>
+        <i></i>
+        <div data-step><small>Day 2</small><strong>Represent</strong><span>frames, model, simulation</span></div>
+        <i></i>
+        <div data-step><small>Day 3</small><strong>Move</strong><span>control, planning, grasping</span></div>
+      </div>
+      <div class="concept-result" data-step><strong>Robot task</strong><span>observable, repeatable, and explainable</span></div>
+      <aside class="notes">Use this recap before the capstone presentations. Ask each team to map its evidence to the three days.</aside>
+    </section>
+
     <section class="slide" data-section="Capstone" data-title="A practical debugging order">
       <div class="slide-head"><p class="eyebrow">When the robot does not move</p><h2>A practical debugging order</h2></div>
       <div class="debug-order"><div><span>01</span><strong>Process</strong><small>Did the expected node start?</small></div><div><span>02</span><strong>Graph</strong><small>Names, types, endpoints, QoS</small></div><div><span>03</span><strong>Data</strong><small>Values, rate, timestamp</small></div><div><span>04</span><strong>Frames</strong><small>Connected, current, correct</small></div><div><span>05</span><strong>State</strong><small>Lifecycle and controller claims</small></div><div><span>06</span><strong>Model</strong><small>Limits, collision, inertia</small></div></div>
@@ -682,16 +896,17 @@ ros2 action list -t
 
     <section class="slide slide-close" data-section="Finish" data-title="Build something that moves">
       <div class="cover-grid" aria-hidden="true"></div>
-      <div><p class="eyebrow">Introduction to Robot Operating System 2</p><h2>Build something<br><span>that moves.</span></h2><p class="lede">Start with the graph. Trust evidence. Connect the whole stack.</p><div class="key-hint"><kbd>←</kbd><kbd>→</kbd> navigate · <kbd>O</kbd> overview · <kbd>N</kbd> notes · <kbd>F</kbd> fullscreen</div></div>
+      <div><p class="eyebrow">Introduction to Robot Operating System 2</p><h2>Build something<br><span>that moves</span></h2><p class="lede">Start with the graph. Trust evidence. Connect the whole stack.</p><div class="key-hint"><kbd>←</kbd><kbd>→</kbd> reveal / navigate · <kbd>O</kbd> overview · <kbd>N</kbd> notes · <kbd>F</kbd> fullscreen</div></div>
       <aside class="notes">Close by asking each participant to name one concept they can now explain and one robot task they want to build next.</aside>
     </section>
   </main>
 
   <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+  <div class="step-indicator" id="step-indicator" aria-live="polite"><span id="step-label">Step 0 / 0</span><i><span id="step-bar"></span></i></div>
   <nav class="nav-buttons" aria-label="Slide navigation"><button id="prev" aria-label="Previous slide">←</button><button id="next" aria-label="Next slide">→</button></nav>
   <div class="overview" id="overview" aria-hidden="true"><div class="overview-head"><h2>Slide overview</h2><button id="close-overview" aria-label="Close overview">×</button></div><div class="overview-grid" id="overview-grid"></div></div>
   <div class="notes-panel" id="notes-panel" aria-hidden="true"><div><span>Speaker notes</span><button id="close-notes" aria-label="Close notes">×</button></div><p id="notes-content"></p></div>
-  <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>←</kbd> <kbd>→</kbd> Previous / next</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
+  <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>Space</kbd> <kbd>→</kbd> Reveal next step or advance</p><p><kbd>←</kbd> Hide previous step or go back</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
   <script src="script.js"></script>
 </body>
 </html>
