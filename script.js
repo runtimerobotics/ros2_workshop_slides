@@ -24,6 +24,7 @@
   const freeze = svg => { svg.setCurrentTime(cycleOf(svg) * .9); svg.pauseAnimations(); };
   const restart = svg => { svg.setCurrentTime(0); svg.unpauseAnimations(); };
   const activeAnims = () => [...slides[index].querySelectorAll('svg.ros-anim')];
+  const hasAnimation = () => activeAnims().length || slides[index].querySelector('.scene3d');
 
   function clamp(value) { return Math.max(0, Math.min(value, slides.length - 1)); }
 
@@ -50,6 +51,7 @@
     renderSteps();
     document.body.classList.remove('anim-paused');
     slides[index].querySelectorAll('svg.ros-anim').forEach(svg => (reduceMotion.matches ? freeze(svg) : restart(svg)));
+    document.dispatchEvent(new CustomEvent('deck:slide', { detail: slides[index] }));
     if (updateHash) history.replaceState(null, '', `#${index + 1}`);
   }
 
@@ -128,11 +130,11 @@
     else if (event.key === 'Home') show(0);
     else if (event.key === 'End') show(slides.length - 1);
     else if (event.key.toLowerCase() === 'g') { event.preventDefault(); slideSelect.focus(); slideSelect.showPicker?.(); }
-    else if (event.key.toLowerCase() === 'k' && activeAnims().length) {
+    else if (event.key.toLowerCase() === 'k' && hasAnimation()) {
       const paused = document.body.classList.toggle('anim-paused');
       activeAnims().forEach(svg => (paused ? svg.pauseAnimations() : svg.unpauseAnimations()));
     }
-    else if (event.key.toLowerCase() === 'r' && activeAnims().length) { document.body.classList.remove('anim-paused'); activeAnims().forEach(restart); }
+    else if (event.key.toLowerCase() === 'r' && hasAnimation()) { document.body.classList.remove('anim-paused'); activeAnims().forEach(restart); document.dispatchEvent(new Event('deck:restart')); }
     else if (event.key.toLowerCase() === 'o') toggleOverview();
     else if (event.key.toLowerCase() === 'n') toggleNotes();
     else if (event.key.toLowerCase() === 'f') fullscreen();

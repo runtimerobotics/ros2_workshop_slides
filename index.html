@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=21">
+  <link rel="stylesheet" href="styles.css?v=23">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
@@ -1427,13 +1427,10 @@ ros2 launch workshop_runtime demo.launch.py
       <aside class="notes">Use the convention that frame IDs omit a leading slash. Explain map to odom and odom to base_link as separate responsibilities. Docs: Tutorials › Intermediate › tf2 › Introducing tf2.</aside>
     </section>
 
-    <section class="slide" data-section="Day 2 · TF2" data-title="Frames move with the robot">
-      <div class="slide-head"><p class="eyebrow">TF2 in motion</p><h2>Frames move with the robot</h2></div>
-      <svg class="ros-anim tf-anim" viewBox="0 0 900 300" role="img" aria-label="A robot drives a loop around the map frame; its base_link frame moves and turns, and the lidar_link frame stays fixed relative to base_link">
-        <path class="trail" d="M250,200 C330,80 620,60 720,150 C800,230 560,280 400,250 C320,235 260,240 250,200 Z"/><line class="ax-x" x1="70" y1="270" x2="130" y2="270"/><line class="ax-y" x1="70" y1="270" x2="70" y2="210"/><text class="k" x="70" y="290">map</text><text class="k" x="140" y="275">x</text><text class="k" x="70" y="200">y</text><g><rect class="robot" x="-45" y="-28" width="90" height="56" rx="10"/><line class="ax-x" x1="0" y1="0" x2="42" y2="0"/><line class="ax-y" x1="0" y1="0" x2="0" y2="-42"/><circle class="lidar" cx="26" cy="14" r="9"/><line class="ax-x thin" x1="26" y1="14" x2="46" y2="14"/><line class="ax-y thin" x1="26" y1="14" x2="26" y2="-6"/><text class="k" x="-4" y="44">base_link</text><text class="k" x="46" y="34">lidar_link</text><animateMotion dur="12s" repeatCount="indefinite" rotate="auto" path="M250,200 C330,80 620,60 720,150 C800,230 560,280 400,250 C320,235 260,240 250,200 Z"/></g>
-      </svg>
-      <div class="definition-row"><p><strong>/tf</strong> map → base_link changes every update as the robot drives.</p><p><strong>/tf_static</strong> base_link → lidar_link never changes: the lidar is bolted on.</p><p><strong>TF2</strong> chains both to answer: where is the lidar in the map, right now?</p></div>
-      <aside class="notes">Pink is x, cyan is y; z points out of the screen. Ask: when the robot turns, which transforms change and which stay the same?</aside>
+    <section class="slide scene-slide" data-section="Day 2 · TF2" data-title="Frames move with the robot">
+      <div class="slide-head"><p class="eyebrow">3D · TurtleBot3 · map, odom, base_link</p><h2>Frames move with the robot</h2></div>
+      <div class="scene3d" data-scene="tf-drive"><div class="scene-view"><img class="scene-snap" alt="Frames move with the robot: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">TurtleBot3 Burger from turtlebot3_description. The odometry error (4% speed, small yaw-rate bias) is exaggerated so drift shows within a minute. Turn localization off: map → odom stays identity and the robot follows the drifting odometry. Drag to orbit. Docs: Tutorials › Intermediate › tf2.</aside>
     </section>
 
     <section class="slide" data-section="Day 2 · TF2" data-title="Coordinate axes and rotation">
@@ -1446,6 +1443,12 @@ ros2 launch workshop_runtime demo.launch.py
       <div class="compact-grid"><p><strong>+x</strong><br>forward</p><p><strong>+y</strong><br>left</p><p><strong>+z</strong><br>up</p><p><strong>Rotation</strong><br>right-hand rule</p></div>
       <p class="callout">Always confirm the convention used by the specific sensor or robot package.</p>
       <aside class="notes">ROS body frames commonly use x forward, y left, z up. Optical camera frames use a different convention, so verify the documented frame.</aside>
+    </section>
+
+    <section class="slide scene-slide" data-section="Day 2 · TF2" data-title="Rotations and quaternions">
+      <div class="slide-head"><p class="eyebrow">3D · roll, pitch, yaw</p><h2>Rotations and quaternions</h2></div>
+      <div class="scene3d" data-scene="rotation"><div class="scene-view"><img class="scene-snap" alt="Rotations and quaternions: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">Angles follow tf2 setRPY: R = Rz(yaw) · Ry(pitch) · Rx(roll). Copy the command from the panel into a terminal and compare with ros2 run tf2_ros tf2_echo parent child. Docs: Tutorials › Intermediate › tf2 › Quaternion fundamentals.</aside>
     </section>
 
     <section class="slide" data-section="Day 2 · TF2" data-title="Transform a stamped observation">
@@ -1589,6 +1592,12 @@ ros2 run tf2_ros tf2_monitor turtle2 turtle1</code></pre></div>
       <aside class="notes">Show that visual and collision origins can differ, but unexplained differences are a common source of confusion.</aside>
     </section>
 
+    <section class="slide scene-slide" data-section="Day 2 · URDF" data-title="Build the robot in 3D">
+      <div class="slide-head"><p class="eyebrow">3D · Franka Panda URDF</p><h2>Build the robot in 3D</h2></div>
+      <div class="scene3d" data-scene="build-robot"><div class="scene-view"><img class="scene-snap" alt="Build the robot in 3D: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">Model: moveit_resources_panda_description, the URDF MoveIt uses on Day 3. Orange arrows are joint axes from the URDF; collision meshes are the simplified STL files. Point out the missing inertial tags. Docs: Tutorials › Intermediate › URDF.</aside>
+    </section>
+
     <section class="slide" data-section="Day 2 · URDF" data-title="URDF and Xacro">
       <div class="slide-head"><p class="eyebrow">Reusable descriptions</p><h2>Xacro removes repetition</h2></div>
       <div class="split"><pre><code>&lt;xacro:macro name="wheel" params="name y"&gt;
@@ -1665,6 +1674,12 @@ ros2 run tf2_tools view_frames</code></pre></div>
       </svg>
       <p class="takeaway">Simulation advances in discrete time. Real-time factor reports how quickly those steps run.</p>
       <aside class="notes">Each lap of the dot is one physics step; Gazebo's default step is 1 ms, so /clock advances 0.001 s per lap. Differentiate simulation time from wall time. Nodes using use_sim_time follow the /clock topic.</aside>
+    </section>
+
+    <section class="slide scene-slide" data-section="Day 2 · Gazebo" data-title="Simulation time in practice">
+      <div class="slide-head"><p class="eyebrow">3D · /clock and use_sim_time</p><h2>Simulation time in practice</h2></div>
+      <div class="scene3d" data-scene="gazebo"><div class="scene-view"><img class="scene-snap" alt="Simulation time in practice: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">Gazebo publishes /clock; nodes started with use_sim_time:=true read time from it. Pause the simulation: the sim-time timer stops while the wall-clock timer keeps ticking. A real-time factor below 1 means the computer cannot keep up.</aside>
     </section>
 
     <section class="slide" data-section="Day 2 · Gazebo" data-title="URDF, SDF, and the bridge">
@@ -1744,6 +1759,12 @@ distance_i = ranges[i]</code></pre>
       <aside class="notes">Invalid readings may appear as infinity or NaN. Check the message definition and sensor documentation before filtering.</aside>
     </section>
 
+    <section class="slide scene-slide" data-section="Day 2 · Sensors" data-title="A lidar in a room">
+      <div class="slide-head"><p class="eyebrow">3D · TurtleBot3 LDS-01</p><h2>A lidar in a room</h2></div>
+      <div class="scene3d" data-scene="lidar"><div class="scene-view"><img class="scene-snap" alt="A lidar in a room: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">The scan uses the TurtleBot3 LDS-01 settings: 360 samples 1° apart, 0.12 to 3.5 m. Out-of-range readings become inf, as in a real LaserScan. Add noise to show why filtering matters; switch on the camera frustum and IMU arrows to compare sensors.</aside>
+    </section>
+
     <section class="slide" data-section="Day 2 · Sensors" data-title="Validate sensor data">
       <div class="slide-head"><p class="eyebrow">Evidence before algorithms</p><h2>Validate sensor data</h2></div>
       <div class="validation-ladder"><div><span>1</span><strong>Exists</strong><small>topic + type</small></div><div><span>2</span><strong>Flows</strong><small>rate + bandwidth</small></div><div><span>3</span><strong>Aligns</strong><small>frame + timestamp</small></div><div><span>4</span><strong>Looks plausible</strong><small>RViz + known scene</small></div><div><span>5</span><strong>Matches reality</strong><small>noise + limits</small></div></div>
@@ -1796,6 +1817,12 @@ rviz2
       <aside class="notes">Discuss why a pose can have multiple elbow configurations and why joint limits remove some solutions.</aside>
     </section>
 
+    <section class="slide scene-slide" data-section="Day 3 · Manipulators" data-title="Joint space and task space in 3D">
+      <div class="slide-head"><p class="eyebrow">3D · forward kinematics</p><h2>Joint space and task space in 3D</h2></div>
+      <div class="scene3d" data-scene="workspace"><div class="scene-view"><img class="scene-snap" alt="Joint space and task space in 3D: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">At the home pose the readout shows the hand at x 0.307, z 0.590: the same value tf2 gives from robot_state_publisher with this URDF. Sample the workspace: the cloud is every hand position from random joint values, coloured by height.</aside>
+    </section>
+
     <section class="slide" data-section="Day 3 · Manipulators" data-title="Forward and inverse kinematics">
       <div class="slide-head"><p class="eyebrow">Joints ⇄ tool pose</p><h2>Forward and inverse kinematics</h2></div>
       <div class="compare">
@@ -1806,6 +1833,12 @@ rviz2
 x = l1·cos(q1) + l2·cos(q1 + q2)
 y = l1·sin(q1) + l2·sin(q1 + q2)</code></pre>
       <aside class="notes">Draw the elbow-up and elbow-down solutions for one target point. An unreachable target has no IK solution; near a singularity, small tool motions need very large joint motions.</aside>
+    </section>
+
+    <section class="slide scene-slide" data-section="Day 3 · Manipulators" data-title="Inverse kinematics in 3D">
+      <div class="slide-head"><p class="eyebrow">3D · numeric IK</p><h2>Inverse kinematics in 3D</h2></div>
+      <div class="scene3d" data-scene="ik"><div class="scene-view"><img class="scene-snap" alt="Inverse kinematics in 3D: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">A numeric solver like KDL: it repeatedly moves the joints along the Jacobian toward the target. The target passes out of reach on purpose. Other solution re-solves from a different starting guess: same hand pose, different arm shape.</aside>
     </section>
 
     <section class="slide" data-section="Day 3 · Manipulators" data-title="Degrees of freedom and workspace">
@@ -1845,6 +1878,12 @@ ros2 topic pub --once /joint_states \
       <div class="control-loop"><div><small>Applications</small><strong>MoveIt 2 · teleop</strong></div><i></i><div><small>Controllers</small><strong>trajectory · gripper</strong></div><i></i><div><small>Controller manager</small><strong>read · update · write</strong></div><i></i><div><small>Hardware component</small><strong>robot or Gazebo</strong></div></div>
       <p class="callout">State interfaces flow up. Command interfaces flow down.</p>
       <aside class="notes">Controller Manager matches controller claims to hardware interfaces and runs the update loop.</aside>
+    </section>
+
+    <section class="slide scene-slide" data-section="Day 3 · Control and MoveIt" data-title="ros2_control tracking loop">
+      <div class="slide-head"><p class="eyebrow">3D · command vs state</p><h2>ros2_control tracking loop</h2></div>
+      <div class="scene3d" data-scene="control"><div class="scene-view"><img class="scene-snap" alt="ros2_control tracking loop: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">The ghost arm is the command interface, the solid arm the state interface. The joints are simulated as a PD loop; raise Kp to cut the lag, lower damping to see overshoot. Real controllers run this read, update, write loop at the controller_manager update_rate.</aside>
     </section>
 
     <section class="slide" data-section="Day 3 · Control and MoveIt" data-title="MoveIt 2 planning components">
@@ -1903,11 +1942,23 @@ ros2 topic echo /joint_states</code></pre></div>
       <aside class="notes">Obstacles in workspace become forbidden regions in configuration space, often with complex shapes.</aside>
     </section>
 
+    <section class="slide scene-slide" data-section="Day 3 · Motion planning" data-title="RRT-Connect in configuration space">
+      <div class="slide-head"><p class="eyebrow">Canvas · sampling-based planning</p><h2>RRT-Connect in configuration space</h2></div>
+      <div class="scene3d" data-scene="cspace"><div class="scene-view"><img class="scene-snap" alt="RRT-Connect in configuration space: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">RRT-Connect is the default OMPL planner in MoveIt. A two-link arm keeps configuration space 2D so it can be drawn; the Panda has 7 dimensions, which is why planners sample instead of mapping it.</aside>
+    </section>
+
     <section class="slide" data-section="Day 3 · Motion planning" data-title="From path to trajectory">
       <div class="slide-head"><p class="eyebrow">Executable motion</p><h2>From path to trajectory</h2></div>
       <div class="pipeline"><div><span>1</span><strong>Request</strong><small>goal + constraints</small></div><div><span>2</span><strong>Plan</strong><small>collision-free path</small></div><div><span>3</span><strong>Time parameterize</strong><small>velocity + acceleration</small></div><div><span>4</span><strong>Execute</strong><small>controller tracking</small></div><div><span>5</span><strong>Monitor</strong><small>state + result</small></div></div>
       <p class="takeaway">A geometric path becomes a trajectory only after time and dynamic limits are added.</p>
       <aside class="notes">Explain why a plan can be collision-free yet too aggressive for the physical robot if limits are wrong.</aside>
+    </section>
+
+    <section class="slide scene-slide" data-section="Day 3 · Motion planning" data-title="Time parameterization">
+      <div class="slide-head"><p class="eyebrow">3D · velocity and acceleration</p><h2>Time parameterization</h2></div>
+      <div class="scene3d" data-scene="trajectory"><div class="scene-view"><img class="scene-snap" alt="Time parameterization: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">MoveIt adds timing with a time-parameterization adapter. Path only moves at constant speed and stops dead at each waypoint, which needs infinite acceleration. Compare the peak values between modes.</aside>
     </section>
 
     <section class="slide" data-section="Day 3 · Motion planning" data-title="Planning request constraints">
@@ -1951,10 +2002,22 @@ ros2 node info /move_group</code></pre></div>
       <aside class="notes">Cartesian interpolation is local. It does not remove the need for collision checking, jump thresholds, or path fraction validation.</aside>
     </section>
 
+    <section class="slide scene-slide" data-section="Day 3 · Cartesian motion" data-title="Joint vs Cartesian motion in 3D">
+      <div class="slide-head"><p class="eyebrow">3D · two Pandas, same start and goal</p><h2>Joint vs Cartesian motion in 3D</h2></div>
+      <div class="scene3d" data-scene="cartesian"><div class="scene-view"><img class="scene-snap" alt="Joint vs Cartesian motion in 3D: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">The Cartesian arm follows a straight line by solving IK at 80 points along it, the idea behind computeCartesianPath. Fraction 1.00 means every point was solved; a lower fraction means the line is only partly reachable.</aside>
+    </section>
+
     <section class="slide" data-section="Day 3 · Cartesian motion" data-title="A grasp is a sequence">
       <div class="slide-head"><p class="eyebrow">Manipulation task</p><h2>A grasp is a sequence</h2></div>
       <div class="grasp-sequence"><div><span>01</span><strong>Pre-grasp</strong><small>reach a safe approach pose</small></div><div><span>02</span><strong>Approach</strong><small>move along a constrained direction</small></div><div><span>03</span><strong>Close</strong><small>command gripper and attach object</small></div><div><span>04</span><strong>Lift + retreat</strong><small>move object while checking collision</small></div></div>
       <aside class="notes">The planning scene must reflect the object attachment after grasp. Otherwise the held object may be ignored during collision checking.</aside>
+    </section>
+
+    <section class="slide scene-slide" data-section="Day 3 · Cartesian motion" data-title="Pick and place in 3D">
+      <div class="slide-head"><p class="eyebrow">3D · attach and detach</p><h2>Pick and place in 3D</h2></div>
+      <div class="scene3d" data-scene="pick"><div class="scene-view"><img class="scene-snap" alt="Pick and place in 3D: snapshot of the interactive scene"></div><div class="scene-panel"></div></div>
+      <aside class="notes">Every pose comes from the IK solver at load time. The box turns orange while it is attached to panda_hand in the planning scene and green when it is a world object again.</aside>
     </section>
 
     <section class="slide" data-section="Day 3 · Cartesian motion" data-title="Object state during pick and place">
@@ -2130,6 +2193,8 @@ ros2 run demo_nodes_py listener \
   <div class="overview" id="overview" aria-hidden="true"><div class="overview-head"><h2>Slide overview</h2><button id="close-overview" aria-label="Close overview">×</button></div><div class="overview-grid" id="overview-grid"></div></div>
   <div class="notes-panel" id="notes-panel" aria-hidden="true"><div><span>Speaker notes</span><button id="close-notes" aria-label="Close notes">×</button></div><p id="notes-content"></p></div>
   <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>Space</kbd> <kbd>→</kbd> Reveal next step or advance</p><p><kbd>←</kbd> Hide previous step or go back</p><p><kbd>G</kbd> Choose a slide from the list</p><p><kbd>K</kbd> Pause or resume an animation</p><p><kbd>R</kbd> Restart an animation</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
-  <script src="script.js?v=7"></script>
+  <script src="script.js?v=8"></script>
+  <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/examples/jsm/": "./vendor/three/jsm/" } }</script>
+  <script type="module" src="scenes3d.js?v=4"></script>
 </body>
 </html>

@@ -287,3 +287,28 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 @media (max-width: 680px) { .control-loop > div { min-width: 0; overflow-wrap: anywhere; }.transform-equation { grid-template-columns: 1fr; gap: .6rem; } }
 .arrow-list code, .callout code { overflow-wrap: anywhere; }
 @media (max-width: 680px) { .table-row > * { min-width: 0; overflow-wrap: anywhere; } }
+
+/* Interactive 3D scenes (scenes3d.js) */
+.scene-slide .slide-head { margin-bottom: clamp(.6rem, 1.6vh, 1.2rem); }.scene-slide .slide-head h2 { font-size: clamp(2rem, 3.4vw, 3.8rem); max-width: none; }
+.scene3d { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.7fr 1fr; gap: clamp(.8rem, 1.6vw, 1.6rem); }
+.scene-view { position: relative; min-height: 0; overflow: hidden; border: 1px solid var(--line); border-radius: .4rem; background: #080d19; }
+.scene-view > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.scene-view .label-layer { position: absolute; inset: 0; pointer-events: none; }
+.scene-view.loading::after { content: "loading robot model…"; position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font: .85rem "IBM Plex Mono", monospace; }
+.scene-snap { display: none; }
+.frame-label { padding: .1rem .35rem; border-radius: .25rem; background: rgba(8,13,25,.75); color: var(--ink); font: 500 .72rem "IBM Plex Mono", monospace; white-space: nowrap; }
+.frame-label.big { color: var(--cyan); font-size: .85rem; }.frame-label.warn { color: var(--orange); }.frame-label.small { font-size: .62rem; color: var(--muted); }.frame-label.muted { color: var(--muted); }
+.scene-panel { display: flex; flex-direction: column; gap: .55rem; min-height: 0; overflow: auto; }
+.scene-buttons { display: flex; flex-wrap: wrap; gap: .4rem; }
+.scene-panel button { padding: .4rem .7rem; border: 1px solid var(--line); border-radius: .3rem; background: var(--bg-2); color: var(--ink); font: 500 .76rem "IBM Plex Mono", monospace; cursor: pointer; }
+.scene-panel button.on { border-color: var(--cyan); color: var(--cyan); }
+.scene-slider { display: grid; grid-template-columns: 6rem 1fr 4.2rem; align-items: center; gap: .5rem; color: var(--muted); font: .74rem "IBM Plex Mono", monospace; }
+.scene-slider input { width: 100%; accent-color: var(--cyan); }.scene-slider output { color: var(--ink); text-align: right; }
+.scene-readout { padding: .6rem .8rem; border-left: 3px solid var(--orange); background: rgba(255,255,255,.04); font: .76rem/1.55 "IBM Plex Mono", monospace; overflow-wrap: anywhere; }
+.scene-readout b { color: var(--orange); font-weight: 600; }
+.scene-hint { margin: 0; color: var(--muted); font-size: .8rem; line-height: 1.45; }.scene-hint b { color: var(--ink); }
+.scene-flash { margin: 0; min-height: 1.2em; color: var(--cyan); font: 600 .78rem "IBM Plex Mono", monospace; }.scene-flash.bad { color: var(--pink); }
+.scene-steps { margin: 0; padding-left: 2.2rem; font: .76rem/1.6 "IBM Plex Mono", monospace; color: var(--muted); }.scene-steps li.on { color: var(--cyan); }
+.scene-plot { width: 100%; display: block; }
+@media (max-width: 900px) { .scene3d { grid-template-columns: 1fr; }.scene-view { min-height: 46vh; } }
+@media print { .scene-view > canvas, .scene-view .label-layer { display: none; }.scene-snap { display: block; width: 100%; height: 100%; object-fit: contain; }.scene-snap:not([src]) { display: none; }.scene-view:not(:has(.scene-snap[src]))::after { content: "Interactive 3D scene: open the deck in a browser"; position: absolute; inset: 0; display: grid; place-items: center; color: #666; font: .9rem "IBM Plex Mono", monospace; } }

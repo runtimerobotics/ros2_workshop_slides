@@ -233,11 +233,6 @@ body = [f'<path class="trail" d="{loop}"/>',
         '<line class="ax-x" x1="70" y1="270" x2="130" y2="270"/><line class="ax-y" x1="70" y1="270" x2="70" y2="210"/><text class="k" x="70" y="290">map</text>',
         '<text class="k" x="140" y="275">x</text><text class="k" x="70" y="200">y</text>',
         f'<g>{robot}</g>']
-out["tf"] = slide("Day 2 · TF2", "Frames move with the robot", "TF2 in motion", "Frames move with the robot",
-    svg(300, "A robot drives a loop around the map frame; its base_link frame moves and turns, and the lidar_link frame stays fixed relative to base_link", "".join(body), " tf-anim")
-    + '      <div class="definition-row"><p><strong>/tf</strong> map → base_link changes every update as the robot drives.</p><p><strong>/tf_static</strong> base_link → lidar_link never changes: the lidar is bolted on.</p><p><strong>TF2</strong> chains both to answer: where is the lidar in the map, right now?</p></div>\n',
-    "Pink is x, cyan is y; z points out of the screen. Ask: when the robot turns, which transforms change and which stay the same?")
-
 # ---------- URDF: animated arm replaces the static chain ----------
 d = "6s"
 arm = (f'<rect class="node" x="210" y="250" width="180" height="40" rx="6"/><text class="s" x="300" y="270">base_link</text>'

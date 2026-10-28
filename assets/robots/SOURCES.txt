@@ -1,0 +1,2 @@
+Franka Panda description: moveit_resources_panda_description (BSD), copied from ROS 2 Jazzy.
+TurtleBot3 Burger description: turtlebot3_description (Apache-2.0), copied from ROS 2 Jazzy; ${namespace} placeholders removed.
