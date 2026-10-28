@@ -85,16 +85,6 @@ code { font-family: "IBM Plex Mono", monospace; }
 .chapter-prompt { max-width: 40rem; color: var(--muted); font-size: clamp(1.05rem, 1.6vw, 1.55rem); }
 .day-break { background: radial-gradient(circle at 70% 40%, rgba(106,168,255,.22), transparent 32%), var(--bg); }
 
-.graph-stage { position: relative; height: 41vh; min-height: 16rem; }
-.graph-node { position: absolute; width: 13rem; padding: 1rem; border: 1px solid var(--line); background: var(--bg-2); z-index: 2; }
-.graph-node small { display: block; color: var(--cyan); font: 500 .7rem "IBM Plex Mono", monospace; text-transform: uppercase; }
-.graph-node strong { display: block; margin: .3rem 0; font: 600 1.15rem "IBM Plex Mono", monospace; }
-.graph-node span { color: var(--muted); font-size: .82rem; }
-.node-sensor { left: 4%; top: 35%; }.node-perception { left: 39%; top: 12%; }.node-motion { right: 4%; bottom: 8%; }
-.graph-edge { position: absolute; height: 2px; background: var(--blue); transform-origin: left center; z-index: 1; }
-.graph-edge::after { content: ""; position: absolute; right: -1px; top: -4px; border: 5px solid transparent; border-left-color: var(--blue); }
-.graph-edge span { position: absolute; top: -1.8rem; left: 40%; color: var(--muted); font: 500 .7rem "IBM Plex Mono", monospace; white-space: nowrap; }
-.edge-one { width: 28%; left: 20%; top: 48%; transform: rotate(-15deg); }.edge-two { width: 29%; left: 55%; top: 43%; transform: rotate(22deg); }
 .definition-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; border-top: 1px solid var(--line); padding-top: 1rem; }
 .definition-row p { margin: 0; color: var(--muted); font-size: clamp(.78rem, 1vw, 1rem); }.definition-row strong { color: var(--ink); }
 
@@ -165,7 +155,6 @@ kbd { padding: .15rem .4rem; border: 1px solid var(--line); border-radius: .25re
 .slide.active :is(.pipeline > div,.debug-order > div):nth-child(5) { animation-delay: .32s; }
 .slide.active .debug-order > div:nth-child(6) { animation-delay: .40s; }
 .slide.active .orbit-core { animation: soft-pulse 2.8s ease-in-out infinite; }
-.slide.active .graph-edge { background-image: linear-gradient(90deg,transparent 0 30%,rgba(255,255,255,.75) 50%,transparent 70%); background-size: 22px 100%; animation: dash-move .9s linear infinite; }
 .slide.active .cspace .path { animation: soft-pulse 2.4s ease-in-out infinite; }
 
 /* Additional beginner bridge slides */
@@ -174,7 +163,6 @@ kbd { padding: .15rem .4rem; border: 1px solid var(--line); border-radius: .25re
 .learning-loop span, .build-order span, .startup-checks span { color: var(--cyan); font: 650 .74rem "IBM Plex Mono", monospace; }.learning-loop strong, .build-order strong, .startup-checks strong { display: block; margin: .55rem 0; }.learning-loop p, .build-order p, .startup-checks p { margin: 0; color: var(--muted); font-size: .86rem; }
 .build-order, .startup-checks { grid-template-columns: repeat(5,1fr); }.build-order > div:nth-child(even), .startup-checks > div:nth-child(even) { border-color: var(--blue); }
 
-.robot-programs { position: relative; height: 47vh; min-height: 20rem; }.robot-center { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); display: grid; place-items: center; width: 10rem; height: 10rem; border-radius: 50%; color: var(--bg); background: var(--cyan); font-weight: 800; box-shadow: 0 0 70px rgba(88,224,210,.2); }.program { position: absolute; width: 14rem; padding: 1rem; border: 1px solid var(--line); background: var(--bg-2); }.program strong, .program span { display: block; }.program span { margin-top: .35rem; color: var(--muted); font-size: .8rem; }.program::after { content: ""; position: absolute; height: 1px; width: 7rem; background: var(--blue); }.p1 { left: 5%; top: 5%; }.p1::after { right: -6rem; top: 80%; transform: rotate(24deg); }.p2 { right: 5%; top: 5%; }.p2::after { left: -6rem; top: 80%; transform: rotate(-24deg); }.p3 { left: 5%; bottom: 5%; }.p3::after { right: -6rem; top: 20%; transform: rotate(-24deg); }.p4 { right: 5%; bottom: 5%; }.p4::after { left: -6rem; top: 20%; transform: rotate(24deg); }
 
 .scope-example { display: grid; grid-template-columns: repeat(3,1fr); gap: 1rem; margin: 3vh 0; }.scope-example > div { padding: 1.25rem; border-top: 3px solid var(--cyan); background: rgba(255,255,255,.04); }.scope-example .isolated { border-color: var(--orange); }.scope-example small, .scope-example strong, .scope-example span { display: block; }.scope-example small { color: var(--cyan); font: .7rem "IBM Plex Mono", monospace; }.scope-example strong { margin: .55rem 0; font: 600 1rem "IBM Plex Mono", monospace; }.scope-example span { color: var(--muted); font-size: .82rem; }.compact-split { min-height: auto; flex: initial; margin: 1rem 0; }.compact-split p { margin: 0; color: var(--muted); font-size: .9rem; }
 
@@ -222,14 +210,14 @@ aside.notes { display: none; }
   .outcome-path, .agenda-days, .split, .lab-layout, .definition-row, .compare, .resource-list, .fault-pairs { grid-template-columns: 1fr; }
   .agenda-days { overflow-y: auto; }.compact-grid, .sensor-list, .geometry-roles { grid-template-columns: 1fr 1fr; }
   .qos-spectrum { grid-template-columns: 1fr; }.qos-axis { display: none; }
-  .layers div { grid-template-columns: 1fr; gap: .3rem; }.graph-stage { transform: scale(.8); transform-origin: center; }
+  .layers div { grid-template-columns: 1fr; gap: .3rem; }
   .bridge-diagram, .space-map, .moveit-map { grid-template-columns: 1fr; }
   .command-map { grid-template-columns: 1fr; }.table-row { grid-template-columns: .55fr 1fr 1fr; }.table-row > * { padding: .55rem; }
   .stack-flow, .control-loop { display: grid; grid-template-columns: 1fr 1fr; }.stack-flow i, .control-loop i { display: none; }
   .validation-ladder, .sensor-contract, .debug-order { grid-template-columns: 1fr 1fr; }.tf-tree { transform: scale(.7); transform-origin: center; }
   .pipeline, .action-flow, .grasp-sequence, .capstone { grid-template-columns: 1fr 1fr; }
   .learning-loop, .build-order, .startup-checks, .scope-example, .decision-path, .scene-layers, .constraint-rings, .vocabulary { grid-template-columns: 1fr; }
-  .robot-programs { transform: scale(.78); transform-origin: center; }.qos-match, .axis-stage, .scan-explainer { grid-template-columns: 1fr; }.match-result { padding: .3rem; }.message-journey, .object-states, .concept-map { display: grid; grid-template-columns: 1fr; margin: 3vh 0; }.message-journey > i, .object-states > i, .concept-map > i, .travelling-sample { display: none; }.object-states > div, .concept-map > div { width: 100%; }.scan-fields p, .vocabulary > div { grid-template-columns: 1fr; }.example-strip { flex-wrap: wrap; }
+  .qos-match, .axis-stage, .scan-explainer { grid-template-columns: 1fr; }.match-result { padding: .3rem; }.message-journey, .object-states, .concept-map { display: grid; grid-template-columns: 1fr; margin: 3vh 0; }.message-journey > i, .object-states > i, .concept-map > i, .travelling-sample { display: none; }.object-states > div, .concept-map > div { width: 100%; }.scan-fields p, .vocabulary > div { grid-template-columns: 1fr; }.example-strip { flex-wrap: wrap; }
   pre { font-size: .67rem; }.nav-buttons { display: none; }.step-indicator { right: 1.25rem; justify-content: center; }
 }
 
@@ -329,3 +317,10 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 .scene-code span { display: block; padding: 0 .2rem; border-radius: .2rem; }.scene-code span.on { background: rgba(88,224,210,.16); color: var(--cyan); }.scene-code span[data-k="c"] { color: #6c7590; }
 .scene-log { border-left-color: var(--blue); font-size: .66rem; min-height: 7.5em; }
 .scene-readout.tree { line-height: 1.32; }
+
+/* One robot, many programs · The ROS 2 mental model */
+.ros-anim .robot-body { fill: #c9d1e3; }.ros-anim .robot-part { fill: #8f9ab3; }.ros-anim .wheel { fill: #2b3247; stroke: #8f9ab3; stroke-width: 2; }.ros-anim .lens { fill: var(--cyan); }
+.ros-anim .tangle { fill: none; stroke: var(--pink); stroke-width: 2; }.ros-anim text.tangle-label { fill: var(--pink); font: 500 11px "IBM Plex Mono", monospace; }
+.ros-anim .graph-ring { fill: rgba(88,224,210,.06); stroke: var(--cyan); stroke-width: 2.5; stroke-linejoin: round; }.ros-anim text.ring-label { fill: var(--cyan); font: 500 11px "IBM Plex Mono", monospace; text-anchor: middle; }
+.ros-anim .edge { fill: none; stroke: var(--blue); stroke-width: 2; }.ros-anim .arrow-head { fill: var(--blue); }
+.ros-anim text.msgtype { fill: var(--muted); font: 500 10px "IBM Plex Mono", monospace; text-transform: none; }

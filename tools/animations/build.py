@@ -654,6 +654,86 @@ demo["history"] = slide(OV, "History of ROS and ROS 2", "From a lab project to a
     + legend(("lane-ros1", "ROS 1 · 13 distributions"), ("lane-ros2", "ROS 2 · 12 distributions so far")),
     "Each letter is a distribution, named alphabetically. ROS 1 ran from Box Turtle to Noetic; ROS 2 restarted at A with Ardent. ROS 1 reached end of life on May 31, 2025. Pause with K to talk about any milestone.")
 
+# ---------- One robot, many programs: ad-hoc links vs one ROS 2 graph ----------
+d = "18s"
+def card(x, y, title, sub, t, cls="node"):
+    return (f'<g opacity="0"><rect class="{cls}" x="{x}" y="{y}" width="190" height="54" rx="6"/>'
+            f'<text class="s" x="{x + 95}" y="{y + 20}">{title}</text><text class="k" x="{x + 95}" y="{y + 38}">{sub}</text>{vis(t, 1, d)}</g>')
+CAM, DET, PLN, CTL = (40, 30), (670, 30), (670, 256), (40, 256)
+b = [card(*CAM, "Camera driver", "produces images", .01), card(*DET, "Object detector", "finds objects", .03),
+     card(*PLN, "Motion planner", "chooses a path", .05), card(*CTL, "Motor controller", "drives the joints", .07)]
+# the robot in the middle: base, wheels, mast camera, and a two-link arm that moves when commanded
+arm = (f'<g><animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" calcMode="spline" '
+       f'keySplines="0 0 1 1;{EASE};{EASE};0 0 1 1;{EASE};{EASE};0 0 1 1" values="0 432 196;0 432 196;-35 432 196;0 432 196;0 432 196;-35 432 196;0 432 196;0 432 196" keyTimes="0;.62;.66;.70;.91;.95;.99;1"/>'
+       '<rect class="robot-part" x="426" y="146" width="12" height="50" rx="6"/><circle class="joint" cx="432" cy="196" r="6"/>'
+       '<g><rect class="robot-part" x="428" y="118" width="40" height="10" rx="5"/><circle class="joint" cx="432" cy="146" r="5"/><rect class="robot-part" x="464" y="112" width="6" height="22" rx="2"/></g></g>')
+b.append('<g class="robot"><rect class="robot-body" x="395" y="196" width="110" height="34" rx="9"/><circle class="wheel" cx="415" cy="232" r="9"/><circle class="wheel" cx="485" cy="232" r="9"/>'
+         '<rect class="robot-part" x="476" y="150" width="6" height="46"/><rect class="robot-body" x="466" y="138" width="28" height="16" rx="3"/><circle class="lens" cx="494" cy="146" r="4"/>' + arm + '</g>')
+# phase 1: every pair invents its own link
+TANGLE = [("M230,57 C420,0 480,0 670,57", "TCP socket", 450, 22), ("M670,57 C760,140 760,180 765,256", "shared memory", 790, 160),
+          ("M670,283 C480,330 400,330 230,283", "CSV file", 450, 322), ("M135,256 C100,180 100,140 135,84", "custom UDP", 92, 172),
+          ("M230,70 C420,130 520,210 670,270", "serial bytes", 560, 196), ("M230,270 C380,210 520,120 670,70", "REST call", 330, 130)]
+for i, (p, lbl, lx, ly) in enumerate(TANGLE):
+    t0 = round(.09 + i * .025, 3)
+    b.append(f'<g><path class="tangle" d="{p}" pathLength="1" stroke-dasharray="1 1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;{t0};{t0 + .04};1"/></path>'
+             f'<text class="tangle-label" x="{lx}" y="{ly}" opacity="0">{lbl}{vis(t0 + .03, .34, d)}</text>'
+             f'<animate attributeName="opacity" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.32;.36;1"/></g>')
+# phase 2: one shared graph
+RING = "M260,110 L640,110 L640,248 L260,248 Z"
+b.append(f'<g opacity="0"><path class="graph-ring" d="{RING}"/>'
+         '<line class="stem" x1="230" y1="84" x2="260" y2="110"/><line class="stem" x1="670" y1="84" x2="640" y2="110"/>'
+         '<line class="stem" x1="670" y1="256" x2="640" y2="248"/><line class="stem" x1="230" y1="256" x2="260" y2="248"/>'
+         f'<text class="ring-label" x="450" y="99">ROS 2 graph · discovery · typed messages · QoS</text>{vis(.37, 1, d)}</g>')
+b.append(f'<circle class="ring" cx="450" cy="170" r="40" opacity="0"><animate attributeName="r" dur="{d}" repeatCount="indefinite" values="40;40;230;230" keyTimes="0;.37;.43;1"/>'
+         f'<animate attributeName="opacity" dur="{d}" repeatCount="indefinite" values="0;0;.8;0;0" keyTimes="0;.37;.371;.43;1"/></circle>')
+# phase 3: data around the loop, twice
+HOPS = [("M494,146 L640,110 L250,110 L230,84", "req", "raw pixels from the camera", CAM),
+        ("M230,84 L260,110 L640,110 L670,84", "req", "/image · sensor_msgs/msg/Image", DET),
+        ("M670,84 L640,110 L640,248 L670,256", "req", "/objects · object positions", PLN),
+        ("M670,256 L640,248 L260,248 L230,256", "fb", "goal: follow this path (action)", CTL),
+        ("M230,256 L260,248 L432,196", "res", "joint commands to the motors", None)]
+for loop, start in enumerate((.44, .73)):
+    for k, (p, cls, text, target) in enumerate(HOPS):
+        s0 = round(start + k * .045, 3); e0 = round(s0 + .04, 3)
+        b.append(packet(cls, p, s0, e0, d))
+        if target: b.append(flash(target[0], target[1], 190, 54, e0, d))
+        b.append(cap(text, s0, round(s0 + .045, 3) if k < 4 else round(start + .27, 3), d, 450, 330))
+b += [cap("Without a framework, every pair of programs invents its own link", 0, .34, d, 450, 330),
+      cap("With ROS 2, every program joins one shared graph", .34, .44, d, 450, 330)]
+svgs["One robot, many programs"] = svg(340, "Four programs (camera driver, object detector, motion planner, motor controller) first connect through six different custom links; these disappear and every program joins one ROS 2 graph. Data then flows from the robot camera through each program to the motors, and the robot arm moves.", "".join(b), " tall") \
+    + legend(("req", "image / objects"), ("fb", "action goal"), ("res", "motor commands"))
+
+# ---------- The ROS 2 mental model: the graph builds up, the CLI sees it ----------
+d = "18s"
+def rnode(cx, cy, name, t):   # rqt_graph style: nodes are ellipses
+    return (f'<g opacity="0"><ellipse class="node" cx="{cx}" cy="{cy}" rx="72" ry="26"/><text class="s" x="{cx}" y="{cy}">{name}</text>{vis(t, 1, d)}</g>')
+def rtopic(cx, cy, name, typ, t):   # topics are boxes
+    return (f'<g opacity="0"><rect class="pill topic" x="{cx - 70}" y="{cy - 17}" width="140" height="34" rx="4"/><text class="s" x="{cx}" y="{cy}">{name}</text>'
+            f'<text class="msgtype" x="{cx}" y="{cy + 30}">{typ}</text>{vis(t, 1, d)}</g>')
+def edge(path, t):
+    return f'<path class="edge" d="{path}" opacity="0" marker-end="url(#mm-arrow)">{vis(t, 1, d)}</path>'
+b = ['<defs><marker id="mm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrow-head"/></marker></defs>',
+     rnode(85, 80, "/camera", .02), rnode(395, 80, "/detector", .06), rnode(545, 240, "/planner", .10),
+     edge("M157,80 L178,80", .14), rtopic(248, 80, "/image_raw", "sensor_msgs/msg/Image", .14), edge("M318,80 L321,80", .15),
+     edge("M467,80 L478,80", .18), rtopic(548, 80, "/detections", "vision_msgs/msg/Detection2DArray", .18), edge("M548,124 L548,212", .19),
+     rnode(285, 240, "/logger", .62), edge("M500,112 C440,160 360,190 318,216", .63)]
+for st in (.24, .32, .40, .48, .56):
+    b += [packet("req", "M157,80 L318,80", st, st + .035, d), flash(323, 54, 144, 52, st + .035, d, 26),
+          packet("req", "M467,80 L548,80 L548,212", st + .04, st + .075, d), flash(473, 214, 144, 52, st + .075, d, 26)]
+for st in (.66, .74, .82, .90):
+    b += [packet("req", "M157,80 L318,80", st, st + .035, d),
+          packet("req", "M467,80 L548,80 L548,212", st + .04, st + .075, d), packet("req", "M467,80 L548,80 C440,160 360,190 318,216", st + .04, st + .075, d),
+          flash(473, 214, 144, 52, st + .075, d, 26), flash(213, 214, 144, 52, st + .075, d, 26)]
+b.append(term(660, 14, 230, 300, "terminal"))
+T = [("type", "$ ros2 node list", .11), ("show", "/camera", .13), ("show", "/detector", .13), ("show", "/planner", .13), ("show", "/logger", .64),
+     ("type", "$ ros2 topic list", .2), ("show", "/detections", .22), ("show", "/image_raw", .22), ("show", "/parameter_events", .22), ("show", "/rosout", .22)]
+for i, (kind, text, t0) in enumerate(T):
+    y = 56 + i * 24 + (10 if i >= 5 else 0)
+    b.append(typed(674, y, text, t0, d, .025) if kind == "type" else shown(674, y, text, t0, d, 1, "code ok" if text == "/logger" else "code"))
+b += [cap("nodes: one program, one job", 0, .14, d, 320, 318), cap("topics join publishers to subscribers, with a message type", .14, .24, d, 320, 318),
+      cap("messages flow; nobody addresses anyone directly", .24, .62, d, 320, 318), cap("a new subscriber joins; the publisher does not change", .62, 1, d, 320, 318)]
+svgs["The ROS 2 mental model"] = svg(330, "An rqt_graph-style graph builds up: the /camera, /detector and /planner nodes appear, joined by the /image_raw and /detections topics with their message types, and messages flow. A terminal lists the same nodes and topics, plus /parameter_events and /rosout. A /logger node then joins and also receives /detections.", "".join(b), " tall")
+
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
