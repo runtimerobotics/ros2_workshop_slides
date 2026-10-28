@@ -250,3 +250,9 @@ aside.notes { display: none; }
   .slide, .slide.active { position: relative; display: flex!important; width: 16in; height: 9in; break-after: page; page-break-after: always; animation: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   [data-step] { opacity: 1!important; transform: none!important; filter: none!important; }
 }
+
+.ros-equation { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; margin: 3vh 0; }.ros-equation span { display: grid; flex: 1 1 0; gap: .4rem; min-width: 8rem; padding: 1.2rem; background: var(--bg-2); border: 1px solid var(--line); text-align: center; }.ros-equation span:first-child strong { color: var(--cyan); }.ros-equation small { color: var(--muted); font-size: .8rem; }.ros-equation b { color: var(--cyan); font-size: 2rem; }
+.history-label { margin: .4rem 0 .9rem; color: var(--muted); font: 500 .76rem "IBM Plex Mono", monospace; text-transform: uppercase; }
+.history { display: grid; grid-template-columns: repeat(5,1fr); gap: 1rem; margin-bottom: 1.4rem; border-top: 2px solid var(--line); }.history div { position: relative; padding-top: 1rem; }.history div::before { content: ""; position: absolute; top: -.5rem; left: 0; width: .8rem; height: .8rem; border-radius: 50%; background: var(--orange); }.history.ros2 div::before { background: var(--cyan); }.history time { color: var(--orange); font: 600 .82rem "IBM Plex Mono", monospace; }.history.ros2 time { color: var(--cyan); }.history strong { display: block; margin: .2rem 0; font-size: clamp(.9rem, 1.2vw, 1.15rem); }.history span { display: block; color: var(--muted); font-size: .8rem; line-height: 1.35; }
+.dds-stack { width: 100%; }.dds-stack div { grid-template-columns: 7rem 1fr; }.dds-stack small { display: none; }
+@media (max-width: 680px) { .history { grid-template-columns: 1fr 1fr; } }

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
@@ -62,6 +62,43 @@
       <aside class="notes">This agenda follows the supplied Phase I programme. Breaks are scheduled between each 90-minute block.</aside>
     </section>
 
+    <section class="slide" data-section="Welcome" data-title="Install ROS 2 Jazzy">
+      <div class="slide-head"><p class="eyebrow">Setup · Ubuntu 24.04</p><h2>Install ROS 2 Jazzy</h2></div>
+      <div class="split">
+        <ol class="steps"><li>Set a UTF-8 locale.</li><li>Enable the Ubuntu universe repository.</li><li>Add the ROS 2 apt source.</li><li>Install the desktop and developer tools.</li><li>Source the setup file in every terminal.</li></ol>
+        <pre><code><span class="comment"># 1-2. Locale and universe</span>
+sudo apt update &amp;&amp; sudo apt install locales software-properties-common curl
+sudo locale-gen en_US en_US.UTF-8
+sudo add-apt-repository universe
+
+<span class="comment"># 3. ROS 2 apt source</span>
+export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}')
+curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release &amp;&amp; echo $VERSION_CODENAME)_all.deb"
+sudo dpkg -i /tmp/ros2-apt-source.deb
+
+<span class="comment"># 4. Install</span>
+sudo apt update &amp;&amp; sudo apt upgrade
+sudo apt install ros-jazzy-desktop ros-dev-tools</code></pre>
+      </div>
+      <aside class="notes">Follow docs.ros.org/en/jazzy/Installation/Ubuntu-Install-Debs.html if anything differs. ros-jazzy-desktop includes RViz and demos; ros-jazzy-ros-base is the smaller option for robots without a screen.</aside>
+    </section>
+
+    <section class="slide" data-section="Welcome" data-title="Set up the environment">
+      <div class="slide-head"><p class="eyebrow">After installing</p><h2>Set up the environment</h2></div>
+      <div class="split">
+        <pre><code><span class="comment"># 5. Source ROS 2 in this terminal</span>
+source /opt/ros/jazzy/setup.bash
+
+<span class="comment"># ...and in every new terminal</span>
+echo "source /opt/ros/jazzy/setup.bash" &gt;&gt; ~/.bashrc
+
+<span class="comment"># Optional: Gazebo Harmonic integration</span>
+sudo apt install ros-jazzy-ros-gz</code></pre>
+        <div><h3>Why source?</h3><ul class="arrow-list"><li>Adds <code>ros2</code> to your <code>PATH</code></li><li>Sets <code>ROS_DISTRO=jazzy</code></li><li>Lets Python and C++ find ROS packages</li></ul><p class="callout warning">Most "command not found" errors mean the terminal was not sourced.</p></div>
+      </div>
+      <aside class="notes">Next slide verifies the install with talker and listener. Do not source two distributions in the same terminal.</aside>
+    </section>
+
     <section class="slide" data-section="Welcome" data-title="Lab baseline">
       <div class="slide-head"><p class="eyebrow">Before the first lab</p><h2>Lab baseline</h2></div>
       <div class="split">
@@ -100,6 +137,52 @@ ros2 topic echo /chatter</code></pre>
       <aside class="notes">Begin the first 90-minute block. Use 35 minutes for concepts, 20 minutes for the graph demo, and 35 minutes for the hands-on task.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Architecture" data-title="What is ROS 2?">
+      <div class="slide-head"><p class="eyebrow">The ROS equation</p><h2>What is ROS 2?</h2></div>
+      <div class="ros-equation">
+        <span><strong>ROS 2</strong></span><b>=</b>
+        <span data-step><strong>Plumbing</strong><small>nodes, topics, services, actions</small></span><b>+</b>
+        <span data-step><strong>Tools</strong><small>CLI, RViz, rqt, rosbag, launch</small></span><b>+</b>
+        <span data-step><strong>Capabilities</strong><small>Nav2, MoveIt 2, ros2_control, TF2</small></span><b>+</b>
+        <span data-step><strong>Community</strong><small>packages, docs, ROS Discourse, ROSCon</small></span>
+      </div>
+      <p class="takeaway">ROS 2 is not an operating system. It is open-source middleware, libraries, and tools that run on top of Linux, Windows, macOS, and RTOS targets.</p>
+      <aside class="notes">Reveal one term at a time. The point: participants reuse plumbing, tools, and capabilities so they can focus on their robot's unique problem.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="History of ROS and ROS 2">
+      <div class="slide-head"><p class="eyebrow">From a lab project to an industry standard</p><h2>History of ROS and ROS 2</h2></div>
+      <h3 class="history-label">ROS 1 era</h3>
+      <div class="history">
+        <div><time>2007</time><strong>Stanford STAIR</strong><span>Switchyard prototype, then Willow Garage starts ROS</span></div>
+        <div><time>2010</time><strong>ROS 1.0 Box Turtle</strong><span>First distribution, built around the PR2 robot</span></div>
+        <div><time>2012</time><strong>OSRF founded</strong><span>Open Source Robotics Foundation; first ROSCon</span></div>
+        <div><time>2014</time><strong>Indigo LTS</strong><span>ROS spreads to industry; ROS 2 design work starts</span></div>
+        <div><time>2020</time><strong>Noetic</strong><span>Last ROS 1 release; end of life May 2025</span></div>
+      </div>
+      <h3 class="history-label">ROS 2 era</h3>
+      <div class="history ros2">
+        <div data-step><time>2017</time><strong>Ardent Apalone</strong><span>First ROS 2 release, built on DDS</span></div>
+        <div data-step><time>2020</time><strong>Foxy Fitzroy</strong><span>LTS; ROS 2 becomes the recommended choice</span></div>
+        <div data-step><time>2022</time><strong>Humble Hawksbill</strong><span>LTS; widely used in products</span></div>
+        <div data-step><time>2024</time><strong>Jazzy Jalisco</strong><span>LTS on Ubuntu 24.04 · used in this workshop</span></div>
+        <div data-step><time>2026</time><strong>Lyrical Luth</strong><span>Newest LTS; Kilted Kaiju (2025) in between</span></div>
+      </div>
+      <aside class="notes">ROS distributions are alphabetical and release every May. Even years are LTS releases with five years of support. Mention that Open Robotics joined Intrinsic in 2022, and the OSRF continues to steward ROS.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="Why ROS 2?">
+      <div class="slide-head"><p class="eyebrow">Why a new version</p><h2>Why ROS 2?</h2></div>
+      <div class="learning-loop">
+        <div data-step><span>01</span><strong>No single point of failure</strong><p>ROS 1 needed a central master. ROS 2 nodes discover each other directly.</p></div>
+        <div data-step><span>02</span><strong>Real products</strong><p>Security, real-time support, lifecycle nodes, and long-term support releases.</p></div>
+        <div data-step><span>03</span><strong>Real networks</strong><p>QoS handles lossy Wi-Fi, multiple robots, and high-rate sensor data.</p></div>
+        <div data-step><span>04</span><strong>More platforms</strong><p>Linux, Windows, macOS, and microcontrollers through micro-ROS.</p></div>
+      </div>
+      <p class="callout">ROS 1 reached end of life in May 2025. New projects should start on ROS 2.</p>
+      <aside class="notes">ROS 1 was designed for research with one robot, a reliable network, and a single workstation. Those assumptions do not hold in fleets, factories, or embedded products, so ROS 2 was redesigned rather than patched.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Architecture" data-title="One robot, many programs">
       <div class="slide-head"><p class="eyebrow">Why ROS 2 exists</p><h2>One robot, many programs</h2></div>
       <div class="robot-programs">
@@ -136,6 +219,65 @@ ros2 topic echo /chatter</code></pre>
       </div>
       <p class="takeaway">Nodes discover peers automatically when their domain, network, and interface contracts match.</p>
       <aside class="notes">DDS is the common default middleware family, but ROS 2 exposes a middleware abstraction. Avoid treating DDS as the only possible implementation.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="ROS 1 vs ROS 2 architecture">
+      <div class="slide-head"><p class="eyebrow">Centralized vs distributed</p><h2>ROS 1 vs ROS 2 architecture</h2></div>
+      <div class="compare">
+        <article><p class="compare-label">ROS 1</p><h3>Master-based discovery</h3><p>Every node registers with <code>roscore</code>. If the master stops, new connections cannot be made.</p><code>node → roscore → node</code><small>Custom TCPROS / UDPROS transport</small></article>
+        <article><p class="compare-label">ROS 2</p><h3>Peer-to-peer discovery</h3><p>Nodes find each other through DDS discovery. There is no master to start or lose.</p><code>node ⇄ DDS ⇄ node</code><small>Standard DDS / RTPS transport with QoS</small></article>
+      </div>
+      <aside class="notes">Ask participants who has seen "Unable to communicate with master". In ROS 2, there is no roscore command at all.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="ROS 1 vs ROS 2 comparison">
+      <div class="slide-head"><p class="eyebrow">Side by side</p><h2>ROS 1 vs ROS 2</h2></div>
+      <div class="pattern-table" role="table" aria-label="ROS 1 and ROS 2 comparison">
+        <div class="table-row header"><span>Feature</span><span>ROS 1</span><span>ROS 2</span></div>
+        <div class="table-row"><strong>Discovery</strong><span>Central ROS master</span><span>Distributed, through DDS</span></div>
+        <div class="table-row"><strong>Transport</strong><span>TCPROS / UDPROS</span><span>DDS / RTPS, plus Zenoh</span></div>
+        <div class="table-row"><strong>QoS</strong><span>Not available</span><span>Reliability, durability, history, deadline</span></div>
+        <div class="table-row"><strong>Real-time</strong><span>Not designed for it</span><span>Supported with a suitable OS and executor</span></div>
+        <div class="table-row"><strong>Security</strong><span>None built in</span><span>SROS2: authentication and encryption</span></div>
+        <div class="table-row"><strong>Platforms</strong><span>Mainly Ubuntu</span><span>Ubuntu, Windows, macOS, RTOS</span></div>
+        <div class="table-row"><strong>Build</strong><span>catkin, rosbuild</span><span>colcon with ament</span></div>
+        <div class="table-row"><strong>Python</strong><span>Python 2, later 3</span><span>Python 3 only</span></div>
+        <div class="table-row"><strong>Launch</strong><span>XML only</span><span>Python, XML, or YAML</span></div>
+      </div>
+      <aside class="notes">ros1_bridge can connect ROS 1 and ROS 2 systems during migration, but ROS 1 is now end of life.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="What is DDS?">
+      <div class="slide-head"><p class="eyebrow">Data Distribution Service</p><h2>What is DDS?</h2></div>
+      <div class="split">
+        <div>
+          <ul class="check-list"><li>An open standard from the Object Management Group (OMG)</li><li>Data-centric publish-subscribe</li><li>Automatic discovery with no broker</li><li>Rich Quality of Service policies</li><li>Wire protocol: RTPS over UDP</li><li>Proven in defense, aerospace, and finance</li></ul>
+        </div>
+        <div class="layers dds-stack">
+          <div data-step><span>Node</span><strong>rclcpp / rclpy</strong><small>your code</small></div>
+          <div data-step><span>rcl + rmw</span><strong>ROS middleware API</strong><small>hides the vendor</small></div>
+          <div data-step><span>DDS</span><strong>Global data space</strong><small>discovery, QoS</small></div>
+          <div data-step><span>RTPS</span><strong>UDP / shared memory</strong><small>on the wire</small></div>
+        </div>
+      </div>
+      <p class="takeaway">ROS 2 did not invent a new transport. It reused an industrial standard and put the rmw layer in front of it.</p>
+      <aside class="notes">Because rmw abstracts the vendor, the same node binary works with different DDS implementations. Interoperability between vendors works over RTPS, but mixing vendors in one system is not recommended.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="Types of DDS">
+      <div class="slide-head"><p class="eyebrow">rmw implementations</p><h2>Types of DDS</h2></div>
+      <div class="pattern-table" role="table" aria-label="ROS 2 middleware implementations">
+        <div class="table-row header"><span>Implementation</span><span>Provider · license</span><span>rmw package</span></div>
+        <div class="table-row"><strong>Fast DDS</strong><span>eProsima · Apache 2.0 · default in Jazzy</span><span><code>rmw_fastrtps_cpp</code></span></div>
+        <div class="table-row"><strong>Cyclone DDS</strong><span>Eclipse Foundation · EPL 2.0</span><span><code>rmw_cyclonedds_cpp</code></span></div>
+        <div class="table-row"><strong>Connext DDS</strong><span>RTI · commercial, free for research</span><span><code>rmw_connextdds</code></span></div>
+        <div class="table-row"><strong>GurumDDS</strong><span>GurumNetworks · commercial</span><span><code>rmw_gurumdds_cpp</code></span></div>
+        <div class="table-row"><strong>Zenoh</strong><span>Eclipse · not DDS, router-based</span><span><code>rmw_zenoh_cpp</code></span></div>
+      </div>
+      <pre class="wide-code"><code><span class="comment"># Choose the middleware per terminal</span>
+export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+ros2 doctor --report | grep middleware</code></pre>
+      <aside class="notes">All nodes in a system should use the same RMW. Install alternatives with apt, for example ros-jazzy-rmw-cyclonedds-cpp. Zenoh became a Tier 1 option from Kilted Kaiju and suits Wi-Fi and cloud links.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Architecture" data-title="Names, namespaces, and domains">
