@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=9">
+  <link rel="stylesheet" href="styles.css?v=10">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
@@ -347,13 +347,17 @@ rqt_graph</code></pre>
 
     <section class="slide" data-section="Day 1 · Topics" data-title="Publish and subscribe">
       <div class="slide-head"><p class="eyebrow">Asynchronous streams</p><h2>Publish and subscribe</h2></div>
-      <div class="pubsub">
-        <div class="producer"><small>publisher</small><strong>/lidar</strong></div>
-        <div class="topic-flow"><span>sensor_msgs/msg/LaserScan</span><b>/scan</b><span>10 Hz</span></div>
-        <div class="subscribers"><div><small>subscriber</small><strong>/mapper</strong></div><div><small>subscriber</small><strong>/obstacle_monitor</strong></div></div>
-      </div>
+      <svg class="ros-anim" viewBox="0 0 900 260" role="img" aria-label="The /lidar publisher sends LaserScan messages on the /scan topic and every message reaches both subscribers, /mapper and /obstacle_monitor">
+        <path class="wire" d="M200,130 L360,130"/><path class="wire" d="M540,130 C620,130 620,65 700,65"/><path class="wire" d="M540,130 C620,130 620,195 700,195"/>
+        <rect class="node" x="20" y="95" width="180" height="70" rx="6"/><text class="k" x="110" y="119">publisher</text><text x="110" y="141">/lidar</text>
+        <rect class="pill topic" x="360" y="100" width="180" height="60" rx="30"/><text class="k" x="450" y="118">topic</text><text x="450" y="140">/scan</text>
+        <rect class="node" x="700" y="30" width="180" height="70" rx="6"/><text class="k" x="790" y="54">subscriber</text><text x="790" y="76">/mapper</text>
+        <rect class="node" x="700" y="160" width="180" height="70" rx="6"/><text class="k" x="790" y="184">subscriber</text><text x="790" y="206">/obstacle_monitor</text>
+        <g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="4.5s" repeatCount="indefinite" calcMode="linear" path="M200,130 L540,130 C620,130 620,65 700,65" keyPoints="0;0;1;1" keyTimes="0;0.01;0.31;1"/><animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.01;0.31"/></g><g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="4.5s" repeatCount="indefinite" calcMode="linear" path="M200,130 L540,130 C620,130 620,195 700,195" keyPoints="0;0;1;1" keyTimes="0;0.01;0.31;1"/><animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.01;0.31"/></g><g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="4.5s" repeatCount="indefinite" calcMode="linear" path="M200,130 L540,130 C620,130 620,65 700,65" keyPoints="0;0;1;1" keyTimes="0;0.34;0.64;1"/><animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.34;0.64"/></g><g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="4.5s" repeatCount="indefinite" calcMode="linear" path="M200,130 L540,130 C620,130 620,195 700,195" keyPoints="0;0;1;1" keyTimes="0;0.34;0.64;1"/><animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.34;0.64"/></g><g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="4.5s" repeatCount="indefinite" calcMode="linear" path="M200,130 L540,130 C620,130 620,65 700,65" keyPoints="0;0;1;1" keyTimes="0;0.67;0.97;1"/><animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.67;0.97"/></g><g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="4.5s" repeatCount="indefinite" calcMode="linear" path="M200,130 L540,130 C620,130 620,195 700,195" keyPoints="0;0;1;1" keyTimes="0;0.67;0.97;1"/><animate attributeName="opacity" dur="4.5s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.67;0.97"/></g>
+      </svg>
+      <div class="anim-legend"><span><i class="req"></i>sensor_msgs/msg/LaserScan message · 10 Hz</span></div>
       <p class="takeaway">Publishers do not address subscribers directly. They write typed samples to a named topic.</p>
-      <aside class="notes">Emphasize one-to-many and many-to-many communication. The topic name and type form the primary contract, with QoS completing it.</aside>
+      <aside class="notes">Watch one square: it splits at the topic, so every subscriber receives its own copy. The publisher never waits for a reply. Emphasize one-to-many and many-to-many communication. The topic name and type form the primary contract, with QoS completing it.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Topics" data-title="A message journey">

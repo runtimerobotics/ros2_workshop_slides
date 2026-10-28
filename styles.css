@@ -113,9 +113,6 @@ code { font-family: "IBM Plex Mono", monospace; }
 .steps { counter-reset: lab; list-style: none; padding: 0; }.steps li { counter-increment: lab; position: relative; padding: .45rem 0 .45rem 2.8rem; }.steps li::before { content: counter(lab, decimal-leading-zero); position: absolute; left: 0; color: var(--orange); font: 600 .78rem "IBM Plex Mono", monospace; }
 .success, .challenge { margin-top: 1.1rem; padding: .8rem 1rem; border-left: 3px solid var(--cyan); background: rgba(88,224,210,.07); font-size: .9rem; }.challenge { border-color: var(--orange); background: rgba(255,177,90,.07); }
 
-.pubsub { display: grid; grid-template-columns: 1fr 1.25fr 1fr; align-items: center; gap: 1rem; margin: 7vh 0; }
-.producer, .subscribers div { padding: 1.2rem; border: 1px solid var(--line); background: var(--bg-2); text-align: center; }.producer small, .subscribers small { display: block; color: var(--muted); font: .72rem "IBM Plex Mono", monospace; }.producer strong, .subscribers strong { display: block; margin-top: .3rem; font-size: 1.2rem; }.subscribers { display: grid; gap: .8rem; }
-.topic-flow { position: relative; display: grid; place-items: center; gap: .25rem; color: var(--muted); font: .68rem "IBM Plex Mono", monospace; }.topic-flow::before { content: ""; position: absolute; width: 100%; height: 2px; background: var(--cyan); }.topic-flow::after { content: ""; position: absolute; right: -1px; border: 6px solid transparent; border-left-color: var(--cyan); }.topic-flow b { z-index: 1; padding: .5rem .8rem; background: var(--cyan); color: var(--bg); border-radius: 99px; font-size: .8rem; }.topic-flow span { z-index: 1; background: var(--bg); padding: 0 .3rem; }
 .command-map { display: grid; grid-template-columns: repeat(2,1fr); gap: .7rem 2rem; }.command-map div { display: grid; grid-template-columns: 1.4fr 1fr; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--line); }.command-map code { color: var(--cyan); font-size: clamp(.72rem, 1vw, 1rem); }.command-map p { margin: 0; color: var(--muted); font-size: .84rem; }
 
 .pattern-table { width: min(68rem,100%); margin: 2vh auto; border-top: 1px solid var(--line); }.table-row { display: grid; grid-template-columns: .7fr 1.5fr 1.2fr; border-bottom: 1px solid var(--line); }.table-row > * { padding: .9rem 1rem; font-size: clamp(.8rem, 1.1vw, 1.1rem); }.table-row.header { color: var(--muted); font: 500 .72rem "IBM Plex Mono", monospace; text-transform: uppercase; }.table-row strong { color: var(--cyan); }
@@ -168,7 +165,7 @@ kbd { padding: .15rem .4rem; border: 1px solid var(--line); border-radius: .25re
 .slide.active :is(.pipeline > div,.debug-order > div):nth-child(5) { animation-delay: .32s; }
 .slide.active .debug-order > div:nth-child(6) { animation-delay: .40s; }
 .slide.active .orbit-core { animation: soft-pulse 2.8s ease-in-out infinite; }
-.slide.active .graph-edge, .slide.active .topic-flow::before { background-image: linear-gradient(90deg,transparent 0 30%,rgba(255,255,255,.75) 50%,transparent 70%); background-size: 22px 100%; animation: dash-move .9s linear infinite; }
+.slide.active .graph-edge { background-image: linear-gradient(90deg,transparent 0 30%,rgba(255,255,255,.75) 50%,transparent 70%); background-size: 22px 100%; animation: dash-move .9s linear infinite; }
 .slide.active .cspace .path { animation: soft-pulse 2.4s ease-in-out infinite; }
 
 /* Additional beginner bridge slides */
@@ -226,7 +223,7 @@ aside.notes { display: none; }
   .agenda-days { overflow-y: auto; }.compact-grid, .sensor-list, .geometry-roles { grid-template-columns: 1fr 1fr; }
   .qos-spectrum { grid-template-columns: 1fr; }.qos-axis { display: none; }
   .layers div { grid-template-columns: 1fr; gap: .3rem; }.graph-stage { transform: scale(.8); transform-origin: center; }
-  .pubsub, .bridge-diagram, .space-map, .moveit-map { grid-template-columns: 1fr; }.topic-flow { height: 5rem; }.topic-flow::before { width: 2px; height: 100%; }.topic-flow::after { right: 50%; bottom: -5px; top: auto; transform: rotate(90deg); }
+  .bridge-diagram, .space-map, .moveit-map { grid-template-columns: 1fr; }
   .command-map { grid-template-columns: 1fr; }.table-row { grid-template-columns: .55fr 1fr 1fr; }.table-row > * { padding: .55rem; }
   .simulation-loop, .stack-flow, .control-loop { display: grid; grid-template-columns: 1fr 1fr; }.simulation-loop i, .stack-flow i, .control-loop i { display: none; }
   .validation-ladder, .sensor-contract, .debug-order { grid-template-columns: 1fr 1fr; }.tf-tree, .kinematic-chain { transform: scale(.7); transform-origin: center; }
