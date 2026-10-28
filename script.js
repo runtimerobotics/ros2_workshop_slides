@@ -39,6 +39,7 @@
     const note = slides[index].querySelector('.notes');
     notesContent.textContent = note ? note.textContent.trim() : 'No speaker notes for this slide.';
     renderSteps();
+    slides[index].querySelectorAll('svg.ros-anim').forEach(svg => svg.setCurrentTime(0));
     if (updateHash) history.replaceState(null, '', `#${index + 1}`);
   }
 
