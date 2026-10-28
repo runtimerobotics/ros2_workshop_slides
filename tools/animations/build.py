@@ -898,6 +898,190 @@ b += [at(f'<text class="code hot" x="{X(1.38)}" y="164">long callback</text>', .
       cap("ready every 0.5 s · run when the thread is free", 0, 1, d, 260, 190)]
 svgs["Timers schedule callbacks"] = svg(200, "A timer fires every 0.5 seconds and a single executor thread runs each short callback. The third callback runs long, so the fourth starts a quarter of a second late.", "".join(b), vb_w=460)
 
+# ======================================================================
+# Concept diagrams (Day 2)
+# ======================================================================
+import math
+
+def pill(cx, cy, text, w=140, cls="pill", h=40):
+    return f'<rect class="{cls}" x="{cx - w / 2}" y="{cy - h / 2}" width="{w}" height="{h}" rx="{h / 2}"/><text class="s" x="{cx}" y="{cy}">{text}</text>'
+
+def axes2d(x, y, ang, L=46, lbl=""):
+    # x axis (pink) at angle ang (degrees, SVG y down), y axis (cyan) 90° counter-clockwise
+    a = math.radians(ang); bx, by = x + L * math.cos(a), y - L * math.sin(a); cx, cy = x - L * math.sin(a), y - L * math.cos(a)
+    return (f'<line class="ax-x" x1="{x}" y1="{y}" x2="{bx:.1f}" y2="{by:.1f}"/><line class="ax-y" x1="{x}" y1="{y}" x2="{cx:.1f}" y2="{cy:.1f}"/>'
+            f'<circle class="joint" cx="{x}" cy="{y}" r="4"/><text class="code" x="{bx + 4:.1f}" y="{by + 4:.1f}">x</text><text class="code" x="{cx - 4:.1f}" y="{cy - 6:.1f}">y</text>'
+            + (f'<text class="k" x="{x}" y="{y + 22}">{lbl}</text>' if lbl else ''))
+
+# ---------- A tree of coordinate frames ----------
+d = "12s"
+F = {"map": (70, 125), "odom": (250, 125), "base_link": (440, 125), "lidar_link": (700, 45), "camera_link": (700, 125), "tool0": (700, 205)}
+E = [("map", "odom", "res", "localization · /tf"), ("odom", "base_link", "req", "odometry · /tf"), ("base_link", "lidar_link", "fb", ""), ("base_link", "camera_link", "fb", ""), ("base_link", "tool0", "fb", "")]
+b = []
+for p_, c, cls, lbl in E:
+    (x1, y1), (x2, y2) = F[p_], F[c]
+    path = f"M{x1 + 70},{y1} L{x2 - 70},{y2}" if y1 == y2 else f"M{x1 + 70},{y1} C{x1 + 140},{y1} {x2 - 150},{y2} {x2 - 70},{y2}"
+    b.append(f'<path class="wire" d="{path}"/>')
+    if lbl: b.append(f'<text class="k" x="{(x1 + x2) / 2}" y="{y1 - 30}">{lbl}</text>')
+    if cls == "fb": b.append(packet("fb", path, .02, .1, d))
+    elif cls == "req":
+        for k in range(10): t0 = round(.12 + k * .085, 3); b.append(packet("req", path, t0, round(t0 + .05, 3), d))
+    else:
+        for t0 in (.2, .55, .85): b.append(packet("res", path, t0, round(t0 + .06, 3), d))
+b.append('<text class="k" x="560" y="246">robot_state_publisher · /tf_static (once)</text>')
+for n, (x, y) in F.items(): b.append(pill(x, y, n, 140, "pill topic" if n in ("lidar_link", "camera_link", "tool0") else "pill"))
+CH = "M70,125 L250,125 L440,125 C580,125 560,125 630,125 L700,125"
+b += [f'<path d="{CH}" fill="none" stroke="var(--orange)" stroke-width="6" stroke-linecap="round" opacity="0">{vis(.62, .95, d)}</path>',
+      flash(0, 105, 140, 40, .62, d, 20), flash(630, 105, 140, 40, .66, d, 20),
+      cap("static mounts: published once on /tf_static", 0, .12, d, 450, 280), cap("odometry streams odom → base_link; localization corrects map → odom", .12, .6, d, 450, 280),
+      cap("lookup_transform('map', 'camera_link'): three transforms chained", .6, 1, d, 450, 280)]
+svgs["A tree of coordinate frames"] = svg(290, "A frame tree: map to odom to base_link, which has three children, lidar_link, camera_link and tool0. Static transforms to the children are published once; odom to base_link streams continuously and map to odom updates now and then. Finally the chain from map to camera_link lights up as one lookup.", "".join(b), " tall")
+
+# ---------- Coordinate axes and rotation ----------
+d = "10s"
+b = [axes2d(200, 180, 0, 70, "base_link"), '<circle cx="200" cy="180" r="9" fill="none" stroke="var(--blue)" stroke-width="2"/><text class="code" x="214" y="206">z ⊙ up</text>']
+cam = (f'<g>{axes2d(0, 0, 0, 56)}<rect class="block app" x="-14" y="-10" width="28" height="20" rx="3"/>'
+       f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;{EASE};0 0 1 1;{EASE}" values="0;0;-90;-90;0" keyTimes="0;.42;.6;.92;1"/></g>')
+b.append(f'<g transform="translate(200 180)"><g>{cam}<animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;{EASE};0 0 1 1;{EASE}" values="0 0;0 0;260 -90;260 -90;0 0" keyTimes="0;.1;.3;.92;1"/></g></g>')
+b += [at('<text class="k" x="460" y="58">camera_link</text>', .3, .92, d),
+      '<path class="trail" d="M200,180 L460,90"/>',
+      term(600, 40, 290, 150, "static transform"),
+      typed(614, 84, "x  0.26  (forward)", .12, d, .05), typed(614, 108, "y  0.09  (left)", .18, d, .05), typed(614, 132, "z  0.30  (up)", .24, d, .05),
+      typed(614, 166, "yaw  -1.571  (-90°)", .5, d, .05, None, "code hot"),
+      cap("translate: where the frame's origin is", .05, .4, d, 450, 252), cap("rotate: which way its axes point · right-hand rule about z", .4, .92, d, 450, 252)]
+svgs["Coordinate axes and rotation"] = svg(262, "Top view of base_link axes, x forward and y left, with z up out of the page. A camera_link frame moves to 0.26 m forward, 0.09 m left and 0.30 m up, then rotates -90 degrees about z; a panel lists the translation and the yaw.", "".join(b), " tall")
+
+# ---------- Static and dynamic transforms ----------
+d = "10s"
+b = [box(10, 10, 430, 230, "", cls="node", rx=10), '<text class="s" x="225" y="34">/tf_static · fixed mounting</text>',
+     box(460, 10, 430, 230, "", cls="node", rx=10), '<text class="s" x="675" y="34">/tf · changing pose</text>',
+     pill(110, 90, "publisher", 150), box(270, 66, 150, 48, "latched", "transient local", "block app"),
+     packet("fb", "M185,90 L270,90", .05, .12, d), at('<text class="code ok" x="200" y="132">published once</text>', .12, .45, d),
+     at(pill(110, 190, "rviz2", 120), .02, 1, d), packet("fb", "M345,114 L345,190 L170,190", .14, .24, d),
+     at(pill(345, 190, "late node", 130, "pill topic"), .55, 1, d), packet("fb", "M345,114 L345,170", .6, .68, d), flash(280, 170, 130, 40, .68, d, 20),
+     at('<text class="code ok" x="230" y="226">a late joiner still gets it</text>', .68, 1, d)]
+# dynamic: a wheel turning, stamped messages streaming
+b += [f'<g transform="translate(560 120)"><g><circle class="wheel" r="34"/><line x1="0" y1="0" x2="30" y2="0" stroke="var(--cyan)" stroke-width="3"/>'
+      f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" values="0;1440"/></g></g>',
+      '<text class="k" x="560" y="176">wheel_joint</text>', '<path class="trail" d="M600,120 L860,120"/>']
+for k in range(14):
+    t0 = round(.02 + k * .066, 3)
+    b.append(packet("req", "M600,120 L860,120", t0, round(t0 + .1, 3), d))
+    b.append(at(f'<text class="code" x="700" y="{205}">stamp {12.0 + k * .05:.2f} s</text>', round(t0 + .1, 3), round(t0 + .166, 3) if k < 13 else 1, d))
+b.append('<text class="k" x="760" y="100">every update, timestamped</text>')
+svgs["Static and dynamic transforms"] = svg(250, "Left: a static transform is published once, held with transient local durability, and delivered to rviz2 and to a node that joins later. Right: a turning wheel joint publishes transforms continuously, each with a new timestamp.", "".join(b), " tall")
+
+# ---------- One link, three models ----------
+d = "8s"
+LINK = "M-60,-14 L40,-18 Q62,-18 64,0 Q62,18 40,18 L-60,14 Q-74,0 -60,-14 Z"
+b = [box(10, 10, 280, 220, "", cls="node", rx=10), box(310, 10, 280, 220, "", cls="node", rx=10), box(610, 10, 280, 220, "", cls="node", rx=10),
+     '<text class="s" x="150" y="34">Visual</text><text class="s" x="450" y="34">Collision</text><text class="s" x="750" y="34">Inertial</text>']
+# visual: detailed shape, gently turning
+b.append(f'<g transform="translate(150 125)"><g><path d="{LINK}" fill="rgba(106,168,255,.35)" stroke="var(--blue)" stroke-width="2"/>'
+         '<circle cx="-50" cy="0" r="7" fill="none" stroke="var(--ink)"/><circle cx="46" cy="0" r="9" fill="none" stroke="var(--ink)"/>'
+         '<path d="M-30,-8 L20,-10 M-30,8 L20,10" stroke="rgba(255,255,255,.35)"/>'
+         f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" values="-12;12;-12"/></g></g>')
+# collision: simple boxes; a ball bounces on them
+b += [f'<path d="{LINK}" transform="translate(450 150)" fill="none" stroke="rgba(255,255,255,.2)"/>',
+      '<rect x="384" y="134" width="132" height="32" rx="4" fill="rgba(255,177,90,.3)" stroke="var(--orange)" stroke-width="2"/>',
+      f'<circle class="res" cx="450" cy="60" r="10"><animate attributeName="cy" dur="1.6s" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 .5 1" values="60;124;60" keyTimes="0;.5;1"/></circle>',
+      '<text class="k" x="450" y="200">simple shape · fast contact</text>']
+# inertial: a pendulum about the joint, centre of mass marked
+b += [f'<g transform="translate(700 70)"><g><path d="{LINK}" transform="translate(66 0)" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.3)"/>'
+      '<circle cx="62" cy="0" r="7" fill="var(--pink)"/><ellipse cx="62" cy="0" rx="34" ry="14" fill="none" stroke="var(--pink)" stroke-dasharray="4 3"/>'
+      '<text class="code" x="50" y="34">m = 1.2 kg</text>'
+      f'<animateTransform attributeName="transform" type="rotate" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1" values="20;160;20" keyTimes="0;.5;1"/></g></g>',
+      '<circle class="joint" cx="700" cy="70" r="6"/>', '<text class="k" x="750" y="218">mass · centre · inertia</text>']
+svgs["One link, three models"] = svg(240, "Three views of the same link. Visual: a detailed shape, gently turning. Collision: a simple box that a ball bounces on. Inertial: the link swings like a pendulum about its joint, with its centre of mass and inertia ellipse marked.", "".join(b), " tall")
+
+# ---------- From URDF to TF ----------
+d = "10s"
+b = [term(10, 20, 200, 120, "arm.urdf.xacro"), shown(22, 60, "&lt;link name=\"link1\"/&gt;", 0, d), shown(22, 82, "&lt;joint type=\"revolute\"&gt;", 0, d), shown(22, 104, "&lt;xacro:arm .../&gt;", 0, d),
+     pill(320, 80, "robot_description", 170, "pill topic"), pill(530, 80, "robot_state_publisher", 200), pill(530, 200, "/joint_states", 160, "pill topic"),
+     pill(760, 80, "/tf · /tf_static", 160, "pill topic"),
+     box(30, 170, 170, 70, "", cls="block", rx=6), '<text class="k" x="115" y="186">joint_state_publisher_gui</text>', '<line x1="50" y1="214" x2="180" y2="214" stroke="var(--line)" stroke-width="4"/>',
+     wire("M210,80 L235,80"), wire("M405,80 L430,80"), wire("M630,80 L680,80"), wire("M200,214 L450,200"), wire("M530,180 L530,100")]
+KEYS = "0;.25;.5;.75;1"
+b.append(f'<circle class="pulse" cx="115" cy="214" r="9"><animate attributeName="cx" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};{EASE};{EASE};{EASE}" values="70;160;90;150;70" keyTimes="{KEYS}"/></circle>')
+b += [packet("fb", "M210,80 L235,80", .02, .06, d), packet("fb", "M405,80 L430,80", .07, .11, d)]
+for k in range(10):
+    t0 = round(.12 + k * .085, 3)
+    b += [packet("req", "M200,214 L450,200", t0, round(t0 + .04, 3), d), packet("req", "M530,180 L530,100", round(t0 + .04, 3), round(t0 + .07, 3), d), packet("res", "M630,80 L680,80", round(t0 + .07, 3), round(t0 + .1, 3), d)]
+# RViz arm following the slider
+arm = (f'<g transform="translate(760 230)"><rect class="robot-part" x="-20" y="0" width="40" height="8"/><g>'
+       '<rect class="arm" x="-5" y="-60" width="10" height="60" rx="5"/><circle class="joint" r="5"/>'
+       f'<g transform="translate(0 -60)"><g><rect class="arm" x="-4" y="-46" width="8" height="46" rx="4"/><circle class="joint" r="4"/>'
+       f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};{EASE};{EASE};{EASE}" values="40;-30;20;-20;40" keyTimes="{KEYS}"/></g></g>'
+       f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};{EASE};{EASE};{EASE}" values="-40;35;-20;25;-40" keyTimes="{KEYS}"/></g></g>')
+b += [arm, '<text class="k" x="760" y="258">RViz2</text>',
+      cap("xacro expands the file into one URDF string", 0, .12, d, 450, 280), cap("move a joint: /joint_states → robot_state_publisher → /tf → RViz", .12, 1, d, 450, 280)]
+svgs["From URDF to TF"] = svg(290, "A xacro file becomes the robot_description parameter of robot_state_publisher. A joint_state_publisher_gui slider moves and publishes /joint_states; robot_state_publisher turns them into /tf, and an arm in RViz2 follows the slider.", "".join(b), " tall")
+
+# ---------- URDF, SDF, and the bridge ----------
+d = "9s"
+b = [box(10, 10, 250, 200, "", cls="node", rx=10), '<text class="s" x="135" y="34">ROS 2</text>', pill(135, 80, "teleop", 150), pill(135, 150, "rviz2", 150),
+     box(330, 60, 240, 100, "ros_gz_bridge", "converts message types", "hub", 10),
+     box(640, 10, 250, 200, "", cls="node", rx=10), '<text class="s" x="765" y="34">Gazebo</text>', pill(765, 80, "robot · diff drive", 180), pill(765, 150, "gpu_lidar sensor", 180),
+     pill(765, 192, "world clock", 130, "pill topic", 26)]
+FL = [("M210,80 L330,90", "M570,90 L675,80", "req", .03, "geometry_msgs/msg/Twist", "gz.msgs.Twist", 92),
+      ("M675,150 L570,130", "M330,130 L210,150", "res", .36, "gz.msgs.LaserScan", "sensor_msgs/msg/LaserScan", 140),
+      ("M700,192 L570,150", "M330,150 L210,186", "fb", .68, "gz.msgs.Clock", "rosgraph_msgs/msg/Clock", 180)]
+for p1, p2, cls, t0, a_, b_, y in FL:
+    b += [f'<path class="trail" d="{p1}"/><path class="trail" d="{p2}"/>', packet(cls, p1, t0, round(t0 + .08, 3), d), flash(330, 60, 240, 100, round(t0 + .08, 3), d, 10),
+          packet(cls, p2, round(t0 + .12, 3), round(t0 + .2, 3), d),
+          at(f'<text class="code" x="345" y="196">{a_}</text><text class="code ok" x="345" y="216">→ {b_}</text>', round(t0 + .06, 3), round(t0 + .3, 3), d)]
+b += [term(10, 232, 880, 66, "ros2 run ros_gz_bridge parameter_bridge …"), shown(22, 262, "/cmd_vel@geometry_msgs/msg/Twist]gz.msgs.Twist   /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock", 0, d),
+      shown(22, 284, "/scan@sensor_msgs/msg/LaserScan[gz.msgs.LaserScan        ] ROS → Gazebo · [ Gazebo → ROS", 0, d)]
+svgs["URDF, SDF, and the bridge"] = svg(304, "ROS 2 on the left, Gazebo on the right, ros_gz_bridge in the middle. /cmd_vel goes from teleop into Gazebo, converted from geometry_msgs Twist to gz.msgs.Twist; the lidar scan and the clock come back, converted into sensor_msgs LaserScan and rosgraph_msgs Clock.", "".join(b), " tall")
+
+# ---------- A sensor is more than geometry ----------
+d = "12s"
+b = ['<rect class="robot" x="120" y="110" width="140" height="100" rx="14"/>', '<text class="k" x="190" y="196">base_link</text>', axes2d(190, 160, 0, 34),
+     '<rect class="block app" x="230" y="70" width="40" height="40" rx="20"/>',
+     '<line x1="40" y1="20" x2="40" y2="250" stroke="#3a4566" stroke-width="10"/>', '<line x1="520" y1="20" x2="520" y2="250" stroke="#3a4566" stroke-width="10"/>']
+STEPS = [("Pose", "x 0.04  z 0.19 from base_link"), ("Frame ID", "header.frame_id: lidar_link"), ("Update rate", "10 Hz: one scan every 0.1 s"), ("Noise", "σ = 1 cm on every range"), ("Topic type", "/scan · sensor_msgs/msg/LaserScan")]
+for i, (k, v) in enumerate(STEPS):
+    t0 = round(.02 + i * .19, 3)
+    b += [at(f'<rect class="block" x="590" y="{20 + i * 46}" width="300" height="40" rx="5"/><text class="s left" x="604" y="{40 + i * 46}">{k}</text>', t0, 1, d),
+          at(f'<text class="code ok" x="700" y="{44 + i * 46}">{v}</text>', round(t0 + .03, 3), 1, d), flash(590, 20 + i * 46, 300, 40, t0, d, 5)]
+b += [at('<path class="trail" d="M190,160 L250,90"/><text class="code" x="270" y="140">offset</text>', .02, 1, d),
+      at('<text class="code hot" x="250" y="60">lidar_link</text>', .21, 1, d)]
+for k in range(5): b.append(ring(250, 90, round(.4 + k * .04, 3), round(.45 + k * .04, 3), d, 20, 70))
+import random
+rnd = random.Random(4)
+pts = "".join(f'<circle class="pulse" cx="{50 + rnd.gauss(0, 3):.1f}" cy="{30 + j * 22}" r="3"/><circle class="pulse" cx="{510 + rnd.gauss(0, 3):.1f}" cy="{30 + j * 22}" r="3"/>' for j in range(10))
+b += [at(pts, .59, 1, d), packet("req", "M270,90 L560,90 L560,230", .8, .9, d)]
+svgs["A sensor is more than geometry"] = svg(262, "A lidar mounted on a robot between two walls. Five properties appear one by one: its pose offset from base_link, its frame ID lidar_link, a 10 Hz update rate shown as pulses, noise shown as jittered points on the walls, and the /scan topic with type sensor_msgs/msg/LaserScan.", "".join(b), " tall")
+
+# ---------- Reading a LaserScan message ----------
+d = "12s"
+N, AMIN, AINC = 25, -math.pi / 2, math.pi / 24
+OX, OY, SC = 200, 250, 52   # pixels per metre
+def ray(a):   # distance to a wall at y = 3.4 m, a box, or inf past 3.5 m
+    dx, dy = math.sin(-a), math.cos(a)
+    best = 3.5 if abs(dy) < 1e-9 else (3.4 / dy if dy > 0 else 9)
+    for (x0, x1, y0, y1) in ((-1.0, -0.4, 1.4, 1.9), (0.9, 1.5, 0.9, 1.3)):
+        for t in ((y0 / dy) if dy > 1e-9 else 9, ):
+            if x0 <= t * dx <= x1 and 0 < t < best: best = t
+        for xs in (x0, x1):
+            if abs(dx) > 1e-9:
+                t = xs / dx
+                if t > 0 and y0 <= t * dy <= y1 and t < best: best = t
+    return best if best <= 3.5 else float('inf')
+b = [f'<rect x="{OX - 3.6 * SC}" y="{OY - 3.4 * SC - 6}" width="{7.2 * SC}" height="6" fill="#3a4566"/>',
+     f'<rect x="{OX - 1.0 * SC}" y="{OY - 1.9 * SC}" width="{.6 * SC}" height="{.5 * SC}" fill="#3a4566"/><rect x="{OX + .9 * SC}" y="{OY - 1.3 * SC}" width="{.6 * SC}" height="{.4 * SC}" fill="#3a4566"/>',
+     f'<circle cx="{OX}" cy="{OY}" r="12" class="lidar"/>']
+for i in range(N):
+    a = AMIN + i * AINC; r = ray(a); s0 = round(.03 + i * .036, 3); e0 = round(s0 + .036, 3)
+    dx, dy = math.sin(-a), -math.cos(a)
+    L = (r if r != float('inf') else 3.5) * SC
+    ex, ey = OX + dx * L, OY + dy * L
+    b.append(f'<line x1="{OX}" y1="{OY}" x2="{ex:.1f}" y2="{ey:.1f}" stroke="var(--pink)" stroke-width="2" opacity="0">{vis(s0, e0, d)}</line>')
+    if r != float('inf'): b.append(at(f'<circle class="pulse" cx="{ex:.1f}" cy="{ey:.1f}" r="4"/>', s0, 1, d))
+    b.append(at(f'<text class="code left" x="400" y="60">i = {i}</text><text class="code left" x="400" y="90">angle = {AMIN:.2f} + {i} × {AINC:.3f}</text>'
+                f'<text class="code ok left" x="400" y="114">      = {a:+.2f} rad</text><text class="code left" x="400" y="144">ranges[{i}] = {"inf" if r == float("inf") else f"{r:.2f} m"}</text>', s0, e0 if i < N - 1 else .97, d))
+b.append('<text class="k left" x="400" y="180">angle_min −π/2 · increment π/24</text><text class="k left" x="400" y="198">forward is up · + is left</text>')
+svgs["Reading a LaserScan message"] = svg(270, "A lidar beam sweeps from right to left through 25 samples. For each index i the panel shows angle equals angle_min plus i times angle_increment and the range read from ranges[i]; hits on a wall and two boxes leave dots, and a sample past the maximum range shows inf.", "".join(b), " tall", vb_w=640)
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
