@@ -519,7 +519,7 @@ for k in range(12):
     t = round(.55 + k * .032, 3)
     b += [packet("req", outof, t, t + .03, d)]
 b.append(flash(400, 90, 120, 140, .44, d, 2))
-demo["bag"] = slide("Day 1 · Topics", "Turtlesim demo: ros2 bag", "Turtlesim demo", "ros2 bag: record once, replay anytime",
+demo["bag"] = slide("Day 1 · Runtime orchestration", "Turtlesim demo: ros2 bag", "Turtlesim demo", "ros2 bag: record once, replay anytime",
     svg(335, "While the turtle is driven with teleop, ros2 bag record stores cmd_vel and pose messages in a bag. After stopping, ros2 bag play sends the recorded commands back and the turtle repeats the same path.", "".join(b))
     + legend(("req", "cmd_vel"), ("fb", "pose")),
     "This follows the 'Recording and playing back data' tutorial. Clear the window or restart turtlesim before playing so participants can see the turtle redraw the same path.")
