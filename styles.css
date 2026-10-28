@@ -394,3 +394,4 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 @media print { .flow-item.flow-on { background: none; box-shadow: none; }.flow-item::after, pre::after { display: none; } pre > code { animation: none!important; clip-path: none!important; } .section-break .ros-anim.deco .packet { display: none; } }
 .ros-anim .burst { fill: none; stroke: var(--pink); stroke-width: 2.5; }
 .scan-explainer:has(.ros-anim) { grid-template-columns: 1.5fr 1fr; gap: 2rem; }.scan-explainer .ros-anim { max-height: 48vh; }
+.lifecycle-split { grid-template-columns: 1.1fr 1fr!important; align-items: center; }.lifecycle-split .ros-anim { max-height: 52vh; }.lifecycle-split pre { font-size: .7rem; overflow-x: auto; }

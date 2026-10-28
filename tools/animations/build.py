@@ -1082,6 +1082,255 @@ for i in range(N):
                 f'<text class="code ok left" x="400" y="114">      = {a:+.2f} rad</text><text class="code left" x="400" y="144">ranges[{i}] = {"inf" if r == float("inf") else f"{r:.2f} m"}</text>', s0, e0 if i < N - 1 else .97, d))
 b.append('<text class="k left" x="400" y="180">angle_min −π/2 · increment π/24</text><text class="k left" x="400" y="198">forward is up · + is left</text>')
 svgs["Reading a LaserScan message"] = svg(270, "A lidar beam sweeps from right to left through 25 samples. For each index i the panel shows angle equals angle_min plus i times angle_increment and the range read from ranges[i]; hits on a wall and two boxes leave dots, and a sample past the maximum range shows inf.", "".join(b), " tall", vb_w=640)
+# ======================================================================
+# Concept diagrams (Day 3): two-link arms computed here, played by SMIL
+# ======================================================================
+def fk2(q1, q2, L1, L2):
+    a, b = math.radians(q1), math.radians(q1 + q2)
+    e = (L1 * math.cos(a), L1 * math.sin(a))
+    return e, (e[0] + L2 * math.cos(b), e[1] + L2 * math.sin(b))
+
+def ik2(x, y, L1, L2, up=True):
+    c = (x * x + y * y - L1 * L1 - L2 * L2) / (2 * L1 * L2)
+    if abs(c) > 1: return None
+    q2 = math.acos(c) * (-1 if up else 1)
+    q1 = math.atan2(y, x) - math.atan2(L2 * math.sin(q2), L1 + L2 * math.cos(q2))
+    return math.degrees(q1), math.degrees(q2)
+
+def joined(vals): return ";".join(f"{v:.1f}" for v in vals)
+
+def arm2(bx, by, L1, L2, q1s, q2s, kt, dur, cls="arm", tip="", w=(14, 11), spline=False):
+    """Planar two-link arm at (bx, by); joint angles in degrees, counter-clockwise, y up."""
+    mode = f'calcMode="spline" keySplines="{";".join([EASE] * (len(q1s) - 1))}"' if spline else 'calcMode="linear"'
+    rot = lambda qs: f'<animateTransform attributeName="transform" type="rotate" dur="{dur}" repeatCount="indefinite" {mode} values="{joined(-q for q in qs)}" keyTimes="{kt}"/>'
+    w1, w2 = w
+    return (f'<g transform="translate({bx} {by})"><g><rect class="{cls}" x="0" y="{-w1 / 2}" width="{L1}" height="{w1}" rx="{w1 / 2}"/>'
+            f'<g transform="translate({L1} 0)"><g><rect class="{cls}" x="0" y="{-w2 / 2}" width="{L2}" height="{w2}" rx="{w2 / 2}"/>'
+            f'<g transform="translate({L2} 0)">{tip}</g><circle class="joint" r="5"/>{rot(q2s)}</g></g><circle class="joint" r="6"/>{rot(q1s)}</g></g>')
+
+def even(n): return ";".join(f"{i / (n - 1):.4f}" for i in range(n))
+
+# ---------- Configuration and task space: a point in joint space moves the tool ----------
+d = "12s"
+L1, L2, BX, BY = 120, 95, 620, 215
+KQ = [(60, -40), (100, -70), (30, 20), (120, -110), (75, -20), (60, -40)]
+N = 61
+qs = []
+for i in range(N):
+    u = i / (N - 1) * (len(KQ) - 1); k = min(int(u), len(KQ) - 2); f = u - k
+    qs.append((KQ[k][0] + (KQ[k + 1][0] - KQ[k][0]) * f, KQ[k][1] + (KQ[k + 1][1] - KQ[k][1]) * f))
+b = ['<rect class="block" x="40" y="20" width="220" height="220" rx="6"/>', '<text class="k" x="150" y="258">q1 →</text>', '<text class="k" x="22" y="130" transform="rotate(-90 22 130)">q2 →</text>',
+     '<text class="s" x="150" y="12">joint space</text>', '<text class="s" x="620" y="12">task space</text>']
+QX = lambda q1: 40 + (q1 - 0) / 150 * 220; QY = lambda q2: 240 - (q2 + 130) / 170 * 220
+b.append(f'<polyline points="{" ".join(f"{QX(a):.1f},{QY(c):.1f}" for a, c in qs)}" fill="none" stroke="rgba(88,224,210,.35)" stroke-width="2" stroke-dasharray="4 4"/>')
+b.append(f'<circle class="pulse" r="8"><animate attributeName="cx" dur="{d}" repeatCount="indefinite" values="{joined(QX(a) for a, _ in qs)}" keyTimes="{even(N)}"/>'
+         f'<animate attributeName="cy" dur="{d}" repeatCount="indefinite" values="{joined(QY(c) for _, c in qs)}" keyTimes="{even(N)}"/></circle>')
+b.append(arm2(BX, BY, L1, L2, [a for a, _ in qs], [c for _, c in qs], even(N), d, tip='<circle class="lidar" r="7"/>'))
+b.append(f'<rect class="robot-part" x="{BX - 30}" y="{BY}" width="60" height="12"/>')
+for i, (a, c) in enumerate(qs):
+    _, (x, y) = fk2(a, c, L1, L2)
+    t0 = round(i / (N - 1), 4)
+    if 0 < i < N - 1: b.append(f'<circle cx="{BX + x:.1f}" cy="{BY - y:.1f}" r="2.5" fill="var(--orange)" opacity="0">{vis(t0, .99, d)}</circle>')
+b += [wire("M290,130 L420,130"), '<path d="M412,124 L422,130 L412,136" fill="var(--blue)"/>', '<text class="k" x="355" y="118">forward kinematics</text>',
+      '<text class="code" x="300" y="160">q = [q1, q2]</text><text class="code" x="300" y="184">→ T(base, tool)</text>']
+svgs["Configuration and task space"] = svg(268, "Left: a point moves through joint space, the plane of q1 and q2. Right: a two-link arm follows those joint values and its tool tip leaves a trail in task space. Forward kinematics maps each point on the left to one tool position on the right.", "".join(b), " tall")
+
+# ---------- Forward and inverse kinematics: one target, two answers, sometimes none ----------
+d = "12s"
+L1, L2, BX, BY = 130, 110, 300, 230
+TG = [(150, 120), (60, 170), (200, 40), (300, 120), (150, 120)]
+up, dn, tx, ty, txt = [], [], [], [], []
+for (x, y) in TG:
+    a = ik2(x, y, L1, L2, True) or ik2(*(v * (L1 + L2 - 1) / math.hypot(x, y) for v in (x, y)), L1, L2, True)
+    c = ik2(x, y, L1, L2, False) or a
+    up.append(a); dn.append(c)
+kt = "0;.08;.22;.3;.44;.52;.66;.74;.92;1"
+def hold(seq): return [v for v in seq[:-1] for _ in (0, 1)] + [seq[-1]] * 2
+U1, U2 = hold([q[0] for q in up]), hold([q[1] for q in up]); D1, D2 = hold([q[0] for q in dn]), hold([q[1] for q in dn])
+TX, TY = hold([BX + x for x, _ in TG]), hold([BY - y for _, y in TG])
+b = [f'<rect class="robot-part" x="{BX - 30}" y="{BY}" width="60" height="12"/>',
+     f'<circle r="11" fill="none" stroke="var(--orange)" stroke-width="2.5"><animate attributeName="cx" dur="{d}" repeatCount="indefinite" values="{joined(TX)}" keyTimes="{kt}"/><animate attributeName="cy" dur="{d}" repeatCount="indefinite" values="{joined(TY)}" keyTimes="{kt}"/></circle>',
+     f'<circle cx="{BX}" cy="{BY}" r="{L1 + L2}" fill="none" stroke="rgba(255,255,255,.12)" stroke-dasharray="5 6"/>',
+     '<g opacity=".45">' + arm2(BX, BY, L1, L2, D1, D2, kt, d, "arm", spline=True) + '</g>', arm2(BX, BY, L1, L2, U1, U2, kt, d, spline=True)]
+LBL = ["two answers: elbow up and elbow down", "two answers again", "two answers, close to the base", "out of reach: no answer", "two answers"]
+for i, t in enumerate(LBL):
+    s0 = [0, .22, .44, .66, .92][i]; e0 = [.22, .44, .66, .92, 1][i]
+    b.append(cap(t, s0, e0, d, 300, 262))
+b += [at('<text class="code hot" x="610" y="150">IK: no solution</text>', .66, .92, d),
+      box(590, 30, 290, 80, "FK: q → pose", "one answer · robot_state_publisher", "block"), box(590, 160, 290, 80, "IK: pose → q", "0, 1 or many · KDL, pick_ik", "block app")]
+svgs["Forward and inverse kinematics"] = svg(272, "A two-link arm reaches an orange target. Inverse kinematics finds two answers, elbow up drawn solid and elbow down faded, for each of three targets; for a fourth target outside the dashed reach circle there is no solution. Panels note that forward kinematics has one answer and inverse kinematics zero, one or many.", "".join(b), " tall")
+
+# ---------- Degrees of freedom and workspace: sample joint values, map the reachable set ----------
+d = "12s"
+L1, L2, BX, BY = 110, 80, 230, 200
+rnd = random.Random(9)
+S = [(rnd.uniform(-10, 190), rnd.uniform(-150, 150)) for _ in range(70)]
+b = [f'<rect x="300" y="60" width="60" height="60" fill="#3a4566"/><text class="k" x="330" y="52">obstacle</text>', f'<rect class="robot-part" x="{BX - 30}" y="{BY}" width="60" height="12"/>',
+     f'<path d="M{BX},{BY} L{BX + 40},{BY + 4} A40,40 0 0,1 {BX - 40},{BY + 4} Z" fill="rgba(255,114,159,.2)"/>', f'<text class="k" x="{BX}" y="{BY + 30}">joint 1 limit</text>']
+for i, (a, c) in enumerate(S):
+    _, (x, y) = fk2(a, c, L1, L2); px, py = BX + x, BY - y
+    t0 = round(.02 + i / len(S) * .9, 4)
+    blocked = 300 <= px <= 360 and 60 <= py <= 120
+    b.append(f'<circle cx="{px:.1f}" cy="{py:.1f}" r="3.2" fill="{"var(--pink)" if blocked else "var(--cyan)"}" opacity="0">{vis(t0, .99, d)}</circle>')
+kt = even(len(S))
+b.append(arm2(BX, BY, L1, L2, [a for a, _ in S], [c for _, c in S], kt, d, tip='<circle class="lidar" r="5"/>', w=(12, 9)))
+b += [cap("random joint values → every point the tool can reach", 0, .93, d, 230, 300), cap("2 joints: a ring-shaped workspace with a hole", .93, 1, d, 230, 300)]
+svgs["Degrees of freedom and workspace"] = svg(312, "A two-link arm jumps through random joint values and its tool tip leaves a dot each time, filling a ring-shaped reachable workspace. Dots inside an obstacle are pink, and a joint limit wedge below the base is never reached.", "".join(b), " tall", vb_w=460)
+
+# ---------- ros2_control closes the loop ----------
+d = "6s"
+COLS = [(20, "Applications", "MoveIt 2 · teleop"), (250, "Controllers", "joint_trajectory · gripper"), (480, "Controller manager", ""), (710, "Hardware component", "robot or Gazebo")]
+b = []
+for x, k, n in COLS: b += [f'<rect class="{"hub" if k == "Controller manager" else "node"}" x="{x}" y="40" width="170" height="130" rx="8"/>', f'<text class="k" x="{x + 85}" y="62">{k}</text>', f'<text class="s" x="{x + 85}" y="92">{n}</text>' if n else '']
+PH = [("read", "states in"), ("update", "controllers run"), ("write", "commands out")]
+for i, (n, sub) in enumerate(PH):
+    s0, e0 = round(i / 3, 3), round((i + 1) / 3, 3)
+    b += [f'<rect class="block" x="496" y="{78 + i * 30}" width="138" height="24" rx="4"/><text class="code" x="508" y="{94 + i * 30}">{n}</text>',
+          f'<rect x="496" y="{78 + i * 30}" width="138" height="24" rx="4" fill="rgba(88,224,210,.25)" stroke="var(--cyan)" opacity="0">{vis(s0 if s0 > 0 else .001, e0, d)}</rect>']
+for i in range(3):
+    x = 190 + i * 230
+    b += [wire(f"M{x},90 L{x + 60},90"), wire(f"M{x + 60},130 L{x},130")]
+    b += [packet("res", f"M{x},90 L{x + 60},90", round(.62 + i * .08, 3) if i else .7, round(.7 + i * .08, 3) if i else .78, d) if i == 2 else packet("res", f"M{x},90 L{x + 60},90", round(.36 + i * .1, 3), round(.46 + i * .1, 3), d),
+          packet("req", f"M{x + 60},130 L{x},130", round(.02 + (2 - i) * .08, 3), round(.1 + (2 - i) * .08, 3), d)]
+b += ['<text class="k" x="450" y="196">command interfaces flow right · state interfaces flow left</text>',
+      '<rect class="res" x="290" y="210" width="12" height="12" rx="3"/><text class="code" x="310" y="221">position command</text><rect class="req" x="470" y="210" width="12" height="12" rx="3"/><text class="code" x="490" y="221">position, velocity state</text>']
+svgs["ros2_control architecture"] = svg(232, "Four blocks: applications, controllers, the controller manager, and the hardware component. Inside the controller manager, read, update and write light up in turn; state interfaces flow from hardware towards the applications and command interfaces flow back to the hardware.", "".join(b), " tall")
+
+# ---------- MoveIt 2 planning components ----------
+d = "10s"
+b = [box(10, 70, 170, 80, "RViz / app", "pose or joint goal", "node"), f'<rect class="hub" x="250" y="20" width="300" height="200" rx="10"/><text class="s" x="400" y="44">move_group</text>',
+     box(720, 70, 170, 80, "trajectory controller", "FollowJointTrajectory", "node")]
+INNER = [("planning scene", "robot + world + attached", .14), ("kinematics", "IK for the goal pose", .24), ("planning pipeline", "OMPL plan + time parameterization", .34)]
+for i, (n, sub, t0) in enumerate(INNER):
+    y = 62 + i * 50
+    b += [box(270, y, 260, 40, "", cls="block", rx=5), f'<text class="code" x="284" y="{y + 25}">{n}</text><text class="k" x="470" y="{y + 24}">{sub.split(" ")[0]}</text>', flash(270, y, 260, 40, t0, d, 5),
+          cap(sub, t0, round(t0 + .1, 3), d, 400, 248)]
+b += [wire("M180,110 L250,110"), wire("M550,110 L720,110"), packet("req", "M180,110 L250,110", .04, .12, d), packet("res", "M550,110 L720,110", .46, .56, d), flash(720, 70, 170, 80, .56, d),
+      cap("goal: move panda_hand to a pose", .02, .14, d, 400, 248), cap("trajectory: joint positions with times", .44, .58, d, 400, 248), cap("the controller executes; the scene keeps tracking", .58, 1, d, 400, 248)]
+b.append(f'<g transform="translate(805 215)"><rect class="robot-part" x="-18" y="0" width="36" height="6"/>' + arm2(0, 0, 34, 26, [90, 90, 50, 50, 90], [-20, -20, -60, -60, -20], "0;.56;.8;.95;1", d, w=(8, 6), spline=True) + '</g>')
+svgs["MoveIt 2 planning components"] = svg(258, "A goal goes from RViz or an application into move_group, where the planning scene, kinematics and the planning pipeline light up in turn. A trajectory goes out to the trajectory controller and a small arm executes it.", "".join(b), " tall")
+
+# ---------- Controller lifecycle and interface claims ----------
+d = "12s"
+ROWS = [("unconfigured", 40), ("inactive", 115), ("active", 190), ("finalized", 265)]
+b = ['<line class="divider" x1="70" y1="40" x2="70" y2="265"/>']
+for n, y in ROWS: b.append(pill(70, y, n, 124, "pill topic" if n == "active" else "pill", 32))
+def mover(name, x, ys, kt, cls):
+    return (f'<g><rect class="{cls}" x="{x - 52}" y="-14" width="104" height="28" rx="6"/><text class="code" x="{x - 44}" y="5">{name}</text>'
+            f'<animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{";".join([EASE] * (len(ys) - 1))}" values="{";".join(f"0 {y}" for y in ys)}" keyTimes="{kt}"/></g>')
+b += ['<text class="k" x="215" y="16">broadcaster</text><text class="k" x="330" y="16">arm</text><text class="k" x="445" y="16">other_arm</text>',
+      mover("state", 215, [40, 40, 190, 190], "0;.06;.16;1", "block"),
+      mover("joints", 330, [40, 40, 115, 115, 190, 190], "0;.2;.28;.42;.5;1", "block app"),
+      mover("joints", 445, [40, 40, 115, 115, 160, 115, 115], "0;.58;.64;.7;.75;.8;1", "block"),
+      at('<text class="code hot" x="390" y="230">already</text><text class="code hot" x="390" y="248">claimed</text><line class="xmark" x1="436" y1="150" x2="454" y2="168"/><line class="xmark" x1="454" y1="150" x2="436" y2="168"/>', .74, 1, d),
+      at('<rect x="282" y="210" width="96" height="62" rx="5" fill="rgba(255,177,90,.15)" stroke="var(--orange)"/><text class="code" x="290" y="230">joint1/pos</text><text class="code" x="290" y="246">joint2/pos</text><text class="code" x="290" y="262">joint3/pos</text>', .5, 1, d),
+      cap("load + activate the broadcaster", 0, .2, d, 260, 300), cap("arm: inactive, then switched active", .2, .58, d, 260, 300), cap("same interfaces: activation refused", .58, 1, d, 260, 300)]
+svgs["Controller lifecycle"] = svg(312, "Lifecycle states run top to bottom: unconfigured, inactive, active, finalized. The joint state broadcaster goes active; the arm controller is loaded inactive, then switched active and claims three joint position command interfaces; a second arm controller tries to activate and is refused because those interfaces are already claimed.", "".join(b), vb_w=520)
+
+# ---------- Planning in configuration space ----------
+d = "10s"
+rnd = random.Random(5)
+OBS = [(300, 60, 90, 140), (560, 120, 110, 150)]
+inside = lambda x, y: any(ox <= x <= ox + w and oy <= y <= oy + h for ox, oy, w, h in OBS)
+b = ['<rect class="block" x="20" y="10" width="860" height="270" rx="8"/>'] + [f'<rect x="{ox}" y="{oy}" width="{w}" height="{h}" rx="14" fill="rgba(255,114,159,.35)" stroke="var(--pink)"/>' for ox, oy, w, h in OBS]
+b += ['<text class="k" x="345" y="128">collision</text>', '<text class="k" x="615" y="198">collision</text>']
+for i in range(80):
+    x, y = rnd.uniform(30, 870), rnd.uniform(20, 270); t0 = round(.02 + i * .0055, 4)
+    bad = inside(x, y)
+    b.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="{"var(--pink)" if bad else "var(--blue)"}" opacity="0">{vis(t0, .97, d)}</circle>')
+P = "M80,230 C180,230 230,240 300,230 C430,215 420,95 520,90 C620,85 700,90 720,60 L820,50"
+b += [f'<path d="{P}" fill="none" stroke="var(--cyan)" stroke-width="4" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.46;.66;1"/></path>',
+      '<circle cx="80" cy="230" r="10" fill="var(--cyan)"/><text class="k" x="80" y="260">start</text><circle cx="820" cy="50" r="10" fill="var(--orange)"/><text class="k" x="820" y="80">goal</text>',
+      f'<g opacity="0"><circle r="9" fill="var(--ink)"/><animateMotion dur="{d}" repeatCount="indefinite" path="{P}" keyPoints="0;0;1;1" keyTimes="0;.68;.95;1" calcMode="linear"/>{vis(.68, .97, d)}</g>',
+      cap("sample joint vectors; reject the ones in collision", 0, .46, d, 450, 300), cap("connect valid states into a path", .46, .68, d, 450, 300), cap("move along it", .68, 1, d, 450, 300)]
+svgs["Planning in configuration space"] = svg(312, "A configuration-space plane with two pink collision regions. Random samples appear, blue where valid and pink inside collisions; then a path from start to goal draws itself between the obstacles and a dot travels along it.", "".join(b), " tall")
+
+# ---------- Joint motion and Cartesian motion ----------
+d = "8s"
+L1, L2 = 120, 100
+A, B = (60, 150), (190, 40)
+def plan(base, cart):
+    qa, qb = ik2(*A, L1, L2, True), ik2(*B, L1, L2, True)
+    out = []
+    for i in range(41):
+        f = i / 40
+        out.append(ik2(A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, L1, L2, True) if cart else (qa[0] + (qb[0] - qa[0]) * f, qa[1] + (qb[1] - qa[1]) * f))
+    return out
+b = []
+for col, (bx, cart, lbl) in enumerate(((140, False, "joint-space plan · tool curves"), (590, True, "Cartesian path · tool goes straight"))):
+    qs = plan(bx, cart); seq = qs + qs[::-1]; kt = even(len(seq))
+    b += [f'<rect class="robot-part" x="{bx - 30}" y="230" width="60" height="12"/>', f'<line x1="{bx + A[0]}" y1="{230 - A[1]}" x2="{bx + B[0]}" y2="{230 - B[1]}" stroke="rgba(255,255,255,.18)" stroke-dasharray="5 5"/>',
+          f'<circle cx="{bx + A[0]}" cy="{230 - A[1]}" r="6" fill="var(--cyan)"/><circle cx="{bx + B[0]}" cy="{230 - B[1]}" r="6" fill="var(--orange)"/>', f'<text class="s" x="{bx + 110}" y="270">{lbl}</text>']
+    for i, (a, c) in enumerate(qs):
+        _, (x, y) = fk2(a, c, L1, L2)
+        b.append(f'<circle cx="{bx + x:.1f}" cy="{230 - y:.1f}" r="2.6" fill="{"var(--orange)" if cart else "var(--cyan)"}" opacity="0">{vis(round(i / (len(seq) - 1), 4) or .001, .5, d)}</circle>')
+    b.append(arm2(bx, 230, L1, L2, [q[0] for q in seq], [q[1] for q in seq], kt, d, tip='<circle class="lidar" r="6"/>'))
+svgs["Joint motion and Cartesian motion"] = svg(282, "Two arms move the tool between the same two points. Left: interpolating joint angles makes the tool tip trace a curve. Right: following a straight line in task space, solved with inverse kinematics at every step, keeps the tool on the dashed straight line.", "".join(b), " tall")
+
+# ---------- A grasp is a sequence ----------
+d = "10s"
+def gripper(open_vals, kt):
+    finger = lambda side: (f'<rect class="robot-part" x="{-4 if side < 0 else 0}" y="0" width="4" height="34" rx="1">'
+                           f'<animate attributeName="x" dur="{d}" repeatCount="indefinite" values="{joined((-v - 4) if side < 0 else v for v in open_vals)}" keyTimes="{kt}"/></rect>')
+    return f'<rect class="robot-body" x="-36" y="-16" width="72" height="16" rx="3"/><rect class="robot-part" x="-5" y="-80" width="10" height="64"/>{finger(-1)}{finger(1)}'
+KT = "0;.12;.3;.42;.52;.7;.88;1"
+GX = [220, 220, 220, 220, 220, 260, 220, 220]; GY = [60, 60, 120, 120, 120, 50, 50, 60]; OPEN = [30, 30, 30, 30, 16, 16, 30, 30]
+OY = [0, 0, 0, 0, 0, -70, -70, 0]
+b = ['<rect x="80" y="214" width="300" height="10" fill="#3a4566"/>',
+     f'<g><rect x="203" y="174" width="34" height="40" rx="3" class="res"/><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" values="{";".join(f"{(x - 220) if i in (5, 6) else 0} {v}" for i, (x, v) in enumerate(zip(GX, OY)))}" keyTimes="{KT}"/></g>',
+     f'<g><g>{gripper(OPEN, KT)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{";".join([EASE] * 7)}" values="{";".join(f"{x} {y}" for x, y in zip(GX, GY))}" keyTimes="{KT}"/></g>',
+     '<path d="M220,96 L220,150" stroke="rgba(255,255,255,.25)" stroke-dasharray="4 4"/>']
+STG = [("01", "Pre-grasp", "safe pose above the object", .02, .2), ("02", "Approach", "straight down, constrained", .2, .42), ("03", "Close", "grip, then attach to the scene", .42, .52), ("04", "Lift + retreat", "carry it clear, checking collisions", .52, .9)]
+for i, (n, t, sub, s0, e0) in enumerate(STG):
+    y = 20 + i * 62
+    b += [f'<rect class="block" x="470" y="{y}" width="410" height="52" rx="6"/><text class="code" x="486" y="{y + 22}">{n}</text><text class="s left" x="520" y="{y + 22}">{t}</text><text class="k left" x="520" y="{y + 40}">{sub}</text>',
+          f'<rect x="470" y="{y}" width="410" height="52" rx="6" fill="rgba(88,224,210,.12)" stroke="var(--cyan)" stroke-width="2" opacity="0">{vis(s0, e0, d)}</rect>']
+svgs["A grasp is a sequence"] = svg(272, "A gripper moves to a pre-grasp pose above an orange box, approaches straight down, closes, then lifts and retreats with the box. A list of the four stages, pre-grasp, approach, close, and lift and retreat, highlights each stage as it happens.", "".join(b), " tall")
+
+# ---------- Object state during pick and place ----------
+d = "12s"
+KT = "0;.15;.25;.3;.55;.65;.72;.85;1"
+GX = [150, 150, 150, 150, 600, 600, 600, 600, 150]; GY = [40, 40, 110, 110, 70, 110, 110, 40, 40]; OPEN = [30, 30, 30, 16, 16, 16, 30, 30, 30]
+BX_ = [0, 0, 0, 0, 450, 450, 450, 450, 0]; BY_ = [0, 0, 0, 0, -40, 0, 0, 0, 0]
+b = ['<rect x="60" y="194" width="200" height="10" fill="#3a4566"/><text class="k" x="160" y="222">table A</text><rect x="510" y="194" width="200" height="10" fill="#3a4566"/><text class="k" x="610" y="222">table B</text>',
+     f'<g><rect x="133" y="154" width="34" height="40" rx="3" fill="var(--green)"><animate attributeName="fill" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="#7ddc7a;#7ddc7a;#ffb15a;#7ddc7a;#7ddc7a" keyTimes="0;.3;.3;.65;1"/></rect>'
+     f'<animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{";".join([EASE] * 8)}" values="{";".join(f"{x} {y}" for x, y in zip(BX_, BY_))}" keyTimes="{KT}"/></g>',
+     f'<g><g>{gripper(OPEN, KT)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{";".join([EASE] * 8)}" values="{";".join(f"{x} {y}" for x, y in zip(GX, GY))}" keyTimes="{KT}"/></g>',
+     term(740, 20, 150, 170, "planning scene")]
+STATE = [("world: box", "attached: —", 0, .3), ("world: —", "attached: box", .3, .65), ("world: box (B)", "attached: —", .65, 1)]
+for w_, a_, s0, e0 in STATE:
+    b.append(at(f'<text class="code" x="752" y="66">{w_}</text><text class="code hot" x="752" y="92">{a_}</text>', s0, e0, d))
+b += [cap("world object: the planner avoids it", 0, .3, d, 400, 254), cap("attached: it moves with the hand and is not a collision with it", .3, .65, d, 400, 254), cap("detached at the placed pose: a world object again", .65, 1, d, 400, 254)]
+svgs["Object state during pick and place"] = svg(264, "A gripper picks a box from table A and places it on table B. The box is green while it is a world object, turns orange while attached to the hand, and goes green again once placed; a planning-scene panel lists where the box is at each stage.", "".join(b), " tall")
+
+# ---------- Grasp feasibility filters ----------
+d = "12s"
+CX, CY = 300, 150
+rnd = random.Random(12)
+G = []
+for i in range(24):
+    a = i / 24 * 2 * math.pi
+    reach = not (math.cos(a) > .55)                  # from behind the object: unreachable
+    coll = reach and not (math.sin(a) < -.6)          # from below: hits the table
+    exe = coll and not (abs(math.cos(a)) < .25 and math.sin(a) > 0 and i % 2)   # no room to approach
+    G.append((a, reach, coll, exe))
+STAGE_T = [.02, .26, .5, .74]
+b = [f'<rect x="{CX - 160}" y="{CY + 40}" width="320" height="10" fill="#3a4566"/>', f'<rect x="{CX - 22}" y="{CY - 26}" width="44" height="66" rx="4" class="res"/>',
+     f'<rect x="{CX + 80}" y="{CY - 60}" width="40" height="100" fill="#3a4566"/><text class="k" x="{CX + 100}" y="{CY - 70}">robot side</text>']
+for a, reach, coll, exe in G:
+    x0, y0 = CX + 100 * math.cos(a), CY - 100 * math.sin(a); x1, y1 = CX + 46 * math.cos(a), CY - 46 * math.sin(a)
+    die = .26 if not reach else .5 if not coll else .74 if not exe else 1
+    line = f'<line x1="{x0:.1f}" y1="{y0:.1f}" x2="{x1:.1f}" y2="{y1:.1f}" stroke-width="3" stroke-linecap="round"'
+    b.append(f'{line} stroke="var(--cyan)" opacity="0">{vis(.02, die, d)}</line>')
+    if die < 1: b.append(f'{line} stroke="var(--pink)" opacity="0">{vis(die, min(die + .08, .97), d)}</line>')
+    else: b.append(f'{line} stroke="var(--green)" stroke-width="5" opacity="0">{vis(.74, 1, d)}</line>')
+counts = [24, sum(r for _, r, _, _ in G), sum(c for _, _, c, _ in G), sum(e for *_, e in G)]
+ROWS = [("Sampled grasp poses", "geometry + strategy"), ("Reachable", "inverse kinematics"), ("Collision-free", "hand + arm + object"), ("Executable", "approach + close + lift")]
+for i, ((n, sub), c) in enumerate(zip(ROWS, counts)):
+    y = 20 + i * 62; s0 = STAGE_T[i]
+    b += [f'<rect class="block" x="560" y="{y}" width="320" height="52" rx="6"/><text class="s left" x="576" y="{y + 22}">{n}</text><text class="k left" x="576" y="{y + 40}">{sub}</text>',
+          at(f'<text class="code ok" x="830" y="{y + 32}">{c}</text>', s0, 1, d), flash(560, y, 320, 52, s0, d)]
+svgs["Grasp feasibility filters"] = svg(272, f"Twenty-four candidate grasp directions surround a box. Filters remove them in stages: unreachable ones from the robot's far side, ones that would hit the table, and ones without room to approach, leaving {counts[3]} executable grasps highlighted in green. Counts beside each stage read {', '.join(map(str, counts))}.", "".join(b), " tall")
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
