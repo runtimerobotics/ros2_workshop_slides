@@ -401,5 +401,6 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 @media (max-width: 900px) { .hero3d { width: 100vw; opacity: .45; pointer-events: none; } }
 @media print { .hero3d .scene-view::after { content: none!important; } }
 @media (min-width: 901px) { .slide-cover .cover-copy { max-width: 48vw; } .slide-cover h1 { font-size: clamp(2.6rem, 4.7vw, 5.6rem); } .hero3d { right: -3vw; } }
-.split > div > svg.ros-anim, .lab-layout svg.ros-anim { max-height: 62vh; margin: .5rem 0; }
+.split > div > svg.ros-anim { max-height: 50vh; margin: .4rem 0; }.lab-layout svg.ros-anim { max-height: 25vh; margin: .3rem 0; }
+.agenda-days + .ros-anim { flex-shrink: 0; height: 13vh; margin: 1vh auto 0; }
 .baseline-line { color: var(--muted); font-size: .9rem; margin: 0 0 .4rem; }

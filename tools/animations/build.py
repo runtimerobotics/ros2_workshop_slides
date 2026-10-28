@@ -1641,6 +1641,156 @@ for k, (sym, cause, fix, ok) in enumerate(PROB):
           shown(344, 56, sym, s0 + .005, d, e0, "code hot"), shown(344, 92, f"cause: {cause}", s0 + .05, d, e0, "code dim"),
           typed(344, 130, f"$ {fix}", s0 + .09, d, .04, e0), shown(344, 170, f"✓ {ok}", s0 + .15, d, e0, "code ok")]
 svgs["Common setup problems"] = svg(250, "Five common setup problems in turn. Each symptom lights up on the left while the terminal shows the error, its likely cause, the fix being typed, and the success that follows: sourcing ROS, sourcing the overlay, leaving conda, matching ROS_DOMAIN_ID, and rebuilding without sudo.", "".join(b), " tall")
+def ellipse_node(cx, cy, name, rx=64, ry=20, cls="node"):
+    return f'<ellipse class="{cls}" cx="{cx}" cy="{cy}" rx="{rx}" ry="{ry}"/><text class="s" x="{cx}" y="{cy}">{name}</text>'
+
+def turtle_icon(x, y, rot=0):
+    return f'<g transform="translate({x} {y}) rotate({rot})">{TURTLE}</g>'
+
+# ---------- Workshop outcomes: read a graph, build a model, plan motion ----------
+d = "15s"
+b = []
+for i, x0 in enumerate((0, 305, 610)):
+    s0, e0 = round(i / 3, 3), round((i + 1) / 3, 3)
+    b += [f'<rect class="node" x="{x0}" y="0" width="290" height="160" rx="8"/>', f'<rect x="{x0}" y="0" width="290" height="160" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0 or .001, e0, d)}</rect>']
+# 1: a graph appears and data flows
+G = [(60, 50, "/camera"), (230, 50, "/detector"), (145, 120, "/planner")]
+for k, (x, y, n) in enumerate(G): b.append(at(ellipse_node(x, y, n, 52, 17), round(.01 + k * .03, 3), 1, d))
+for k in range(4): t0 = round(.12 + k * .05, 3); b += [packet("req", "M112,50 L178,50", t0, t0 + .03, d), packet("req", "M230,67 L170,104", t0 + .025, t0 + .055, d)]
+# 2: a robot model assembles, link by link, with frames
+for k, (x, y, w, h) in enumerate(((395, 130, 110, 14), (440, 70, 20, 60), (440, 40, 90, 14), (520, 44, 14, 40))):
+    b.append(at(f'<rect class="arm" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>', round(.36 + k * .06, 3), 1, d))
+for k, (x, y) in enumerate(((450, 130), (450, 70), (525, 47))): b.append(at(f'<line class="ax-x" x1="{x}" y1="{y}" x2="{x + 22}" y2="{y}"/><line class="ax-y" x1="{x}" y1="{y}" x2="{x}" y2="{y - 22}"/>', round(.4 + k * .06, 3), 1, d))
+# 3: an arm plans around an obstacle
+b += ['<rect x="760" y="70" width="40" height="70" fill="#3a4566"/>', '<circle cx="850" cy="128" r="9" fill="var(--orange)"/>',
+      f'<path d="M660,128 C680,30 820,20 850,118" fill="none" stroke="var(--cyan)" stroke-width="3" stroke-dasharray="1 1" pathLength="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.7;.82;1"/></path>',
+      f'<g opacity="0"><circle r="8" fill="var(--ink)"/><animateMotion dur="{d}" repeatCount="indefinite" path="M660,128 C680,30 820,20 850,118" keyPoints="0;0;1;1" keyTimes="0;.82;.96;1"/>{vis(.82, 1, d)}</g>']
+svgs["Workshop outcomes"] = svg(165, "Three panels light up in turn. Read the graph: three nodes appear and messages flow between them. Build a robot model: links stack up with a coordinate frame at each joint. Plan useful motion: a path curves over an obstacle to a target and a tool follows it.", "".join(b))
+
+# ---------- Three-day programme: twelve blocks build one robot system ----------
+d = "14s"
+BL = ["Architecture", "Topics", "Services · actions", "Params · launch", "TF2", "URDF", "Gazebo", "Sensors", "Manipulators", "ros2_control · MoveIt", "Planning", "Cartesian · grasp"]
+COLS3 = ["req", "fb", "res"]
+b = []
+for k, n in enumerate(BL):
+    day = k // 4; x = 10 + k * 73.5; t0 = round(.03 + k * .07, 3)
+    b.append(at(f'<rect class="{COLS3[day]}" x="{x}" y="34" width="68" height="36" rx="4" opacity=".85"/><text class="code" x="{x + 34}" y="88" text-anchor="middle" style="font-size:9px">{n}</text>', t0, 1, d))
+b += [move(rover(0, 20, .8), [(30 + k * 73.5, 0) for k in range(12)] + [(30 + 11 * 73.5, 0)], "0;" + ";".join(f"{.03 + k * .07:.2f}" for k in range(1, 12)) + ";1", d),
+      '<text class="k" x="155" y="114">Day 1 · communicate</text><text class="k" x="450" y="114">Day 2 · model and simulate</text><text class="k" x="745" y="114">Day 3 · manipulate</text>']
+svgs["Three-day programme"] = svg(122, "Twelve session blocks fill in one after another, four per day, coloured by day, while a small rover moves along the top: communicate on Day 1, model and simulate on Day 2, manipulate on Day 3.", "".join(b))
+
+# ---------- How the workshop works: see, inspect, try, explain ----------
+d = "16s"
+b = []
+ST = [(10, "See the idea"), (235, "Inspect the system"), (460, "Try one change"), (685, "Explain the evidence")]
+for i, (x, n) in enumerate(ST):
+    s0, e0 = round(i / 4, 3), round((i + 1) / 4, 3)
+    b += [f'<rect class="node" x="{x}" y="10" width="205" height="130" rx="8"/><text class="k" x="{x + 102}" y="28">{n}</text>', f'<rect x="{x}" y="10" width="205" height="130" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0 or .001, e0, d)}</rect>']
+    if i < 3: b.append(packet("req", f"M{x + 205},75 L{x + 225},75", e0 - .02, e0, d))
+b += [ellipse_node(70, 80, "teleop", 44, 15), '<text class="code" x="120" y="62">/cmd_vel</text>', ellipse_node(160, 110, "turtlesim", 46, 15), '<path class="edge" d="M90,93 L130,100"/>',
+      typed(248, 62, "$ ros2 topic echo", .26, d, .03), tl(248, 84, 18, [("ok", "linear.x: 1.0", .3), ("ok", "angular.z: 0.0", .3)], d),
+      typed(473, 62, "linear.x: 1.0 → 2.0", .52, d, .04), move(turtle_icon(0, 0, 0), [(480, 110), (480, 110), (560, 110), (560, 110), (480, 110), (480, 110), (650, 110)], "0;.5;.56;.6;.6;.62;.72", d, False),
+      '<polyline points="700,120 740,110 780,96 820,74 860,46" fill="none" stroke="var(--orange)" stroke-width="2"/><text class="code" x="700" y="62">pose.x over time</text>',
+      at('<text class="code ok" x="760" y="128">✓ twice as fast</text>', .82, 1, d),
+      f'<path class="trail" d="M787,140 C787,170 112,170 112,140"/>', packet("fb", "M787,140 C787,170 112,170 112,140", .95, .999, d)]
+svgs["How the workshop works"] = svg(175, "A four-step loop with turtlesim. See: a teleop node sends /cmd_vel to turtlesim. Inspect: ros2 topic echo shows linear.x 1.0. Try: linear.x changes to 2.0 and the turtle goes further. Explain: a plot of pose.x shows the evidence, twice as fast, and the loop returns to the start.", "".join(b))
+
+# ---------- Day 1 architecture divider: programs start, discover, exchange ----------
+d = "8s"
+P = [(110, 100, "/camera"), (330, 50, "/detector"), (330, 150, "/planner"), (560, 100, "/motors"), (780, 100, "/logger")]
+b = []
+for k, (x, y, n) in enumerate(P):
+    t0 = round(.02 + k * .06, 2); b += [at(ellipse_node(x, y, n, 58, 18), t0, 1, d), ring(x, y, t0, t0 + .08, d, 18, 90)]
+for k, (a_, c_) in enumerate(((0, 1), (1, 2), (2, 3), (1, 4))):
+    (x1, y1, _), (x2, y2, _) = P[a_], P[c_]
+    b.append(at(f'<line class="divider" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}"/>', .38, 1, d))
+    for j in range(3): t0 = round(.42 + j * .17 + k * .03, 2); b.append(packet("req", f"M{x1},{y1} L{x2},{y2}", t0, round(t0 + .06, 2), d))
+b += [cap("start · discover · exchange", .38, 1, d, 450, 194)]
+svgs["ROS 2 architecture"] = svg(200, "Five programs start one by one, each sending a discovery ring outwards; once they have found each other, links appear and messages flow between them.", "".join(b))
+
+# ---------- Understanding nodes ----------
+d = "16s"
+b = ['<rect class="win" x="5" y="30" width="200" height="200" fill="#4556ff"/><rect class="termbar" x="5" y="8" width="200" height="24" rx="5"/><text class="k" x="105" y="20">TurtleSim</text>',
+     move(turtle_icon(0, 0, -30), [(100, 140), (100, 140), (150, 110), (150, 110)], "0;.2;.36;1", d)]
+b += [at(ellipse_node(310, 50, "/turtlesim", 70, 18), .04, 1, d), at(ellipse_node(310, 130, "/teleop_turtle", 80, 18), .12, 1, d),
+      at('<text class="code" x="236" y="94">/turtle1/cmd_vel</text>', .16, 1, d)]
+for k in range(4): t0 = round(.2 + k * .04, 2); b.append(packet("req", "M310,112 L310,68", t0, round(t0 + .03, 2), d))
+b += [at('<text class="code hot" x="250" y="168">↑ ↑ ← arrow keys</text>', .2, .36, d),
+      term(225, 180, 230, 92, "ros2 node info /turtlesim"), tl(235, 216, 17, [("ok", "Subscribers: /turtle1/cmd_vel", .48), ("ok", "Publishers: /turtle1/pose", .5), ("ok", "Services: /spawn /kill …", .52)], d),
+      at(ellipse_node(105, 260, "/my_turtle", 70, 18, "node"), .74, 1, d), at('<text class="code ok" x="10" y="292">--remap __node:=my_turtle</text>', .74, 1, d)]
+svgs["Understanding nodes"] = svg(300, "Two ros2 run commands start the /turtlesim and /teleop_turtle nodes; arrow keys send messages on /turtle1/cmd_vel and the turtle moves. ros2 node info /turtlesim lists its subscriber, publisher and services. A remapped second turtlesim appears as /my_turtle.", "".join(b), vb_w=460,
+                                 trace=[(0, 2), (.1, 3), (.38, 5), (.46, 7), (.72, "10-11")])
+
+# ---------- Types of DDS: swap the middleware under the same code ----------
+d = "20s"
+IMPL = [("Fast DDS", "eProsima · Apache 2.0 · default in Jazzy", "rmw_fastrtps_cpp"), ("Cyclone DDS", "Eclipse Foundation · EPL 2.0", "rmw_cyclonedds_cpp"), ("Connext DDS", "RTI · commercial, free for research", "rmw_connextdds"),
+        ("GurumDDS", "GurumNetworks · commercial", "rmw_gurumdds_cpp"), ("Zenoh", "Eclipse · not DDS, router-based", "rmw_zenoh_cpp")]
+b = [chip(10, 10, 200, 34, "your node · rclpy"), chip(10, 52, 200, 34, "rmw API (same for all)"), '<rect class="block" x="10" y="94" width="200" height="40" rx="5" stroke-dasharray="5 4"/>']
+for k, (n, prov, pkg) in enumerate(IMPL):
+    s0, e0 = round(k / 5, 3), round((k + 1) / 5, 3); y = 12 + k * 34
+    b += [f'<text class="s left" x="250" y="{y + 12}">{n}</text><text class="code dim" x="380" y="{y + 16}">{prov}</text><text class="code" x="712" y="{y + 16}">{pkg}</text>',
+          f'<rect x="240" y="{y - 4}" width="650" height="30" rx="4" fill="rgba(88,224,210,.1)" stroke="var(--cyan)" opacity="0">{vis(s0 or .001, e0, d)}</rect>',
+          at(f'<rect class="block app" x="14" y="98" width="192" height="32" rx="4"/><text class="code" x="24" y="119">{pkg}</text>', s0 or .001, e0, d)]
+    if n != "Zenoh":
+        for j in range(3): t0 = round(s0 + .03 + j * .05, 3); b.append(packet("req", "M60,210 L380,210", t0, round(t0 + .03, 3), d))
+    else:
+        for j in range(3): t0 = round(s0 + .03 + j * .05, 3); b += [packet("res", "M60,210 L220,210", t0, round(t0 + .02, 3), d), packet("res", "M220,210 L380,210", round(t0 + .02, 3), round(t0 + .04, 3), d)]
+b += [ellipse_node(60, 210, "talker", 50, 16), ellipse_node(380, 210, "listener", 54, 16), at('<rect class="hub" x="180" y="194" width="80" height="32" rx="6"/><text class="code" x="190" y="215">zenohd</text>', .8, 1, d),
+      at('<text class="k" x="220" y="250">peer to peer</text>', 0, .8, d), at('<text class="k" x="220" y="250">through a router</text>', .8, 1, d)]
+svgs["Types of DDS"] = svg(262, "The same node and rmw API stay fixed while the middleware plug below them swaps through Fast DDS, Cyclone DDS, Connext DDS, GurumDDS and Zenoh; a table on the right highlights each one's provider, licence and rmw package. Messages go peer to peer for the DDS options and through a zenohd router for Zenoh.", "".join(b), " tall",
+                          trace=[(0, 0), (.2, 2), (.4, 0)])
+
+# ---------- Lab: inspect a running graph ----------
+d = "16s"
+b = [at(ellipse_node(230, 30, "/turtlesim", 70, 18), .05, 1, d)]
+TOP = [("/turtle1/cmd_vel", "geometry_msgs/msg/Twist", 70, 90, "sub"), ("/turtle1/pose", "turtlesim/msg/Pose", 390, 90, "pub"), ("/turtle1/color_sensor", "turtlesim/msg/Color", 230, 130, "pub")]
+for n, ty, x, y, kind in TOP:
+    b.append(at(f'<rect class="pill topic" x="{x - 80}" y="{y - 12}" width="160" height="24" rx="4"/><text class="code" x="{x - 74}" y="{y + 5}">{n}</text><text class="msgtype" x="{x}" y="{y + 24}">{ty}</text>', .16, 1, d))
+    b.append(at(f'<path class="edge" d="{"M" + str(x) + "," + str(y - 12) + " L210,48" if kind == "sub" else "M250,48 L" + str(x) + "," + str(y - 12)}"/>', .5, 1, d))
+b += [at('<text class="code" x="10" y="180">services: /spawn /kill /reset /clear …</text>', .26, 1, d), at('<text class="code" x="10" y="200">action: /turtle1/rotate_absolute</text>', .34, 1, d),
+      at('<text class="code ok" x="10" y="220">/turtle1/pose · RELIABLE · VOLATILE</text>', .62, 1, d), at('<text class="code ok" x="290" y="220">rqt_graph ✓</text>', .78, 1, d)]
+svgs["Lab: inspect the graph"] = svg(230, "As each command runs, the turtlesim graph builds up: the /turtlesim node, its topics with their message types, the services and the rotate_absolute action, then the connections, the pose topic's QoS, and finally rqt_graph.", "".join(b), vb_w=460,
+                                    trace=[(0, 1), (.08, 3), (.14, 4), (.24, 5), (.32, 6), (.46, 8), (.6, 9), (.76, 10)])
+
+# ---------- Topics divider ----------
+d = "8s"
+b = [ellipse_node(140, 100, "/lidar_driver", 80, 22), '<rect class="pill topic" x="350" y="80" width="160" height="40" rx="6"/><text class="s" x="430" y="100">/scan</text><text class="msgtype" x="430" y="140">sensor_msgs/msg/LaserScan</text>']
+for k, (x, y, n) in enumerate(((720, 40, "/mapper"), (720, 100, "/obstacle_stop"), (720, 160, "rviz2"))):
+    b.append(ellipse_node(x, y, n, 76, 20)); b.append(f'<path class="trail" d="M510,100 L{x - 76},{y}"/>')
+    for j in range(4): t0 = round(.05 + j * .23 + k * .01, 2); b.append(packet("req", f"M510,100 L{x - 76},{y}", round(t0 + .08, 2), round(t0 + .14, 2), d))
+for j in range(4): t0 = round(.05 + j * .23, 2); b.append(packet("req", "M220,100 L350,100", t0, round(t0 + .07, 2), d))
+svgs["Topics and message interfaces"] = svg(200, "A lidar driver publishes LaserScan messages on /scan, and the same stream fans out to three subscribers: a mapper, an obstacle stop node, and rviz2.", "".join(b))
+
+# ---------- A message journey: from a sensor to a callback ----------
+d = "12s"
+b = []
+STG = [(10, "Read sensor", "driver callback"), (190, "Create message", "type + values"), (370, "Publish", "topic + QoS"), (550, "Transport", "serialize + deliver"), (730, "Run callback", "subscriber uses data")]
+for i, (x, n, sub) in enumerate(STG):
+    s0, e0 = round(.02 + i * .18, 3), round(.02 + (i + 1) * .18, 3)
+    b += [f'<rect class="node" x="{x}" y="10" width="160" height="200" rx="8"/><text class="s" x="{x + 80}" y="32">{n}</text><text class="k" x="{x + 80}" y="50">{sub}</text>',
+          f'<rect x="{x}" y="10" width="160" height="200" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0, e0, d)}</rect>']
+    if i < 4: b.append(packet("req", f"M{x + 160},110 L{x + 190},110", e0 - .02, e0, d))
+for k in range(6): b.append(at(f'<line x1="90" y1="140" x2="{90 + 60 * math.cos(-.4 - k * .45):.0f}" y2="{140 + 60 * math.sin(-.4 - k * .45):.0f}" stroke="var(--pink)" stroke-width="2"/>', .02, .2, d))
+b += ['<circle cx="90" cy="140" r="10" class="lidar"/>',
+      at('<text class="code" x="200" y="84">LaserScan</text>', .2, 1, d), tl(200, 108, 20, [("show", "frame_id: lidar", .22), ("show", "ranges[0]: 0.42", .25), ("show", "ranges[1]: 0.43", .27), ("dim", "…", .27)], d),
+      at('<text class="code" x="380" y="90">/scan</text><text class="code dim" x="380" y="114">best effort</text><text class="code dim" x="380" y="134">keep last 10</text>', .38, 1, d),
+      swap([(.56, .62, "0a 00 00 00 1f 85"), (.62, .68, "eb 3e d7 a3 f0 3e"), (.68, .74, "01 00 00 00 …")], 560, 120, d, "code ok")]
+b += [at('<text class="code" x="740" y="90">if ranges[0] &lt; 0.5:</text><text class="code hot" x="740" y="112">    stop()</text>', .76, 1, d), move(rover(810, 170, .8), [(-30, 0), (-30, 0), (0, 0), (0, 0)], "0;.76;.86;1", d)]
+svgs["A message journey"] = svg(220, "One lidar reading travels through five stages: the driver reads the sensor; a LaserScan message is filled with frame_id and ranges; it is published on /scan with best effort and keep last 10; it is serialized into bytes and delivered; and the subscriber's callback sees 0.42 m, under 0.5, and stops the robot.", "".join(b), " tall")
+
+# ---------- Message interfaces: the definition, then a real message ----------
+d = "14s"
+b = [term(5, 5, 450, 34, "$ ros2 interface show geometry_msgs/msg/Twist"),
+     at(chip(5, 50, 215, 112, "", "Vector3 linear"), .1, 1, d), at(chip(240, 50, 215, 112, "", "Vector3 angular"), .28, 1, d)]
+for j, ax in enumerate("xyz"):
+    b.append(at(f'<text class="code" x="15" y="{88 + j * 22}">float64 {ax}</text>', round(.12 + j * .03, 2), 1, d))
+    b.append(at(f'<text class="code" x="250" y="{88 + j * 22}">float64 {ax}</text>', round(.3 + j * .03, 2), 1, d))
+b += [at('<text class="code ok" x="120" y="88">= 0.5 m/s</text><text class="code ok" x="355" y="132">= 1.0 rad/s</text>', .5, 1, d),
+      at('<text class="k" x="230" y="186">x forward · z up · SI units (REP 103)</text>', .5, 1, d),
+      '<line class="divider" x1="40" y1="250" x2="420" y2="250"/>',
+      f'<g opacity="0"><g transform="translate(-22 0)">{rover(0, 0, .8)}</g><animateMotion dur="{d}" repeatCount="indefinite" path="M100,240 A70,70 0 1,1 101,240" keyPoints="0;0;1;1" keyTimes="0;.56;.98;1" rotate="auto"/>{vis(.56, 1, d)}</g>']
+svgs["Message interfaces"] = svg(270, "ros2 interface show prints Twist: a Vector3 linear and a Vector3 angular, each with float64 x, y and z. Then a real message fills linear.x with 0.5 m/s and angular.z with 1.0 rad/s, a note gives the conventions, and a rover drives the circle those values describe.", "".join(b), vb_w=460,
+                                trace=[(0, 1), (.1, "4-7"), (.28, "8-11"), (.5, "4-5"), (.56, 0)])
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
