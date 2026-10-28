@@ -257,3 +257,4 @@ aside.notes { display: none; }
 .dds-stack { width: 100%; }.dds-stack div { grid-template-columns: 7rem 1fr; }.dds-stack small { display: none; }
 @media (max-width: 680px) { .history { grid-template-columns: 1fr 1fr; } }
 .muted-note { display: block; margin-top: .6rem; color: var(--muted); font-size: .78rem; }
+@media (max-height: 760px) and (min-width: 901px) { .overlay-stack { margin: 1vh auto; }.overlay-stack > div { padding: .45rem 1.2rem; }.axis-stage { margin: 2vh auto; }.axis-frame { height: 10.5rem; } }
