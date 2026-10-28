@@ -44,7 +44,7 @@
   const freeze = svg => { svg.setCurrentTime(cycleOf(svg) * .9); svg.pauseAnimations(); };
   const restart = svg => { svg.setCurrentTime(0); svg.unpauseAnimations(); };
   const activeAnims = () => [...slides[index].querySelectorAll('svg.ros-anim')];
-  const hasAnimation = () => activeAnims().length || slides[index].querySelector('.scene3d') || flowItems.length || slides[index].querySelector('pre');
+  const hasAnimation = () => activeAnims().length || slides[index].querySelector('.scene3d') || flowItems.length;
 
   function clamp(value) { return Math.max(0, Math.min(value, slides.length - 1)); }
 
@@ -195,17 +195,37 @@
     flowItems.forEach(el => el.classList.add('flow-item'));
     flowAt = 0;
     if (flowItems.length) { flowStep(); flowTimer = setInterval(flowStep, 2000); }
-    slide.querySelectorAll('pre').forEach(pre => {
-      if (pre.closest('.scene3d')) return;
+    startTrace();
+  }
+
+  // Code tracing: a diagram names the lines it is acting out, data-trace="0:1-3;.25:6;.5:0" (cycle fraction : lines, 0 = none),
+  // and a bar follows along in the real code block. data-trace-pre picks the block (default: the first pre on the slide).
+  let traceRaf = 0;
+  function startTrace() {
+    cancelAnimationFrame(traceRaf);
+    document.querySelectorAll('.trace-bar').forEach(n => n.remove());
+    const slide = slides[index];
+    slide.querySelectorAll('svg[data-trace]').forEach(svg => {
+      const pre = slide.querySelectorAll('pre')[+(svg.dataset.tracePre || 0)];
+      if (!pre) return;
+      const spec = svg.dataset.trace.split(';').map(e => { const [f, l] = e.split(':'); const [a, b = a] = l.split('-').map(Number); return [+f, a, b]; });
+      const bar = document.createElement('div'); bar.className = 'trace-bar'; bar.setAttribute('aria-hidden', 'true'); pre.append(bar);
       const lines = pre.textContent.replace(/\n$/, '').split('\n').length;
-      pre.style.setProperty('--lines', lines); pre.style.setProperty('--dur', `${Math.min(lines * 110, 2200)}ms`);
-      pre.classList.remove('code-reveal'); void pre.offsetWidth; if (!reduceMotion.matches) pre.classList.add('code-reveal');
+      const tick = () => {
+        const dur = cycleOf(svg), fr = dur ? (svg.getCurrentTime() % dur) / dur : 1;
+        let cur = null; for (const e of spec) if (fr >= e[0]) cur = e;
+        const cs = getComputedStyle(pre), top = parseFloat(cs.paddingTop), lh = (pre.scrollHeight - top - parseFloat(cs.paddingBottom)) / lines;
+        if (cur && cur[1] > 0) { bar.style.opacity = 1; bar.style.transform = `translateY(${top + (cur[1] - 1) * lh - pre.scrollTop}px)`; bar.style.height = `${(cur[2] - cur[1] + 1) * lh}px`; }
+        else bar.style.opacity = 0;
+        traceRaf = requestAnimationFrame(tick);
+      };
+      tick();
     });
   }
   document.addEventListener('deck:slide', startFlow);
   document.addEventListener('deck:restart', startFlow);
 
-  window.addEventListener('beforeprint', () => { clearInterval(flowTimer); flowItems.forEach(el => el.classList.remove('flow-on')); document.querySelectorAll('pre.code-reveal').forEach(p => p.classList.remove('code-reveal')); });
+  window.addEventListener('beforeprint', () => { clearInterval(flowTimer); flowItems.forEach(el => el.classList.remove('flow-on')); });
   window.addEventListener('beforeprint', () => document.querySelectorAll('svg.ros-anim').forEach(freeze));
   window.addEventListener('afterprint', () => { document.querySelectorAll('svg.ros-anim').forEach(svg => svg.unpauseAnimations()); show(index, false); });
 

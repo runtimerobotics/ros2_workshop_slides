@@ -90,8 +90,10 @@ def node(x, y, w, h, kind, name, cls="node"):
 def wire(d):
     return f'<path class="wire" d="{d}"/>'
 
-def svg(vb_h, label, body, extra_cls="", vb_w=900):
-    return (f'      <svg class="ros-anim{extra_cls}" viewBox="0 0 {vb_w} {vb_h}" role="img" aria-label="{label}">\n        '
+def svg(vb_h, label, body, extra_cls="", vb_w=900, trace=None, trace_pre=0):
+    # trace: [(cycle fraction, "first-last line"), ...] highlights lines of the slide's code block in step with the animation
+    tr = (f' data-trace="{";".join(f"{f}:{l}" for f, l in trace)}"' + (f' data-trace-pre="{trace_pre}"' if trace_pre else "")) if trace else ""
+    return (f'      <svg class="ros-anim{extra_cls}" viewBox="0 0 {vb_w} {vb_h}" role="img" aria-label="{label}"{tr}>\n        '
             + body + '\n      </svg>\n')
 
 def slide(section, title, eyebrow, head, inner, notes, extra=""):
@@ -1331,6 +1333,161 @@ for i, ((n, sub), c) in enumerate(zip(ROWS, counts)):
     b += [f'<rect class="block" x="560" y="{y}" width="320" height="52" rx="6"/><text class="s left" x="576" y="{y + 22}">{n}</text><text class="k left" x="576" y="{y + 40}">{sub}</text>',
           at(f'<text class="code ok" x="830" y="{y + 32}">{c}</text>', s0, 1, d), flash(560, y, 320, 52, s0, d)]
 svgs["Grasp feasibility filters"] = svg(272, f"Twenty-four candidate grasp directions surround a box. Filters remove them in stages: unreachable ones from the robot's far side, ones that would hit the table, and ones without room to approach, leaving {counts[3]} executable grasps highlighted in green. Counts beside each stage read {', '.join(map(str, counts))}.", "".join(b), " tall")
+# ======================================================================
+# Every slide acts out its idea. Shared helpers for the rest of the file.
+# ======================================================================
+def tl(x, y0, step, items, dur, frac=.03):
+    """Terminal lines: (kind, text, start[, end]); kind is type, show, ok, hot or dim. Lines stack from y0."""
+    out_ = []
+    for i, it in enumerate(items):
+        kind, text, s0 = it[:3]; e0 = it[3] if len(it) > 3 else 1
+        y = y0 + i * step
+        if kind == "type": out_.append(typed(x, y, text, s0, dur, frac, e0 if e0 < 1 else None))
+        else: out_.append(shown(x, y, text, s0, dur, e0, {"show": "code", "ok": "code ok", "hot": "code hot", "dim": "code dim"}[kind]))
+    return "".join(out_)
+
+def move(inner, pts, kt, dur, spline=True):
+    mode = f'calcMode="spline" keySplines="{";".join([EASE] * (len(pts) - 1))}"' if spline else 'calcMode="discrete"'
+    return f'<g>{inner}<animateTransform attributeName="transform" type="translate" dur="{dur}" repeatCount="indefinite" {mode} values="{";".join(f"{x} {y}" for x, y in pts)}" keyTimes="{kt}"/></g>'
+
+def swap(texts, x, y, dur, cls="code", anchor=""):
+    """One text slot whose content changes: [(start, end, text), ...]."""
+    a = f' text-anchor="{anchor}"' if anchor else ""
+    return "".join(f'<text class="{cls}" x="{x}" y="{y}"{a} opacity="0">{t}{vis(s0, e0, dur)}</text>' for s0, e0, t in texts)
+
+def chip(x, y, w, h, title, sub="", cls="block", rx=5):
+    """A labelled box: sub is a small caption on top, title the value below it (or centred when there is no caption)."""
+    ty = y + 33 if sub else (y + 20 if h > 44 else y + h / 2 + 4)
+    return (f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}"/>'
+            + (f'<text class="k left" x="{x + 8}" y="{y + 14}">{sub}</text>' if sub else '')
+            + (f'<text class="code" x="{x + 8}" y="{ty}">{title}</text>' if title else ''))
+
+def rover(x, y, s=1):
+    return (f'<g transform="translate({x} {y}) scale({s})"><rect class="robot-body" x="-22" y="-14" width="44" height="20" rx="6"/>'
+            '<circle class="wheel" cx="-12" cy="8" r="7"/><circle class="wheel" cx="12" cy="8" r="7"/><rect class="robot-part" x="-4" y="-24" width="8" height="10"/><circle class="lens" cx="0" cy="-26" r="4"/></g>')
+
+# ---------- Prerequisites divider: a terminal makes a robot move ----------
+d = "8s"
+b = [term(150, 10, 330, 120, "terminal"), tl(164, 52, 22, [("type", "$ python3 rover.py", .05), ("ok", "rover: 0.3 m/s", .22)], d),
+     '<line class="divider" x1="520" y1="150" x2="880" y2="150"/>',
+     move(rover(560, 128, 1.3), [(0, 0), (0, 0), (290, 0), (290, 0)], "0;.25;.85;1", d), cap("Linux runs it · Python describes it · the robot moves", .25, 1, d, 515, 190)]
+svgs["Prerequisites"] = svg(200, "A terminal runs python3 rover.py, prints rover: 0.3 m/s, and a small rover drives across.", "".join(b))
+
+# ---------- Navigate the file system: a terminal and the folder tree it changes ----------
+d = "16s"
+CMD = [("type", "$ mkdir -p ~/ros2_ws/src", .02), ("type", "$ cd ~/ros2_ws/src", .1), ("type", "$ nano a.py", .18), ("type", "$ cp a.py b.py", .26), ("type", "$ mv b.py talker.py", .34),
+       ("type", "$ ls -la", .42), ("show", "a.py  talker.py", .46), ("type", "$ rm a.py", .52), ("type", "$ cd ..", .62), ("type", "$ pwd", .7), ("ok", "/home/ada/ros2_ws", .74), ("type", "$ cat src/talker.py", .8), ("show", "print('hello')", .84)]
+b = [term(10, 10, 450, 280, "bash · Tab completes names"), tl(24, 50, 18.5, CMD, d)]
+NODE = lambda x, y, n, cls="code": f'<text class="{cls}" x="{x}" y="{y}">{n}</text>'
+b += [NODE(560, 52, "/home/ada"), '<path class="trail" d="M566,60 L566,96 L590,96"/>', at(NODE(596, 100, "ros2_ws/") + '<path class="trail" d="M606,108 L606,146 L630,146"/>' + NODE(636, 150, "src/"), .05, 1, d),
+      '<path class="trail" d="M646,158 L646,236 L670,236" opacity=".9"/>',
+      at(NODE(676, 200, "a.py") + '<path class="trail" d="M646,196 L670,196"/>', .21, .56, d), at(f'<line class="xmark" x1="672" y1="196" x2="712" y2="196"/>', .54, .58, d),
+      at(NODE(676, 240, "b.py"), .3, .38, d), at(NODE(676, 240, "talker.py"), .38, 1, d), packet("req", "M690,206 L690,232", .28, .31, d)]
+MK = '<path d="M0,0 L-14,-7 L-14,7 Z" fill="var(--orange)"/><text class="code hot" x="-120" y="5">you are here</text>'
+b.append(move(MK, [(552, 48), (552, 48), (628, 146), (628, 146), (588, 96), (588, 96)], "0;.12;.15;.64;.67;1", d))
+b.append(f'<text class="k" x="720" y="285">rm deletes for good: there is no bin</text>')
+svgs["Navigate the file system"] = svg(300, "A terminal runs mkdir, cd, nano, cp, mv, ls, rm, cd .., pwd and cat. Beside it a folder tree grows: ros2_ws and src appear, a.py is created, copied to b.py, b.py renamed to talker.py, a.py deleted, and an orange you-are-here marker moves into src and back up to ros2_ws.", "".join(b), " tall")
+
+# ---------- Processes, search, and permissions ----------
+d = "16s"
+CMD = [("type", "$ ros2 run demo_nodes_py talker", .01), ("show", "[INFO] Publishing: 'Hello World: 7'", .04), ("hot", "^C  (node stopped)", .09),
+       ("type", "$ ps aux | grep ros", .14), ("show", "ada 4242 … ros2 run … listener", .3), ("type", "$ kill 4242", .36), ("type", "$ grep -rn \"chatter\" src/", .46), ("show", "src/talker.py:12: 'chatter'", .52),
+       ("type", "$ chmod +x script.py", .6), ("type", "$ ls -l script.py", .68), ("ok", "-rwxr-xr-x  script.py", .72), ("type", "$ sudo apt install ros-jazzy-rqt", .8)]
+b = [term(10, 10, 450, 280, "bash"), tl(24, 50, 19, CMD, d)]
+# the pipe: five lines leave ps aux, only the ros ones get through grep
+b += [chip(500, 20, 90, 30, "ps aux"), chip(690, 20, 110, 30, "grep ros", cls="block app"), '<text class="k" x="640" y="16">| the pipe</text>', '<path class="trail" d="M590,35 L690,35"/><path class="trail" d="M800,35 L880,35"/>']
+for k, name in enumerate(["systemd", "bash", "listener", "gnome", "ros2 daemon"]):
+    ok = "listener" in name or "ros2" in name; t0 = round(.17 + k * .025, 3)
+    b.append(packet("req" if ok else "bad", "M590,35 L690,35" + (" L800,35 L880,35" if ok else ""), t0, round(t0 + (.06 if ok else .03), 3), d))
+    if not ok: b.append(burst(690, 35, round(t0 + .03, 3), d))
+b += ['<text class="k" x="690" y="70">only matching lines pass</text>']
+# kill
+b += [chip(500, 90, 380, 30, "4242  listener    CPU"), at('<rect x="760" y="98" width="90" height="14" fill="var(--cyan)" opacity=".7"><animate attributeName="width" dur="1.2s" repeatCount="indefinite" values="40;90;55;80;40"/></rect>', 0, .4, d),
+      at('<line class="xmark" x1="505" y1="105" x2="875" y2="105"/><text class="code hot" x="760" y="140">stopped</text>', .4, 1, d)]
+# grep -rn and chmod
+b += [chip(500, 160, 380, 30, "src/talker.py"), at('<rect x="500" y="160" width="380" height="30" rx="5" fill="none" stroke="var(--orange)" stroke-width="2"/><text class="code hot" x="660" y="180">line 12: chatter</text>', .52, 1, d),
+      chip(500, 220, 380, 34, ""), swap([(0, .64, "-rw-r--r--  script.py"), (.64, 1, "-rwxr-xr-x  script.py")], 512, 242, d), at('<text class="code ok" x="720" y="242">x = executable</text>', .64, 1, d)]
+svgs["Processes, search, and permissions"] = svg(300, "A terminal stops a running talker with Ctrl+C, then runs ps aux | grep ros: five process lines leave ps aux and only the two ROS lines pass through grep. kill 4242 strikes out the listener process, grep -rn finds chatter on line 12 of talker.py, and chmod +x turns -rw-r--r-- into -rwxr-xr-x.", "".join(b), " tall")
+
+# ---------- Environment and packages: what each terminal knows ----------
+d = "16s"
+TABS = [(5, "tab 1"), (160, "tab 2 (already open)"), (315, "new tab")]
+b = []
+for x, n in TABS: b += [f'<rect class="term" x="{x}" y="10" width="140" height="170" rx="6"/><rect class="termbar" x="{x}" y="10" width="140" height="22" rx="6"/><text class="k" x="{x + 70}" y="22">{n}</text>']
+b += [at('<rect class="term" x="315" y="10" width="140" height="170" rx="6" fill="#080d19"/><text class="k" x="385" y="100">not open yet</text>', 0, .8, d),
+      '<rect class="block" x="5" y="200" width="290" height="34" rx="5"/><text class="code" x="14" y="222">/opt/ros/jazzy</text>', at('<text class="code ok" x="140" y="222">+ turtlesim</text>', .1, 1, d),
+      '<rect class="block" x="315" y="200" width="140" height="34" rx="5"/><text class="code" x="324" y="222">~/.bashrc</text>', at('<text class="code ok" x="394" y="222">+1 line</text>', .72, 1, d),
+      packet("res", "M80,180 L80,200", .06, .1, d),
+      swap([(.18, .5, "ROS_DISTRO=")], 14, 52, d, "code dim"), at('<text class="code ok" x="14" y="52">ROS_DISTRO=jazzy</text>', .5, 1, d),
+      at('<text class="code ok" x="14" y="74">ROS_DOMAIN_ID=7</text>', .3, 1, d), at('<text class="code ok" x="14" y="96">AMENT_PREFIX…</text>', .5, 1, d),
+      at('<text class="code hot" x="169" y="52">ROS_DOMAIN_ID</text><text class="code hot" x="169" y="72">not set</text>', .58, 1, d),
+      packet("res", "M385,200 L385,170", .82, .87, d), at('<text class="code ok" x="324" y="52">ROS_DOMAIN_ID=7</text><text class="code dim" x="324" y="74">from .bashrc</text>', .87, 1, d),
+      cap("export lasts for one terminal", .3, .7, d, 230, 262), cap(".bashrc runs in every new terminal", .7, 1, d, 230, 262), cap("apt installs into /opt/ros/jazzy", 0, .3, d, 230, 262)]
+svgs["Environment and packages"] = svg(272, "Three terminal tabs. apt installs turtlesim into /opt/ros/jazzy. In tab 1, ROS_DISTRO is empty until setup.bash is sourced, and export sets ROS_DOMAIN_ID=7; tab 2 never sees it. After the export line is appended to ~/.bashrc, a new tab starts with ROS_DOMAIN_ID=7.", "".join(b), vb_w=460,
+                                         trace=[(0, "2-3"), (.18, 6), (.3, 7), (.4, 8), (.5, 11), (.58, 0), (.72, 14), (.85, 0)])
+
+# ---------- Self-check: Linux ----------
+d = "14s"
+b = [f'<rect class="term" x="5" y="5" width="220" height="150" rx="6"/><rect class="termbar" x="5" y="5" width="220" height="20" rx="6"/><text class="k" x="115" y="16">tab 1</text>',
+     f'<rect class="term" x="235" y="5" width="220" height="150" rx="6"/><rect class="termbar" x="235" y="5" width="220" height="20" rx="6"/><text class="k" x="345" y="16">new tab</text>',
+     at('<rect class="term" x="235" y="25" width="220" height="130" fill="#080d19"/><text class="k" x="345" y="90">Ctrl+Shift+T</text>', 0, .74, d),
+     tl(14, 46, 20, [("show", "~/ros2_ws/src/hello.txt", .3), ("type", "$ export ROBOT_NAME=turtle", .48), ("type", "$ echo $ROBOT_NAME", .58), ("ok", "turtle", .64)], d),
+     tl(244, 46, 20, [("type", "$ echo $ROBOT_NAME", .78), ("hot", "(empty line)", .84)], d), at('<text class="code hot" x="244" y="110">the variable stayed</text><text class="code hot" x="244" y="128">in tab 1</text>', .88, 1, d)]
+svgs["Self-check: Linux"] = svg(160, "Tab 1 finds ~/ros2_ws/src/hello.txt, exports ROBOT_NAME=turtle and echoes turtle. A new tab echoes an empty line, because the variable stayed in tab 1.", "".join(b), vb_w=460,
+                               trace=[(0, "1-2"), (.12, 3), (.22, "4-5"), (.46, 7), (.56, 8), (.74, 10), (.78, 11)])
+
+# ---------- Python basics: values in memory, a loop, a branch, a function ----------
+d = "16s"
+b = [at(chip(5, 5, 140, 40, "0.5", "speed · float"), .02, 1, d), at(chip(155, 5, 150, 40, "'turtle1'", "name · str"), .06, 1, d),
+     at(chip(5, 55, 300, 44, "", "joints · list") + '<rect class="block" x="13" y="69" width="100" height="22" rx="3"/><text class="code" x="21" y="85">\'joint1\'</text><rect class="block" x="118" y="69" width="100" height="22" rx="3"/><text class="code" x="126" y="85">\'joint2\'</text>', .1, 1, d),
+     at(chip(315, 5, 140, 90, "", "limits · dict") + '<text class="code" x="323" y="42">max_speed</text><text class="code" x="345" y="66">→ 1.0</text>', .14, 1, d),
+     term(5, 110, 300, 150, "output"),
+     tl(16, 150, 20, [("show", "turtle1 moves at 0.5 m/s", .22), ("show", "joint1", .34), ("show", "joint2", .42), ("show", "ok", .64), ("ok", "clamp(1.7, 0.0, 1.0) → 1.0", .84)], d),
+     at(move('<path d="M0,0 L-7,-10 L7,-10 Z" fill="var(--orange)"/>', [(63, 67), (63, 67), (168, 67), (168, 67)], "0;.4;.42;1", d, False), .3, .48, d),
+     at('<rect class="block app" x="315" y="110" width="140" height="70" rx="6"/><text class="code" x="325" y="134">0.5 &gt; 1.0 ?</text><text class="code hot" x="325" y="160">False → else</text>', .5, .74, d),
+     at('<rect class="block app" x="315" y="190" width="140" height="70" rx="6"/><text class="code" x="325" y="214">def clamp(…)</text><text class="code ok" x="325" y="240">max(low, min(…))</text>', .74, 1, d)]
+svgs["Python basics"] = svg(268, "Values appear in memory as typed boxes: speed 0.5 float, name turtle1 string, a joints list with two items, and a limits dictionary mapping max_speed to 1.0. The output panel prints the f-string, then a pointer walks the list printing joint1 and joint2, the comparison 0.5 greater than 1.0 is False so else prints ok, and clamp turns 1.7 into 1.0.", "".join(b), vb_w=460,
+                           trace=[(0, 1), (.06, 2), (.1, "3-4"), (.2, 6), (.3, "8-9"), (.5, 11), (.6, "13-14"), (.74, "16-17")])
+
+# ---------- Classes and objects: build a Rover, then drive it ----------
+d = "14s"
+b = [chip(5, 5, 200, 100, "class Robot", ""), '<text class="code dim" x="15" y="50">name · speed</text><text class="code dim" x="15" y="72">__init__(name)</text><text class="code dim" x="15" y="94">drive(speed)</text>',
+     chip(5, 150, 200, 60, "class Rover(Robot)", ""), '<text class="code dim" x="15" y="196">__init__()</text>', '<path class="wire" d="M105,150 L105,108"/><text class="k" x="150" y="132">inherits</text>',
+     at(chip(255, 40, 200, 110, "r: Rover object", "", "block app"), .06, 1, d),
+     swap([(.06, .3, "name = ?"), (.3, 1, "name = 'rover'")], 265, 92, d), swap([(.06, .3, "speed = ?"), (.3, .6, "speed = 0.0"), (.6, 1, "speed = 0.3")], 265, 116, d),
+     at('<path class="trail" d="M205,180 L255,130"/>', .06, .3, d), packet("fb", "M120,150 L120,108", .18, .24, d), at('<text class="code ok" x="210" y="230">super().__init__(\'rover\')</text>', .18, .4, d),
+     term(255, 170, 200, 60, "output"), at('<text class="code" x="265" y="214">rover: 0.3 m/s</text>', .7, 1, d),
+     move(rover(300, 255, .9), [(0, 0), (0, 0), (130, 0), (130, 0)], "0;.62;.9;1", d)]
+svgs["Classes and objects"] = svg(272, "A Robot class and a Rover class that inherits from it. r = Rover() creates an object; Rover's __init__ calls super().__init__ with 'rover', which fills name = 'rover' and speed = 0.0. r.drive(0.3) sets speed to 0.3, prints rover: 0.3 m/s, and a rover drives across.", "".join(b), vb_w=460,
+                                 trace=[(0, 14), (.08, "10-11"), (.16, 12), (.22, "2-4"), (.42, 15), (.52, "6-8"), (.9, 0)])
+
+# ---------- Imports and callbacks: hand over the function, it is called later ----------
+d = "14s"
+b = [at(chip(5, 5, 110, 30, "math") + chip(125, 5, 200, 30, "std_msgs.msg.String"), .02, 1, d),
+     chip(5, 60, 170, 50, "on_message(text)", ""), '<text class="code dim" x="13" y="98">print(…)</text>',
+     chip(250, 60, 205, 80, "subscribe(callback)", ""), '<rect class="block app" x="262" y="96" width="180" height="30" rx="4"/>', at('<text class="code ok" x="272" y="116">callback = on_message</text>', .26, .78, d),
+     packet("fb", "M175,85 L262,111", .2, .26, d), '<text class="k" x="212" y="70">the function itself</text>']
+for k, word in enumerate(["'hello'", "'world'"]):
+    t0 = round(.34 + k * .16, 3)
+    b += [at(f'<text class="code hot" x="350" y="160">{word}</text>', t0, round(t0 + .08, 3), d), packet("req", "M300,111 C230,150 160,150 90,110", round(t0 + .04, 3), round(t0 + .1, 3), d)]
+b += [term(5, 170, 240, 92, "output"), tl(15, 210, 20, [("show", "received: hello", .44), ("show", "received: world", .6), ("ok", "3.141592653589793", .9)], d),
+      at('<text class="code hot" x="255" y="210">subscribe(on_message())</text><text class="code hot" x="255" y="230">would call it now:</text><text class="code hot" x="255" y="250">TypeError</text>', .66, .82, d)]
+svgs["Imports and callbacks"] = svg(270, "Two imports appear. subscribe receives the function on_message itself, not its result. Later, subscribe calls it with hello and then world, and the output shows received: hello and received: world. A warning notes that subscribe(on_message()) would call it immediately and fail. Finally main prints pi.", "".join(b), vb_w=460,
+                                   trace=[(0, "1-2"), (.1, "4-5"), (.18, 12), (.26, "7-10"), (.36, "4-5"), (.66, 0), (.84, "17-18"), (.88, "14-15")])
+
+# ---------- Self-check: Python: the battery drains through the callback ----------
+d = "14s"
+b = ['<rect class="block" x="5" y="10" width="200" height="40" rx="6"/>', '<rect x="205" y="22" width="8" height="16" fill="var(--line)"/>',
+     f'<rect x="9" y="14" height="32" rx="4" fill="var(--cyan)"><animate attributeName="width" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="{";".join(f"{192 - 19.2 * k:.1f}" for k in range(9))};38.4" keyTimes="0;{";".join(f"{(.06 + k * .08):.2f}" for k in range(8))};1"/></rect>',
+     '<line x1="43" y1="8" x2="43" y2="52" stroke="var(--pink)" stroke-width="2" stroke-dasharray="3 3"/><text class="code hot" x="35" y="66">20%</text>',
+     term(225, 5, 230, 150, "output")]
+LOG = [(f"battery {100 - 10 * (k + 1)}%", round(.06 + k * .08, 2)) for k in range(8)] + [("battery low", .7), ("battery low", .8)]
+for j, (txt, t0) in enumerate(LOG):
+    row = min(j, 5); e0 = round(LOG[j + 6][1], 2) if j + 6 < len(LOG) else 1
+    b.append(shown(235, 45 + (j % 6) * 18, txt, t0, d, e0 if j < 6 else 1, "code hot" if "low" in txt else "code"))
+b.append(move(rover(30, 120, .9), [(0, 0)] + [(k * 18, 0) for k in range(1, 9)] + [(144, 0)], "0;" + ";".join(f"{(.06 + k * .08):.2f}" for k in range(8)) + ";1", d, False))
+svgs["Self-check: Python"] = svg(160, "A battery gauge drains from 100 percent in steps of 10 as a rover drives forward; each change prints through the callback, battery 90 percent down to battery 20 percent. At 20 percent the robot refuses to drive and prints battery low twice.", "".join(b), vb_w=460,
+                                trace=[(0, "14-16"), (.05, "7-8"), (.07, "11-12"), (.68, "8-10")])
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}

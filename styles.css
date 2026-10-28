@@ -368,13 +368,10 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 .table-row.flow-item.flow-on > strong { color: var(--cyan); }
 @keyframes flow-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes type-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
-/* code arrives line by line */
-pre.code-reveal > code { display: block; animation: code-in var(--dur, 1s) steps(var(--lines, 8)) both; }
-pre.code-reveal { position: relative; }
-pre.code-reveal::after { content: ""; position: absolute; right: .8rem; bottom: .7rem; width: .55em; height: 1.1em; background: var(--cyan); animation: caret 1s steps(2) 3; opacity: 0; }
-@keyframes code-in { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
-@keyframes caret { 0% { opacity: 0; } 50% { opacity: .8; } }
-body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active pre.code-reveal > code, body.anim-paused .slide.active .sensor-icon { animation-play-state: paused; }
+/* code tracing (script.js): a bar follows the line an animation is acting out */
+pre:has(.trace-bar) { position: relative; }
+.trace-bar { position: absolute; left: 0; right: 0; top: 0; height: 1.5em; background: rgba(88,224,210,.13); border-left: 3px solid var(--cyan); pointer-events: none; opacity: 0; transition: transform .3s cubic-bezier(.45,0,.2,1), height .3s, opacity .3s; }
+body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active .sensor-icon { animation-play-state: paused; }
 /* chapter dividers: drifting graph behind the title, title rises in */
 .section-break .ros-anim.deco { position: absolute; right: -6vw; top: 50%; width: min(44vw, 40rem); max-width: none; max-height: none; height: auto; margin: 0; transform: translateY(-50%); opacity: .5; pointer-events: none; z-index: 0; }
 .section-break > *:not(.deco) { position: relative; z-index: 1; }
@@ -391,7 +388,7 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 @keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
 @keyframes buzz { 50% { transform: translateX(2px); } }
 @media (max-width: 680px) { .section-break .ros-anim.deco { opacity: .25; width: 90vw; right: -20vw; } }
-@media print { .flow-item.flow-on { background: none; box-shadow: none; }.flow-item::after, pre::after { display: none; } pre > code { animation: none!important; clip-path: none!important; } .section-break .ros-anim.deco .packet { display: none; } }
+@media print { .flow-item.flow-on { background: none; box-shadow: none; }.flow-item::after, .trace-bar { display: none; } .section-break .ros-anim.deco .packet { display: none; } }
 .ros-anim .burst { fill: none; stroke: var(--pink); stroke-width: 2.5; }
 .scan-explainer:has(.ros-anim) { grid-template-columns: 1.5fr 1fr; gap: 2rem; }.scan-explainer .ros-anim { max-height: 48vh; }
 .lifecycle-split { grid-template-columns: 1.1fr 1fr!important; align-items: center; }.lifecycle-split .ros-anim { max-height: 52vh; }.lifecycle-split pre { font-size: .7rem; overflow-x: auto; }
@@ -404,3 +401,4 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 @media (max-width: 900px) { .hero3d { width: 100vw; opacity: .45; pointer-events: none; } }
 @media print { .hero3d .scene-view::after { content: none!important; } }
 @media (min-width: 901px) { .slide-cover .cover-copy { max-width: 48vw; } .slide-cover h1 { font-size: clamp(2.6rem, 4.7vw, 5.6rem); } .hero3d { right: -3vw; } }
+.split > div > svg.ros-anim, .lab-layout svg.ros-anim { max-height: 62vh; margin: .5rem 0; }
