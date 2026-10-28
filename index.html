@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
@@ -69,6 +69,7 @@
         <pre><code><span class="comment"># 1-2. Locale and universe</span>
 sudo apt update &amp;&amp; sudo apt install locales software-properties-common curl
 sudo locale-gen en_US en_US.UTF-8
+sudo update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8
 sudo add-apt-repository universe
 
 <span class="comment"># 3. ROS 2 apt source</span>
@@ -168,7 +169,7 @@ ros2 topic echo /chatter</code></pre>
         <div data-step><time>2024</time><strong>Jazzy Jalisco</strong><span>LTS on Ubuntu 24.04 · used in this workshop</span></div>
         <div data-step><time>2026</time><strong>Lyrical Luth</strong><span>Newest LTS; Kilted Kaiju (2025) in between</span></div>
       </div>
-      <aside class="notes">ROS distributions are alphabetical and release every May. Even years are LTS releases with five years of support. Mention that Open Robotics joined Intrinsic in 2022, and the OSRF continues to steward ROS.</aside>
+      <aside class="notes">ROS distributions are alphabetical and release every May. Even years are LTS releases with five years of support. Mention that Open Robotics joined Intrinsic in 2022, and the OSRF continues to steward ROS. Optional if time is short: summarize in two minutes and share the slide as a pre-read.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Architecture" data-title="Why ROS 2?">
@@ -181,6 +182,32 @@ ros2 topic echo /chatter</code></pre>
       </div>
       <p class="callout">ROS 1 reached end of life in May 2025. New projects should start on ROS 2.</p>
       <aside class="notes">ROS 1 was designed for research with one robot, a reliable network, and a single workstation. Those assumptions do not hold in fleets, factories, or embedded products, so ROS 2 was redesigned rather than patched.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="ROS 1 vs ROS 2 architecture">
+      <div class="slide-head"><p class="eyebrow">Centralized vs distributed</p><h2>ROS 1 vs ROS 2 architecture</h2></div>
+      <div class="compare">
+        <article><p class="compare-label">ROS 1</p><h3>Master-based discovery</h3><p>Every node registers with <code>roscore</code>. If the master stops, new connections cannot be made.</p><code>node → roscore → node</code><small>Custom TCPROS / UDPROS transport</small></article>
+        <article><p class="compare-label">ROS 2</p><h3>Peer-to-peer discovery</h3><p>Nodes find each other through DDS discovery. There is no master to start or lose.</p><code>node ⇄ DDS ⇄ node</code><small>Standard DDS / RTPS transport with QoS</small></article>
+      </div>
+      <aside class="notes">Ask participants who has seen "Unable to communicate with master". In ROS 2, there is no roscore command at all.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="ROS 1 vs ROS 2 comparison">
+      <div class="slide-head"><p class="eyebrow">Side by side</p><h2>ROS 1 vs ROS 2</h2></div>
+      <div class="pattern-table" role="table" aria-label="ROS 1 and ROS 2 comparison">
+        <div class="table-row header"><span>Feature</span><span>ROS 1</span><span>ROS 2</span></div>
+        <div class="table-row"><strong>Discovery</strong><span>Central ROS master</span><span>Distributed, through DDS</span></div>
+        <div class="table-row"><strong>Transport</strong><span>TCPROS / UDPROS</span><span>DDS / RTPS, plus Zenoh</span></div>
+        <div class="table-row"><strong>QoS</strong><span>Not available</span><span>Reliability, durability, history, deadline</span></div>
+        <div class="table-row"><strong>Real-time</strong><span>Not designed for it</span><span>Supported with a suitable OS and executor</span></div>
+        <div class="table-row"><strong>Security</strong><span>None built in</span><span>SROS2: authentication and encryption</span></div>
+        <div class="table-row"><strong>Platforms</strong><span>Mainly Ubuntu</span><span>Ubuntu, Windows, macOS, RTOS</span></div>
+        <div class="table-row"><strong>Build</strong><span>catkin, rosbuild</span><span>colcon with ament</span></div>
+        <div class="table-row"><strong>Python</strong><span>Python 2, later 3</span><span>Python 3 only</span></div>
+        <div class="table-row"><strong>Launch</strong><span>XML only</span><span>Python, XML, or YAML</span></div>
+      </div>
+      <aside class="notes">ros1_bridge can connect ROS 1 and ROS 2 systems during migration, but ROS 1 is now end of life. Optional if time is short: summarize in two minutes and share the slide as a pre-read.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Architecture" data-title="One robot, many programs">
@@ -219,32 +246,6 @@ ros2 topic echo /chatter</code></pre>
       </div>
       <p class="takeaway">Nodes discover peers automatically when their domain, network, and interface contracts match.</p>
       <aside class="notes">DDS is the common default middleware family, but ROS 2 exposes a middleware abstraction. Avoid treating DDS as the only possible implementation.</aside>
-    </section>
-
-    <section class="slide" data-section="Day 1 · Architecture" data-title="ROS 1 vs ROS 2 architecture">
-      <div class="slide-head"><p class="eyebrow">Centralized vs distributed</p><h2>ROS 1 vs ROS 2 architecture</h2></div>
-      <div class="compare">
-        <article><p class="compare-label">ROS 1</p><h3>Master-based discovery</h3><p>Every node registers with <code>roscore</code>. If the master stops, new connections cannot be made.</p><code>node → roscore → node</code><small>Custom TCPROS / UDPROS transport</small></article>
-        <article><p class="compare-label">ROS 2</p><h3>Peer-to-peer discovery</h3><p>Nodes find each other through DDS discovery. There is no master to start or lose.</p><code>node ⇄ DDS ⇄ node</code><small>Standard DDS / RTPS transport with QoS</small></article>
-      </div>
-      <aside class="notes">Ask participants who has seen "Unable to communicate with master". In ROS 2, there is no roscore command at all.</aside>
-    </section>
-
-    <section class="slide" data-section="Day 1 · Architecture" data-title="ROS 1 vs ROS 2 comparison">
-      <div class="slide-head"><p class="eyebrow">Side by side</p><h2>ROS 1 vs ROS 2</h2></div>
-      <div class="pattern-table" role="table" aria-label="ROS 1 and ROS 2 comparison">
-        <div class="table-row header"><span>Feature</span><span>ROS 1</span><span>ROS 2</span></div>
-        <div class="table-row"><strong>Discovery</strong><span>Central ROS master</span><span>Distributed, through DDS</span></div>
-        <div class="table-row"><strong>Transport</strong><span>TCPROS / UDPROS</span><span>DDS / RTPS, plus Zenoh</span></div>
-        <div class="table-row"><strong>QoS</strong><span>Not available</span><span>Reliability, durability, history, deadline</span></div>
-        <div class="table-row"><strong>Real-time</strong><span>Not designed for it</span><span>Supported with a suitable OS and executor</span></div>
-        <div class="table-row"><strong>Security</strong><span>None built in</span><span>SROS2: authentication and encryption</span></div>
-        <div class="table-row"><strong>Platforms</strong><span>Mainly Ubuntu</span><span>Ubuntu, Windows, macOS, RTOS</span></div>
-        <div class="table-row"><strong>Build</strong><span>catkin, rosbuild</span><span>colcon with ament</span></div>
-        <div class="table-row"><strong>Python</strong><span>Python 2, later 3</span><span>Python 3 only</span></div>
-        <div class="table-row"><strong>Launch</strong><span>XML only</span><span>Python, XML, or YAML</span></div>
-      </div>
-      <aside class="notes">ros1_bridge can connect ROS 1 and ROS 2 systems during migration, but ROS 1 is now end of life.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Architecture" data-title="What is DDS?">
@@ -398,6 +399,72 @@ Vector3 angular
       <aside class="notes">Make command-line introspection the first diagnostic habit. It separates graph and configuration problems from application-code problems.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Topics" data-title="Your first publisher">
+      <div class="slide-head"><p class="eyebrow">rclpy · talker.py</p><h2>Your first publisher</h2></div>
+      <div class="split">
+        <pre><code>import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class Talker(Node):
+    def __init__(self):
+        super().__init__('talker')
+        self.pub = self.create_publisher(
+            String, 'chatter', 10)
+        self.timer = self.create_timer(0.5, self.tick)
+        self.count = 0
+
+    def tick(self):
+        msg = String(data=f'Hello {self.count}')
+        self.pub.publish(msg)
+        self.count += 1
+
+def main():
+    rclpy.init()
+    rclpy.spin(Talker())
+    rclpy.shutdown()</code></pre>
+        <div><h3>Read it top to bottom</h3><ul class="arrow-list"><li><code>Node</code> gives the program a name in the graph</li><li><code>create_publisher</code> takes type, topic, and QoS depth</li><li>The timer calls <code>tick</code> every 0.5 s</li><li><code>spin</code> keeps the node alive and runs callbacks</li></ul></div>
+      </div>
+      <aside class="notes">Type this live rather than pasting. Point out that the topic name has no leading slash, so it is relative to the node namespace.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Topics" data-title="Your first subscriber">
+      <div class="slide-head"><p class="eyebrow">rclpy · listener.py</p><h2>Your first subscriber</h2></div>
+      <div class="split">
+        <pre><code>import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class Listener(Node):
+    def __init__(self):
+        super().__init__('listener')
+        self.sub = self.create_subscription(
+            String, 'chatter', self.on_msg, 10)
+
+    def on_msg(self, msg):
+        self.get_logger().info(f'I heard: {msg.data}')
+
+def main():
+    rclpy.init()
+    rclpy.spin(Listener())
+    rclpy.shutdown()</code></pre>
+        <div><h3>Run both nodes</h3><pre class="nested-code"><code>colcon build --symlink-install
+source install/setup.bash
+ros2 run workshop_runtime talker
+ros2 run workshop_runtime listener</code></pre><p class="callout">Type, topic name, and QoS must match the publisher.</p></div>
+      </div>
+      <aside class="notes">The callback runs only while the node spins. Ask what happens if the listener uses the topic name "/chatter2".</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Topics" data-title="Record, replay, and visualize">
+      <div class="slide-head"><p class="eyebrow">ros2 bag and rqt</p><h2>Record, replay, and visualize</h2></div>
+      <div class="command-map">
+        <div><code>ros2 bag record /turtle1/pose /turtle1/cmd_vel</code><p>Record selected topics</p></div><div><code>ros2 bag record -a</code><p>Record every topic</p></div><div><code>ros2 bag info my_bag</code><p>Duration, topics, message counts</p></div><div><code>ros2 bag play my_bag</code><p>Replay with the original timing</p></div><div><code>rqt_graph</code><p>See nodes and topic connections</p></div><div><code>rqt</code><p>Plot, console, topic monitor plugins</p></div>
+      </div>
+      <p class="takeaway">A bag lets you debug a robot run at your desk, again and again, without the robot.</p>
+      <aside class="notes">Jazzy records bags in MCAP format by default. Record turtlesim while driving it, stop the teleop, then replay the bag and watch the turtle repeat the motion.</aside>
+    </section>
+
     <section class="slide lab-slide" data-section="Day 1 · Topics" data-title="Lab: command the turtle">
       <div class="slide-head"><p class="eyebrow">Hands-on · 30 minutes</p><h2>Lab: command the turtle</h2></div>
       <div class="lab-layout">
@@ -511,6 +578,34 @@ ros2 pkg prefix workshop_runtime</code></pre>
       <aside class="notes">This slide addresses the most common beginner problem: a package builds but ros2 cannot find the new executable or launch file.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Package anatomy">
+      <div class="slide-head"><p class="eyebrow">ament_python package</p><h2>Package anatomy</h2></div>
+      <div class="split">
+        <pre><code>workshop_runtime/
+├── package.xml        <span class="comment"># name and dependencies</span>
+├── setup.py           <span class="comment"># install rules</span>
+├── setup.cfg
+├── resource/workshop_runtime
+├── launch/demo.launch.py
+└── workshop_runtime/
+    ├── __init__.py
+    ├── talker.py
+    └── listener.py</code></pre>
+        <pre><code><span class="comment"># setup.py</span>
+data_files=[
+    ...,
+    ('share/' + package_name + '/launch',
+        ['launch/demo.launch.py']),
+],
+entry_points={'console_scripts': [
+    'talker = workshop_runtime.talker:main',
+    'listener = workshop_runtime.listener:main',
+]},</code></pre>
+      </div>
+      <p class="callout warning">A launch file that is not listed in <code>data_files</code> is not installed, so <code>ros2 launch</code> cannot find it.</p>
+      <aside class="notes">entry_points turn a Python function into a ros2 run executable. Add exec_depend entries in package.xml for every imported ROS package.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Timers schedule callbacks">
       <div class="slide-head"><p class="eyebrow">Periodic work</p><h2>Timers schedule callbacks</h2></div>
       <div class="split"><pre><code>class Heartbeat(Node):
@@ -526,15 +621,16 @@ ros2 pkg prefix workshop_runtime</code></pre>
 
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Launch describes a system">
       <div class="slide-head"><p class="eyebrow">Repeatable startup</p><h2>Launch describes a system</h2></div>
-      <div class="split"><div><h3>A launch file can</h3><ul class="check-list"><li>Start multiple nodes</li><li>Apply parameters and remaps</li><li>Group nodes in namespaces</li><li>Include other launch files</li><li>React to startup events</li></ul></div><pre><code>from launch_ros.actions import Node
+      <div class="split"><div><h3>A launch file can</h3><ul class="check-list"><li>Start multiple nodes</li><li>Apply parameters and remaps</li><li>Group nodes in namespaces</li><li>Include other launch files</li><li>React to startup events</li></ul></div><pre><code>from launch import LaunchDescription
+from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
         Node(
-            package='demo_nodes_cpp',
-            executable='talker',
+            package='turtlesim',
+            executable='turtlesim_node',
             namespace='demo',
-            parameters=[{'frequency': 2.0}],
+            parameters=[{'background_r': 20}],
         )
     ])</code></pre></div>
       <aside class="notes">Launch files are programs, but keep them declarative where possible. Separate configuration data into YAML when it improves reuse.</aside>
@@ -550,7 +646,8 @@ ros2 pkg create --build-type ament_python \
 cd ~/ros2_ws
 colcon build --symlink-install
 source install/setup.bash
-ros2 launch workshop_runtime demo.launch.py</code></pre></div>
+ros2 launch workshop_runtime demo.launch.py
+<span class="comment"># launch file must be in setup.py data_files</span></code></pre></div>
       <aside class="notes">Use symlink install so Python and launch edits appear quickly. Remind participants to source the overlay after each build or open a prepared shell.</aside>
     </section>
 
@@ -649,8 +746,34 @@ ros2 run tf2_ros tf2_monitor turtle2 turtle1</code></pre></div>
   &lt;/joint&gt;
 &lt;/xacro:macro&gt;</code></pre><div><h3>Validate early</h3><pre class="nested-code"><code>xacro robot.urdf.xacro &gt; /tmp/robot.urdf
 check_urdf /tmp/robot.urdf
-urdf_to_graphiz /tmp/robot.urdf</code></pre><p class="callout">Keep dimensions and names in one source of truth.</p></div></div>
+urdf_to_graphiz /tmp/robot.urdf</code></pre><p class="callout">Keep dimensions and names in one source of truth.</p><small class="muted-note">Newer urdfdom renames <code>urdf_to_graphiz</code> to <code>urdf_to_graphviz</code>.</small></div></div>
       <aside class="notes">Xacro expands to URDF. Debug the expanded file when macro errors obscure the final structure.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 2 · URDF" data-title="From URDF to TF">
+      <div class="slide-head"><p class="eyebrow">robot_state_publisher</p><h2>From URDF to TF</h2></div>
+      <div class="learning-loop">
+        <div data-step><span>01</span><strong>URDF / Xacro</strong><p>Describes links, joints, and fixed offsets.</p></div>
+        <div data-step><span>02</span><strong>robot_description</strong><p>robot_state_publisher loads the model as a parameter.</p></div>
+        <div data-step><span>03</span><strong>/joint_states</strong><p>A GUI, simulator, or controller reports joint positions.</p></div>
+        <div data-step><span>04</span><strong>/tf and /tf_static</strong><p>robot_state_publisher computes every link pose.</p></div>
+      </div>
+      <pre class="wide-code"><code>ros2 run robot_state_publisher robot_state_publisher \
+  --ros-args -p robot_description:="$(xacro arm.urdf.xacro)"
+ros2 run joint_state_publisher_gui joint_state_publisher_gui</code></pre>
+      <aside class="notes">Fixed joints go to /tf_static once. Moving joints need /joint_states; without it RViz shows those links with "No transform" errors.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 2 · URDF" data-title="RViz2 tour">
+      <div class="slide-head"><p class="eyebrow">See what ROS sees</p><h2>RViz2 tour</h2></div>
+      <div class="compact-grid"><p><strong>RobotModel</strong><br>Draws robot_description</p><p><strong>TF</strong><br>Shows every frame axis</p><p><strong>LaserScan</strong><br>Draws /scan points</p><p><strong>Image</strong><br>Shows camera topics</p></div>
+      <div class="pattern-table" role="table" aria-label="Common RViz2 problems">
+        <div class="table-row header"><span>Symptom</span><span>Likely cause</span><span>Check</span></div>
+        <div class="table-row"><strong>No transform</strong><span>Frame missing from the TF tree</span><span><code>tf2_echo</code>, <code>view_frames</code></span></div>
+        <div class="table-row"><strong>Nothing visible</strong><span>Wrong fixed frame</span><span>Set it to <code>base_link</code> or <code>map</code></span></div>
+        <div class="table-row"><strong>Empty scan</strong><span>QoS mismatch</span><span>Set reliability to Best Effort</span></div>
+      </div>
+      <aside class="notes">RViz is a visualizer, not a simulator. It only draws what is published. Save the config with File > Save Config As and load it from launch with -d.</aside>
     </section>
 
     <section class="slide" data-section="Day 2 · URDF" data-title="URDF build order">
@@ -814,6 +937,18 @@ rviz2
       <aside class="notes">Discuss why a pose can have multiple elbow configurations and why joint limits remove some solutions.</aside>
     </section>
 
+    <section class="slide" data-section="Day 3 · Manipulators" data-title="Forward and inverse kinematics">
+      <div class="slide-head"><p class="eyebrow">Joints ⇄ tool pose</p><h2>Forward and inverse kinematics</h2></div>
+      <div class="compare">
+        <article><p class="compare-label">Forward kinematics</p><h3>Joint angles → tool pose</h3><p>Always one answer. robot_state_publisher does this to publish TF.</p><code>q = [q1, q2] → T(base, tool0)</code></article>
+        <article><p class="compare-label">Inverse kinematics</p><h3>Tool pose → joint angles</h3><p>Zero, one, or many answers. MoveIt uses IK solvers such as KDL or pick_ik.</p><code>T(base, tool0) → q = ?</code></article>
+      </div>
+      <pre class="wide-code"><code><span class="comment"># Two-link planar arm, link lengths l1 and l2</span>
+x = l1·cos(q1) + l2·cos(q1 + q2)
+y = l1·sin(q1) + l2·sin(q1 + q2)</code></pre>
+      <aside class="notes">Draw the elbow-up and elbow-down solutions for one target point. An unreachable target has no IK solution; near a singularity, small tool motions need very large joint motions.</aside>
+    </section>
+
     <section class="slide" data-section="Day 3 · Manipulators" data-title="Degrees of freedom and workspace">
       <div class="slide-head"><p class="eyebrow">What the robot can reach</p><h2>Degrees of freedom and workspace</h2></div>
       <div class="split"><div class="arm-sketch" aria-label="Simplified robot arm"><span class="arm-base"></span><span class="arm-link l1"></span><span class="arm-joint j1"></span><span class="arm-link l2"></span><span class="arm-joint j2"></span><span class="arm-link l3"></span><span class="arm-tool"></span></div><div><h3>Reachability depends on</h3><ul class="arrow-list"><li>Joint types and limits</li><li>Link lengths and offsets</li><li>Required tool orientation</li><li>Self-collision and obstacles</li></ul><p class="callout warning">Inside the geometric reach does not always mean collision-free or controllable.</p></div></div>
@@ -834,6 +969,7 @@ rviz2
 ros2 run tf2_ros tf2_echo \
   base_link tool0
 
+<span class="comment"># Only when no joint_state_publisher is running</span>
 ros2 topic pub --once /joint_states \
   sensor_msgs/msg/JointState \
   "{name: ['joint1','joint2'], position: [0.4, 0.8]}"</code></pre></div>
@@ -1001,7 +1137,7 @@ ros2 action list -t
         <div><span>1</span><p>Launch the robot and world with one command.</p></div><div><span>2</span><p>Verify graph, frames, controllers, and sensor data.</p></div><div><span>3</span><p>Add one collision object and define a target pose.</p></div><div><span>4</span><p>Plan, execute, and report the evidence of success.</p></div>
       </div>
       <div class="evidence-strip"><strong>Submission evidence</strong><span>frame diagram</span><span>controller state</span><span>sensor rate</span><span>planned path</span><span>execution result</span></div>
-      <aside class="notes">Evaluate reasoning rather than only the final animation. Each team should explain one failure and how evidence led to the fix.</aside>
+      <aside class="notes">Evaluate reasoning rather than only the final animation. Each team should explain one failure and how evidence led to the fix. The agenda has no dedicated slot: run it as a take-home task or replace part of the final Day 3 lab.</aside>
     </section>
 
     <section class="slide" data-section="Capstone" data-title="The complete ROS 2 workflow">

@@ -4,9 +4,13 @@ A browser-based slide deck for the three-day **Hands-on Training on ROS 2 Middle
 
 The deck follows the supplied programme and covers:
 
-- ROS 2 architecture, topics, messages, services, actions, parameters, timers, and launch
-- TF2, URDF, Gazebo Harmonic, and sensor simulation
-- Manipulator fundamentals, ros2_control, MoveIt 2, motion planning, Cartesian motion, and grasping
+- Installing ROS 2 Jazzy and setting up the environment
+- What ROS 2 is, the history of ROS and ROS 2, and ROS 1 vs ROS 2
+- ROS 2 architecture, DDS and its implementations, and QoS
+- Topics, messages, first rclpy publisher and subscriber, ros2 bag, and rqt
+- Services, actions, parameters, package anatomy, timers, and launch
+- TF2, URDF, robot_state_publisher, RViz2, Gazebo Harmonic, and sensor simulation
+- Manipulator fundamentals, forward and inverse kinematics, ros2_control, MoveIt 2, motion planning, Cartesian motion, and grasping
 
 ## View locally
 
