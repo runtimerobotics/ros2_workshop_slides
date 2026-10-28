@@ -4,6 +4,7 @@ A browser-based slide deck for the three-day **Hands-on Training on ROS 2 Middle
 
 The deck follows the supplied programme and, within each block, the order of the official ROS 2 Jazzy tutorials. It covers:
 
+- Inside a robot (before Day 1, about 40 minutes, every slide interactive): six robot types, sense-think-act with a latency slider, an exploded TurtleBot3 Burger, sorting sensors into proprioceptive and exteroceptive, open vs closed loop control, the autonomy stack (Nav2, MoveIt 2, ros2_control), loop rates, and many programs on many computers, ending in a quick check
 - Prerequisites: essential Linux terminal commands and Python basics, with self-checks
 - Installing ROS 2 Jazzy, configuring the environment (domain ID, discovery range), and ros2 doctor, plus a common setup problems checklist
 - What ROS 2 is, the history of ROS and ROS 2, and ROS 1 vs ROS 2
@@ -48,7 +49,7 @@ The history of ROS, every ROS 2 distribution since 2017, ROS 1 vs ROS 2 architec
 
 ## Interactive 3D scenes
 
-Fourteen slides contain interactive scenes built with three.js (`scenes3d.js`): launching a robot model with robot_state_publisher, joint_state_publisher, and RViz, TF2 frames on a driving TurtleBot3, a TF tree explorer for any lookup_transform, rotations and quaternions, assembling the Franka Panda URDF, simulation time, a lidar in a room, joint and task space, inverse kinematics, ros2_control tracking, RRT-Connect planning, time parameterization, joint vs Cartesian motion, and pick and place. Drag to orbit and scroll to zoom; K pauses and R restarts.
+Twenty-three slides contain interactive scenes (`scenes3d.js`). The Inside a robot chapter has nine: robot types, sense-think-act, TurtleBot3 anatomy, a sensor sorting game, feedback control, the autonomy stack, loop rates, many computers, and a quiz. The others, built with three.js, cover launching a robot model with robot_state_publisher, joint_state_publisher, and RViz, TF2 frames on a driving TurtleBot3, a TF tree explorer for any lookup_transform, rotations and quaternions, assembling the Franka Panda URDF, simulation time, a lidar in a room, joint and task space, inverse kinematics, ros2_control tracking, RRT-Connect planning, time parameterization, joint vs Cartesian motion, and pick and place. Drag to orbit and scroll to zoom; K pauses and R restarts. Canvas scenes take clicks; the sorting game and quiz are plain HTML that the script brings to life, so they still print.
 
 The robot models come from ROS 2 Jazzy packages (`assets/robots/SOURCES.txt`), and three.js and urdf-loader are copied into `vendor/`, so the deck works without internet. Numbers shown in the scenes (forward kinematics, IK results, quaternions) were checked against tf2 on Jazzy.
 

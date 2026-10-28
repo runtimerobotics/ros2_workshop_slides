@@ -734,6 +734,18 @@ b += [cap("nodes: one program, one job", 0, .14, d, 320, 318), cap("topics join 
       cap("messages flow; nobody addresses anyone directly", .24, .62, d, 320, 318), cap("a new subscriber joins; the publisher does not change", .62, 1, d, 320, 318)]
 svgs["The ROS 2 mental model"] = svg(330, "An rqt_graph-style graph builds up: the /camera, /detector and /planner nodes appear, joined by the /image_raw and /detections topics with their message types, and messages flow. A terminal lists the same nodes and topics, plus /parameter_events and /rosout. A /logger node then joins and also receives /detections.", "".join(b), " tall")
 
+# ---------- Inside a robot (divider): the sense, think, act loop ----------
+d = "6s"
+b = []
+for x, kind, name, sub in ((90, "sense", "Sense", "sensors measure"), (360, "think", "Think", "a computer decides"), (630, "act", "Act", "motors move")):
+    b.append(f'<rect class="pill" x="{x}" y="40" width="180" height="64" rx="32"/><text class="s" x="{x + 90}" y="64">{name}</text><text class="k" x="{x + 90}" y="86">{sub}</text>')
+b += [wire("M270,72 L360,72"), wire("M540,72 L630,72"), '<path class="trail" d="M720,104 C720,190 180,190 180,104"/>',
+      '<text class="k" x="450" y="196">the world changes · repeat</text>',
+      packet("req", "M270,72 L360,72", .02, .2, d), flash(360, 40, 180, 64, .2, d, 32),
+      packet("fb", "M540,72 L630,72", .34, .52, d), flash(630, 40, 180, 64, .52, d, 32),
+      packet("res", "M720,104 C720,190 180,190 180,104", .6, .95, d), flash(90, 40, 180, 64, .95, d, 32)]
+svgs["Inside a robot"] = svg(210, "A loop of three stages: sense, where sensors measure; think, where a computer decides; act, where motors move. A packet travels from sense to think to act, then around a return path labelled the world changes, back to sense.", "".join(b))
+
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}

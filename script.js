@@ -144,7 +144,8 @@
   });
 
   let touchStart = null;
-  document.addEventListener('touchstart', event => { touchStart = event.changedTouches[0].clientX; }, { passive: true });
+  // Swipes inside an interactive scene drag or orbit; they never change the slide.
+  document.addEventListener('touchstart', event => { touchStart = event.target.closest?.('.scene3d') ? null : event.changedTouches[0].clientX; }, { passive: true });
   document.addEventListener('touchend', event => {
     if (touchStart === null) return;
     const delta = event.changedTouches[0].clientX - touchStart;

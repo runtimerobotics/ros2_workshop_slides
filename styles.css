@@ -299,8 +299,8 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 .scene-steps { margin: 0; padding-left: 2.2rem; font: .76rem/1.6 "IBM Plex Mono", monospace; color: var(--muted); }.scene-steps li.on { color: var(--cyan); }
 .scene-plot { width: 100%; display: block; }
 @media (max-width: 900px) { .scene3d { grid-template-columns: 1fr; }.scene-view { min-height: 46vh; } }
-@media print { .scene-view > canvas, .scene-view .label-layer { display: none; }.scene-snap { display: block; width: 100%; height: 100%; object-fit: contain; }.scene-snap:not([src]) { display: none; }.scene-view:not(:has(.scene-snap[src]))::after { content: "Interactive 3D scene: open the deck in a browser"; position: absolute; inset: 0; display: grid; place-items: center; color: #666; font: .9rem "IBM Plex Mono", monospace; } }
-@media screen { .slide.active .scene-view:not(.loading):not(:has(canvas))::after { content: "3D scene did not load: check that scenes3d.js, vendor/ and assets/ are published"; position: absolute; inset: 0; display: grid; place-items: center; padding: 2rem; text-align: center; color: var(--pink); font: .85rem "IBM Plex Mono", monospace; } }
+@media print { .scene-view > canvas, .scene-view .label-layer { display: none; }.scene-snap { display: block; width: 100%; height: 100%; object-fit: contain; }.scene-snap:not([src]) { display: none; }.scene3d:not(.scene-dom) .scene-view:not(:has(.scene-snap[src]))::after { content: "Interactive 3D scene: open the deck in a browser"; position: absolute; inset: 0; display: grid; place-items: center; color: #666; font: .9rem "IBM Plex Mono", monospace; } }
+@media screen { .slide.active .scene3d:not(.scene-dom) .scene-view:not(.loading):not(:has(canvas))::after { content: "3D scene did not load: check that scenes3d.js, vendor/ and assets/ are published"; position: absolute; inset: 0; display: grid; place-items: center; padding: 2rem; text-align: center; color: var(--pink); font: .85rem "IBM Plex Mono", monospace; } }
 /* timelines */
 .ros-anim .tick { stroke: rgba(255,255,255,.06); }.ros-anim text.dname { fill: var(--ink); font-size: 12px; font-weight: 500; text-anchor: end; }.ros-anim text.dname.dim { fill: var(--muted); }
 .ros-anim .bar.future { fill: none; stroke: var(--muted); stroke-dasharray: 4 4; }.ros-anim .bar.ahead { fill: none; stroke: rgba(255,255,255,.35); stroke-dasharray: 3 3; }
@@ -324,3 +324,37 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 .ros-anim .graph-ring { fill: rgba(88,224,210,.06); stroke: var(--cyan); stroke-width: 2.5; stroke-linejoin: round; }.ros-anim text.ring-label { fill: var(--cyan); font: 500 11px "IBM Plex Mono", monospace; text-anchor: middle; }
 .ros-anim .edge { fill: none; stroke: var(--blue); stroke-width: 2; }.ros-anim .arrow-head { fill: var(--blue); }
 .ros-anim text.msgtype { fill: var(--muted); font: 500 10px "IBM Plex Mono", monospace; text-transform: none; }
+
+/* Inside a robot: DOM scenes (sort game, quiz) and the divider loop */
+.section-break .ros-anim { max-width: 46rem; max-height: 24vh; margin: 2.5vh 0 0; }
+.scene-dom .scene-view { overflow: auto; padding: clamp(.6rem, 1.2vw, 1rem); background: rgba(8,13,25,.6); }
+.scene-dom .scene-view.loading::after { content: none; }
+.sort-game { display: grid; grid-template-rows: auto 1fr; gap: .8rem; min-height: 100%; }
+.sort-pool { display: flex; flex-wrap: wrap; gap: .45rem; min-height: 4.6rem; align-content: flex-start; }
+.sort-card { display: grid; gap: .1rem; padding: .45rem .7rem; border: 1px solid var(--line); border-radius: .35rem; background: var(--bg-2); color: var(--ink); font: 600 .82rem Inter, sans-serif; text-align: left; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.sort-card small { display: none; color: var(--muted); font: 500 .64rem "IBM Plex Mono", monospace; }
+.sort-card.placed { cursor: default; border-color: rgba(88,224,210,.5); }.sort-card.placed small { display: block; }
+.sort-bin[data-bin="out"] .sort-card.placed { border-color: rgba(255,177,90,.55); }
+.sort-card.selected { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.sort-card.dragging { position: relative; z-index: 5; box-shadow: 0 10px 28px rgba(0,0,0,.55); cursor: grabbing; }
+.sort-card.wrong { border-color: var(--pink); animation: shake .42s; }
+.sort-bins { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.sort-bin { display: flex; flex-direction: column; gap: .35rem; min-height: 9rem; padding: .7rem; border: 1px dashed rgba(88,224,210,.5); border-radius: .4rem; background: rgba(88,224,210,.05); cursor: pointer; transition: background .2s; }
+.sort-bin[data-bin="out"] { border-color: rgba(255,177,90,.55); background: rgba(255,177,90,.05); }
+.sort-bin.hover { background: rgba(88,224,210,.16); }.sort-bin[data-bin="out"].hover { background: rgba(255,177,90,.16); }
+.sort-bin h3 { margin: 0; font-size: .95rem; }.sort-bin[data-bin="in"] h3 { color: var(--cyan); }.sort-bin[data-bin="out"] h3 { color: var(--orange); }
+.sort-bin > p { margin: 0; color: var(--muted); font-size: .74rem; }
+.sort-drop { display: flex; flex-wrap: wrap; gap: .4rem; align-content: flex-start; }
+.quiz { display: grid; gap: .7rem; }
+.quiz-q { padding: .7rem .9rem; border-left: 3px solid var(--blue); background: rgba(255,255,255,.035); transition: border-color .3s; }
+.quiz-q.done { border-color: var(--cyan); }
+.quiz-q > p:first-child { margin: 0 0 .5rem; font-size: clamp(.82rem, 1.05vw, .98rem); font-weight: 600; }
+.quiz-options { display: flex; flex-wrap: wrap; gap: .4rem; }
+.quiz-options button { padding: .4rem .75rem; border: 1px solid var(--line); border-radius: .3rem; background: var(--bg-2); color: var(--ink); font: 500 .8rem Inter, sans-serif; cursor: pointer; }
+.quiz-options button.right { border-color: var(--cyan); background: rgba(88,224,210,.15); color: var(--cyan); animation: pop .35s; }
+.quiz-options button.wrong { border-color: var(--pink); color: var(--pink); animation: shake .42s; }
+.quiz-why { display: none; margin: .5rem 0 0; color: var(--muted); font-size: .8rem; }.quiz-q.done .quiz-why { display: block; }
+@keyframes shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@keyframes pop { 50% { transform: scale(1.07); } }
+@media (max-width: 680px) { .sort-bins { grid-template-columns: 1fr; }.section-break .ros-anim { max-height: none; } }
+@media print { .sort-card small, .quiz-why { display: block; }.scene-dom .scene-view { overflow: visible; } }

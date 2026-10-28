@@ -1,4 +1,4 @@
-// Interactive 3D and canvas scenes for Day 2 and Day 3.
+// Interactive 3D, canvas and DOM scenes: Inside a robot, Day 2 and Day 3.
 // One WebGL renderer moves to whichever slide is active; each scene is built on first visit.
 // Scenes work in ROS coordinates (x forward, y left, z up) inside `world`, which is rotated into three.js y-up.
 import * as THREE from 'three';
@@ -803,6 +803,815 @@ SCENES['control'] = async (panel) => {
 };
 
 // ======================================================================
+// Inside a robot. Canvas scenes return { canvas, update }; DOM scenes return { dom: true, update } and work on the
+// markup already inside .scene-view, so print and no-JS still show the static content.
+// ======================================================================
+const mono = (px, w = 500) => `${w} ${px}px "IBM Plex Mono", monospace`;
+const sans = (px, w = 600) => `${w} ${px}px Inter, sans-serif`;
+const KIND = { sensor: CSS.cyan, brain: CSS.blue, actuator: CSS.orange };
+// Canvas taps in CSS pixels, plus a pointer cursor over anything in `regions`.
+function tappable(canvas, regions, fn) {
+  const at = e => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const find = ([x, y]) => regions().find(g => x >= g.x && x <= g.x + g.w && y >= g.y && y <= g.y + g.h);
+  canvas.addEventListener('click', e => { const g = find(at(e)); if (g) fn(g); });
+  canvas.addEventListener('pointermove', e => { canvas.style.cursor = find(at(e)) ? 'pointer' : ''; });
+}
+function arrowTo(ctx, x0, y0, x1, y1, color, w = 2, head = 7) {
+  const a = Math.atan2(y1 - y0, x1 - x0);
+  ctx.strokeStyle = ctx.fillStyle = color; ctx.lineWidth = w;
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1 - Math.cos(a) * head * .8, y1 - Math.sin(a) * head * .8); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 - head * Math.cos(a - .45), y1 - head * Math.sin(a - .45)); ctx.lineTo(x1 - head * Math.cos(a + .45), y1 - head * Math.sin(a + .45)); ctx.fill();
+}
+function dot(ctx, x, y, r, color) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
+
+// Draws a robot in a 200 × 160 box (y down) and records where its sensors, brain and actuators are.
+function painter(ctx, ox, oy, sc, emph, show) {
+  const anchors = [], X = x => ox + x * sc, Y = y => oy + y * sc;
+  const look = kind => (kind === 'body' || !show[kind] ? { fill: 'rgba(143,154,179,.18)', stroke: '#8f9ab3', glow: false } : { fill: KIND[kind], stroke: KIND[kind], glow: emph === kind });
+  const paint = (kind, fill = true) => {
+    const s = look(kind); ctx.lineWidth = 1.5; ctx.strokeStyle = s.stroke; ctx.fillStyle = s.fill;
+    ctx.shadowColor = s.stroke; ctx.shadowBlur = s.glow ? 16 : 0; if (fill) ctx.fill(); ctx.stroke(); ctx.shadowBlur = 0;
+  };
+  return {
+    anchors,
+    rect(x, y, w, h, kind = 'body', r = 2) { ctx.beginPath(); ctx.roundRect(X(x), Y(y), w * sc, h * sc, r * sc); paint(kind); },
+    circle(x, y, r, kind = 'body') { ctx.beginPath(); ctx.arc(X(x), Y(y), r * sc, 0, 7); paint(kind); },
+    ellipse(x, y, rx, ry, kind = 'body') { ctx.beginPath(); ctx.ellipse(X(x), Y(y), Math.max(rx * sc, .5), Math.max(ry * sc, .5), 0, 0, 7); paint(kind); },
+    line(pts, kind = 'body', w = 4) {
+      const s = look(kind); ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(X(x), Y(y)) : ctx.moveTo(X(x), Y(y))));
+      ctx.strokeStyle = kind === 'body' ? '#5f6a86' : s.stroke; ctx.lineWidth = w * sc; ctx.lineCap = ctx.lineJoin = 'round';
+      ctx.shadowColor = s.stroke; ctx.shadowBlur = s.glow ? 16 : 0; ctx.stroke(); ctx.shadowBlur = 0;
+    },
+    part(kind, text, x, y) { if (!anchors.some(a => a.text === text)) anchors.push({ kind, text, x: X(x), y: Y(y) }); },
+  };
+}
+const pol = (p, r, a) => [p[0] + r * Math.cos(a), p[1] + r * Math.sin(a)];
+const ROBOT_TYPES = [
+  { name: 'Robot arm', ros: '/joint_states · ros2_control · MoveIt 2',
+    sensors: 'joint encoders, joint torque sensors, wrist camera', brain: 'control computer running a 1 kHz loop', actuators: 'one motor per joint, gripper',
+    draw(g, t) {
+      const a1 = -1.25 + .35 * Math.sin(t * .9), a2 = 1.2 + .35 * Math.sin(t * 1.3 + 1), a3 = .9 + .3 * Math.sin(t * 1.1 + 2);
+      const s = [100, 126], e = pol(s, 58, a1), w = pol(e, 50, a1 + a2), a = a1 + a2 + a3, tip = pol(w, 18, a), f = 4 + 3 * Math.sin(t * 2);
+      g.rect(78, 128, 44, 22, 'body', 4); g.line([[52, 144], [78, 144]], 'body', 2); g.rect(18, 126, 34, 24, 'brain', 3);
+      g.line([s, e], 'body', 12); g.line([e, w], 'body', 10); g.line([w, tip], 'body', 7);
+      for (const k of [1, -1]) { const b = pol(tip, f * k, a + Math.PI / 2); g.line([b, pol(b, 11, a)], 'actuator', 3); }
+      g.circle(...s, 9, 'actuator'); g.circle(...e, 8, 'actuator'); g.circle(...w, 7, 'actuator');
+      [s, e, w].forEach(p => g.circle(...pol(p, 6, -2.2), 2.6, 'sensor'));
+      const cam = pol(w, 10, a1 + a2 - Math.PI / 2); g.rect(cam[0] - 4, cam[1] - 3, 8, 6, 'sensor', 1);
+      g.part('sensor', 'joint encoders', ...pol(e, 6, -2.2)); g.part('sensor', 'wrist camera', ...cam); g.part('brain', 'control PC · 1 kHz', 35, 126);
+      g.part('actuator', 'joint motors', ...e); g.part('actuator', 'gripper', ...tip);
+    } },
+  { name: 'Mobile robot', ros: '/scan · /odom · /imu · /cmd_vel',
+    sensors: '360° lidar, wheel encoders, IMU', brain: 'Raspberry Pi (ROS 2) and an OpenCR motor board', actuators: 'two wheel motors',
+    draw(g, t) {
+      const dx = 10 * Math.sin(t * .7), sweep = t * 6;
+      for (const x of [55, 145]) { g.circle(x + dx, 134, 16, 'actuator'); g.line([[x + dx, 134], pol([x + dx, 134], 13, dx / 16)], 'body', 2); g.circle(x + dx, 134, 4, 'sensor'); }
+      for (const x of [64, 114]) g.rect(x + dx, 120, 22, 14, 'actuator', 2);
+      [124, 102, 82, 62].forEach(y => g.rect(60 + dx, y, 80, 4, 'body', 1));
+      [66, 134].forEach(x => g.line([[x + dx, 62], [x + dx, 124]], 'body', 2));
+      g.rect(76 + dx, 108, 48, 13, 'body', 2);
+      g.rect(68 + dx, 94, 64, 7, 'brain', 1); g.rect(124 + dx, 88, 7, 6, 'sensor', 1); g.rect(76 + dx, 74, 48, 7, 'brain', 1);
+      g.rect(84 + dx, 44, 32, 18, 'sensor', 4);
+      g.line([[100 + dx, 52], [100 + dx + 60 * Math.cos(sweep), 52 + 6 * Math.sin(sweep)]], 'sensor', 1);
+      g.part('sensor', '360° lidar', 100 + dx, 50); g.part('sensor', 'IMU (on OpenCR)', 127 + dx, 91); g.part('sensor', 'wheel encoders', 55 + dx, 134);
+      g.part('brain', 'Raspberry Pi · ROS 2', 100 + dx, 77); g.part('brain', 'OpenCR motor board', 100 + dx, 97); g.part('actuator', 'wheel motors', 145 + dx, 134);
+    } },
+  { name: 'Drone', ros: 'PX4 or ArduPilot autopilot, bridged to ROS 2',
+    sensors: 'IMU, barometer, GPS, camera', brain: 'flight controller (fast loops) plus a companion computer', actuators: 'four propeller motors',
+    draw(g, t) {
+      const b = 4 * Math.sin(t * 2) - 10;
+      g.ellipse(100, 148, 46 - b, 4, 'body');
+      g.line([[40, 70 + b], [160, 70 + b]], 'body', 4); g.line([[82, 82 + b], [74, 100 + b]], 'body', 3); g.line([[118, 82 + b], [126, 100 + b]], 'body', 3);
+      for (const x of [38, 162]) { g.rect(x - 8, 61 + b, 16, 9, 'actuator', 2); g.ellipse(x, 58 + b, 26 * Math.abs(Math.cos(t * 23 + x)), 2.5, 'actuator'); }
+      g.rect(76, 64 + b, 48, 20, 'body', 7); g.rect(91, 55 + b, 18, 8, 'sensor', 2); g.rect(89, 68 + b, 18, 10, 'brain', 2); g.circle(113, 73 + b, 2.6, 'sensor');
+      g.line([[100, 84 + b], [100, 90 + b]], 'body', 2); g.circle(100, 94 + b, 5, 'sensor');
+      g.part('sensor', 'GPS', 100, 58 + b); g.part('sensor', 'IMU + barometer', 113, 73 + b); g.part('sensor', 'camera', 100, 94 + b);
+      g.part('brain', 'flight controller', 98, 73 + b); g.part('actuator', '4 propeller motors', 162, 60 + b);
+    } },
+  { name: 'Humanoid', ros: 'ros2_control for dozens of joints · /joint_states · /imu',
+    sensors: 'head cameras, IMU, joint encoders, foot force sensors', brain: 'onboard computer', actuators: 'dozens of joint motors',
+    draw(g, t) {
+      const ph = t * 2.2;
+      for (const sd of [-1, 1]) {
+        const ha = .35 * Math.sin(ph + (sd > 0 ? 0 : Math.PI)), kb = .6 * Math.max(0, Math.sin(ph + (sd > 0 ? 0 : Math.PI) + 1.2));
+        const hip = [100 + sd * 8, 94], knee = [hip[0] + 28 * Math.sin(ha), hip[1] + 28 * Math.cos(ha)], ank = [knee[0] + 28 * Math.sin(ha - kb), knee[1] + 28 * Math.cos(ha - kb)];
+        g.line([hip, knee, ank], 'body', 7); g.circle(...hip, 5, 'actuator'); g.circle(...knee, 4.5, 'actuator'); g.rect(ank[0] - 7, ank[1], 17, 5, 'sensor', 2);
+        if (sd > 0) { g.part('sensor', 'foot force sensors', ank[0] + 2, ank[1] + 2); g.part('actuator', 'hip and knee motors', ...knee); }
+        const sw = .45 * Math.sin(ph + (sd > 0 ? Math.PI : 0)), sh = [100 + sd * 19, 54], el = [sh[0] + 24 * Math.sin(sw), sh[1] + 24 * Math.cos(sw)], hd = [el[0] + 21 * Math.sin(sw + .5), el[1] + 21 * Math.cos(sw + .5)];
+        g.line([sh, el, hd], 'body', 6); g.circle(...sh, 4.5, 'actuator'); g.circle(...el, 4, 'actuator');
+        if (sd < 0) g.part('actuator', 'shoulder and elbow motors', ...el);
+      }
+      g.rect(83, 48, 34, 48, 'body', 7); g.circle(100, 32, 13, 'body'); g.circle(95, 31, 2.6, 'sensor'); g.circle(105, 31, 2.6, 'sensor');
+      g.rect(91, 56, 18, 11, 'brain', 2); g.circle(100, 82, 3, 'sensor');
+      g.part('sensor', 'head cameras', 100, 31); g.part('sensor', 'IMU', 100, 82); g.part('brain', 'onboard computer', 100, 61);
+    } },
+  { name: 'Warehouse AMR', ros: 'Nav2 · /scan from safety lidars · lift as an action',
+    sensors: 'safety lidars, 3D camera, wheel encoders', brain: 'industrial PC running navigation', actuators: 'drive wheels, lift',
+    draw(g, t) {
+      const h = 9 * (.5 - .5 * Math.cos(t * 1.1)), dx = 6 * Math.sin(t * .5);
+      g.rect(40, 54 - h, 120, 5, 'body', 1); g.rect(40, 90 - h, 120, 5, 'body', 1); g.line([[44, 54 - h], [44, 150 - h]], 'body', 3); g.line([[156, 54 - h], [156, 150 - h]], 'body', 3);
+      g.rect(62, 64 - h, 26, 26, 'body', 2); g.rect(98, 70 - h, 34, 20, 'body', 2);
+      g.rect(72 + dx, 100 - h, 56, 6, 'actuator', 2); g.line([[100 + dx, 106 - h], [100 + dx, 116]], 'actuator', 4);
+      g.rect(54 + dx, 114, 92, 24, 'body', 6);
+      g.circle(74 + dx, 141, 8, 'actuator'); g.circle(126 + dx, 141, 8, 'actuator'); g.circle(74 + dx, 141, 2.5, 'sensor');
+      g.rect(140 + dx, 118, 8, 8, 'sensor', 2); g.rect(52 + dx, 118, 8, 8, 'sensor', 2); g.rect(141 + dx, 128, 7, 6, 'sensor', 1); g.rect(88 + dx, 121, 24, 10, 'brain', 2);
+      g.part('sensor', 'safety lidars', 144 + dx, 122); g.part('sensor', '3D camera', 144 + dx, 131); g.part('sensor', 'wheel encoders', 74 + dx, 141);
+      g.part('brain', 'industrial PC · Nav2', 100 + dx, 126); g.part('actuator', 'lift', 128 + dx, 103 - h); g.part('actuator', 'drive wheels', 126 + dx, 141);
+    } },
+  { name: 'Self-driving car', ros: 'Autoware is built on ROS 2',
+    sensors: 'cameras, radar, roof lidar, GPS, wheel speed', brain: 'in-car computer', actuators: 'steering, drive motor or engine, brakes',
+    draw(g, t) {
+      for (let k = 0; k < 7; k++) { const x = ((k * 40 - t * 70) % 280 + 280) % 280 - 40; g.line([[x, 156], [x + 18, 156]], 'body', 2); }
+      g.rect(18, 96, 164, 36, 'body', 10); g.rect(56, 72, 80, 28, 'body', 10);
+      for (const x of [52, 150]) { g.circle(x, 134, 15, 'actuator'); g.line([[x, 134], pol([x, 134], 12, t * 6)], 'body', 2); }
+      g.rect(87, 62, 22, 10, 'sensor', 3); g.rect(68, 68, 10, 4, 'sensor', 1); g.circle(130, 82, 3.5, 'sensor'); g.rect(178, 106, 6, 14, 'sensor', 2); g.rect(26, 104, 26, 14, 'brain', 2);
+      g.part('sensor', 'roof lidar', 98, 66); g.part('sensor', 'GPS', 73, 70); g.part('sensor', 'cameras', 130, 82); g.part('sensor', 'radar', 181, 113);
+      g.part('brain', 'in-car computer', 39, 111); g.part('actuator', 'steering', 150, 134); g.part('actuator', 'drive + brakes', 52, 134);
+    } },
+];
+
+// ---------- Inside a robot: six robots, same three ingredients ----------
+SCENES['robot-types'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let sel = 0, auto = true, regions = [];
+  const show = { sensor: true, brain: true, actuator: true };
+  const pickBtns = ROBOT_TYPES.map((r, i) => u.button(r.name, () => choose(i, true), i === 0));
+  u.row(...pickBtns);
+  const autoBtn = u.button('auto tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true);
+  u.row(...['sensor', 'brain', 'actuator'].map(k => u.button(k === 'brain' ? 'brain' : k + 's', b => { show[k] = !show[k]; b.classList.toggle('on', show[k]); }, true)), autoBtn);
+  const out = u.readout();
+  u.text('Every robot <b>senses</b> the world, <b>thinks</b> about what to do, and <b>acts</b> on it. Click a robot below the drawing, or toggle a part type.');
+  function choose(i, manual) {
+    sel = i; pickBtns.forEach((b, k) => b.classList.toggle('on', k === i));
+    if (manual) { auto = false; autoBtn.classList.remove('on'); }
+    const r = ROBOT_TYPES[i];
+    out.innerHTML = `<b>${r.name}</b><br><b>sense</b> ${r.sensors}<br><b>think</b> ${r.brain}<br><b>act</b> ${r.actuators}<br><b>ROS 2</b> ${r.ros}`;
+  }
+  choose(0);
+  tappable(canvas, () => regions, g => choose(g.i, true));
+  const PH = 6;
+  return { canvas, update(t) {
+    if (auto) { const i = Math.floor(t / PH) % ROBOT_TYPES.length; if (i !== sel) choose(i); }
+    const { ctx, w, h } = fit2d(canvas); ctx.clearRect(0, 0, w, h);
+    const th = Math.min(84, h * .19), mainH = h - th - 14, p = (t % PH) / PH;
+    const emph = p < .35 ? 'sensor' : p < .5 ? 'brain' : p < .85 ? 'actuator' : null;
+    const sc = Math.min(w * .44 / 200, (mainH - 56) / 160), ox = (w - 200 * sc) / 2, oy = 34 + (mainH - 56 - 160 * sc) / 2;
+    const g = painter(ctx, ox, oy, sc, emph, show);
+    ROBOT_TYPES[sel].draw(g, t);
+    ctx.fillStyle = CSS.ink; ctx.font = sans(17, 700); ctx.textAlign = 'left'; ctx.fillText(ROBOT_TYPES[sel].name, 14, 24);
+    // signals: sensors -> brain -> actuators
+    const A = g.anchors.filter(a => show[a.kind]), brain = A.find(a => a.kind === 'brain');
+    if (brain) {
+      const go = (from, to, f, c) => { const e = smooth(clamp(f, 0, 1)); ctx.globalAlpha = .35; ctx.setLineDash([3, 4]); ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(from.x, from.y); ctx.lineTo(to.x, to.y); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1; dot(ctx, lerp(from.x, to.x, e), lerp(from.y, to.y, e), 4, c); };
+      if (p < .35) A.filter(a => a.kind === 'sensor').forEach(a => go(a, brain, p / .3, CSS.cyan));
+      else if (p >= .5 && p < .85) A.filter(a => a.kind === 'actuator').forEach(a => go(brain, a, (p - .5) / .3, CSS.orange));
+      else if (p < .5) { ctx.strokeStyle = CSS.blue; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(brain.x, brain.y, 8 + 22 * ((p - .35) / .15), 0, 7); ctx.globalAlpha = 1 - (p - .35) / .15; ctx.stroke(); ctx.globalAlpha = 1; }
+    }
+    // callouts: sensors and brain on the left, actuators on the right
+    if (w >= 520) {
+      ctx.font = mono(12);
+      for (const [side, list] of [[-1, A.filter(a => a.kind !== 'actuator')], [1, A.filter(a => a.kind === 'actuator')]]) {
+        const ys = []; list.sort((a, b) => a.y - b.y).forEach(a => ys.push(Math.max(a.y, (ys[ys.length - 1] ?? -99) + 26)));
+        const shift = Math.max(0, (ys[ys.length - 1] ?? 0) - (mainH - 8));
+        list.forEach((a, k) => {
+          const y = ys[k] - shift, x = side < 0 ? ox - 14 : ox + 200 * sc + 14;
+          ctx.strokeStyle = KIND[a.kind]; ctx.globalAlpha = .55; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + side * -10, y); ctx.lineTo(a.x, a.y); ctx.stroke(); ctx.globalAlpha = 1;
+          dot(ctx, a.x, a.y, 2.5, KIND[a.kind]);
+          ctx.fillStyle = a.kind === emph ? KIND[a.kind] : CSS.ink; ctx.textAlign = side < 0 ? 'right' : 'left'; ctx.textBaseline = 'middle'; ctx.fillText(a.text, x + side * 4, y);
+        });
+      }
+      ctx.textBaseline = 'alphabetic';
+    }
+    // sense -> think -> act strip
+    const words = [['SENSE', 'sensor'], ['THINK', 'brain'], ['ACT', 'actuator']];
+    ctx.font = mono(12, 600); ctx.textAlign = 'center';
+    words.forEach(([wd, k], i) => { const x = w / 2 + (i - 1) * 110; ctx.fillStyle = emph === k ? KIND[k] : CSS.muted; ctx.fillText(wd, x, mainH); if (i < 2) { ctx.fillStyle = CSS.muted; ctx.fillText('→', x + 55, mainH); } });
+    // thumbnails
+    const n = ROBOT_TYPES.length, gap = 8, bw = (w - 16 - gap * (n - 1)) / n, by = h - th - 4;
+    regions = ROBOT_TYPES.map((r, i) => {
+      const bx = 8 + i * (bw + gap);
+      ctx.strokeStyle = i === sel ? CSS.cyan : CSS.line; ctx.lineWidth = i === sel ? 2 : 1; ctx.beginPath(); ctx.roundRect(bx, by, bw, th, 6); ctx.stroke();
+      const s2 = Math.min((bw - 8) / 200, (th - 18) / 160);
+      ROBOT_TYPES[i].draw(painter(ctx, bx + (bw - 200 * s2) / 2, by + 2, s2, null, show), t);
+      ctx.fillStyle = i === sel ? CSS.cyan : CSS.muted; ctx.font = mono(bw < 90 ? 8 : 10); ctx.fillText(r.name, bx + bw / 2, by + th - 5);
+      return { x: bx, y: by, w: bw, h: th, i };
+    });
+    ctx.textAlign = 'left';
+  } };
+};
+
+// ---------- Inside a robot: sense, think, act, and what slow thinking costs ----------
+SCENES['sense-think-act'] = async (panel) => {
+  const s = base3d({ cam: [0.3, 2.6, 2.3], target: [0, 0, .1], grid: 0 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(5, 3), new THREE.MeshStandardMaterial({ color: 0x141b2e })); s.world.add(floor);
+  const solids = [];
+  const wall = (x, y, sx, sy, color = 0x3a4566, hgt = .3) => { const b = box(sx, sy, hgt, color); b.position.set(x, y, hgt / 2); s.world.add(b); solids.push(b); };
+  wall(0, 1.5, 5, .08); wall(0, -1.5, 5, .08); wall(2.5, 0, .08, 3); wall(-2.5, 0, .08, 3);
+  wall(1.2, -1.0, .6, .4, 0x6aa8ff, .35); wall(-1.4, 1.0, .5, .3, 0x6aa8ff, .35);
+  const person = new THREE.Group();
+  const pBody = new THREE.Mesh(new THREE.CylinderGeometry(.15, .15, .5, 28), new THREE.MeshStandardMaterial({ color: C.orange }));
+  pBody.rotation.x = Math.PI / 2; pBody.position.z = .25; person.add(pBody);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.09, 20, 14), new THREE.MeshStandardMaterial({ color: C.orange })); head.position.z = .6; person.add(head);
+  const pl = label('person', 'warn'); pl.position.z = .8; person.add(pl);
+  s.world.add(person); solids.push(pBody);
+  const GOAL = 1.85, START = -1.9;
+  const goal = new THREE.Mesh(new THREE.RingGeometry(.1, .14, 32), new THREE.MeshBasicMaterial({ color: C.green, side: THREE.DoubleSide }));
+  goal.position.set(GOAL, 0, .005); s.world.add(goal);
+  const gl = label('goal', 'big'); gl.position.set(GOAL, 0, .15); s.world.add(gl);
+  const bot = await turtlebot(); s.world.add(bot);
+  const N = 180, RMAX = 3.5, STOP = .5, R_BOT = .105, R_PERSON = .15;
+  const rays = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: C.pink, transparent: true, opacity: .18 }));
+  rays.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 6), 3)); rays.frustumCulled = false;
+  const seen = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ color: C.pink, size: .05 }));
+  seen.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3)); seen.frustumCulled = false;
+  s.scene.add(rays, seen);
+  const pathLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({ color: C.cyan, dashSize: .06, gapSize: .04 }));
+  pathLine.frustumCulled = false; s.world.add(pathLine);
+  const u = ui(panel);
+  let L = .2, showRays = true;
+  u.slider('thinking time', 0, 2, .05, L, v => (L = v), v => `${(+v).toFixed(2)} s`);
+  u.row(u.button('rays', b => { showRays = !showRays; b.classList.toggle('on', showRays); rays.visible = showRays; }, true),
+        u.button('new run', () => newRun()));
+  const steps = u.list(['<b>sense</b> lidar scan · /scan at 5 Hz', '<b>think</b> obstacle ahead? stop or go', '<b>act</b> /cmd_vel to the wheel motors']);
+  const out = u.readout(), flash = u.text('', 'scene-flash');
+  u.text('The robot only ever acts on an <b>old</b> picture of the world: pink dots are the scan its current command came from. Drag the slider past about 1 s and it drives into the person.');
+  const rc = new THREE.Raycaster(); rc.far = RMAX;
+  const origin = new THREE.Vector3(), dir = new THREE.Vector3();
+  let x, v, go, py, crossing, state, until, queue, nextScan, lastScan, acting, lastApply, runs = 0, safe = 0, crashes = 0, closest;
+  function scan(t) {
+    s.scene.updateMatrixWorld(true); bot.links.base_scan.getWorldPosition(origin);
+    const pts = new Float32Array(N * 3), rp = rays.geometry.attributes.position.array; let front = Infinity;
+    for (let i = 0; i < N; i++) {
+      const ang = i * 2 * Math.PI / N; dir.set(Math.cos(ang), 0, -Math.sin(ang)); rc.set(origin, dir);
+      const hit = rc.intersectObjects(solids, false)[0], r = hit ? hit.distance : RMAX;
+      const deg = i * 360 / N; if ((deg <= 60 || deg >= 300) && r < front) front = r;
+      pts.set(hit ? [origin.x + dir.x * r, origin.y, origin.z + dir.z * r] : [0, -99, 0], i * 3);
+      rp.set([origin.x, origin.y, origin.z, origin.x + dir.x * r, origin.y, origin.z + dir.z * r], i * 6);
+    }
+    rays.geometry.attributes.position.needsUpdate = true;
+    return { t, pts, front, go: front > STOP };
+  }
+  function newRun(t = 0) {
+    x = START; v = 0; go = true; py = 1.15; crossing = false; state = 'drive'; until = 0; queue = []; nextScan = t; lastApply = -9; closest = 9;
+    bot.position.set(x, 0, 0); bot.rotation.set(0, 0, 0); person.position.set(0, py, 0);
+    lastScan = acting = scan(t);
+  }
+  newRun();
+  return { ...s, reset() { newRun(0); }, update(t, dt) {
+    if (dt > 0) {
+      if (state === 'crash' || state === 'done') { if (t > until) newRun(t); }
+      else {
+        while (t >= nextScan) { lastScan = scan(nextScan); queue.push({ at: nextScan + L, sc: lastScan }); nextScan += .2; }
+        while (queue.length && queue[0].at <= t) { acting = queue.shift().sc; go = acting.go; lastApply = t; }
+        v += clamp((go ? .22 : 0) - v, -1.5 * dt, 1.5 * dt); x += v * dt;
+        if (!crossing && x > -1.0) crossing = true;
+        if (crossing) py = Math.max(py - .3 * dt, -1.2);
+        const d = Math.hypot(x, py); closest = Math.min(closest, d - R_BOT - R_PERSON);
+        if (d < R_BOT + R_PERSON) { state = 'crash'; until = t + 2.2; runs++; crashes++; v = 0; }
+        else if (x >= GOAL) { state = 'done'; until = t + 1.2; runs++; safe++; v = 0; }
+      }
+    }
+    bot.position.set(x, 0, 0); person.position.set(0, py, 0);
+    bot.joints.wheel_left_joint.setJointValue(x / .033); bot.joints.wheel_right_joint.setJointValue(x / .033);
+    seen.geometry.attributes.position.array.set(acting.pts); seen.geometry.attributes.position.needsUpdate = true;
+    const pa = pathLine.geometry.attributes.position.array; pa.set([x, 0, .01, GOAL, 0, .01]); pathLine.geometry.attributes.position.needsUpdate = true; pathLine.computeLineDistances();
+    pathLine.material.color.set(go ? C.cyan : C.orange);
+    steps[0].classList.toggle('on', t - lastScan.t < .08); steps[1].classList.toggle('on', queue.length > 0 && state !== 'crash'); steps[2].classList.toggle('on', t - lastApply < .12);
+    const age = Math.max(0, t - acting.t);
+    const st = state === 'crash' ? 'COLLISION' : state === 'done' ? 'reached the goal' : go ? 'driving' : `stopped: obstacle ${acting.front.toFixed(2)} m ahead`;
+    out.innerHTML = `<b>loop</b> scan every 0.2 s, decide in ${L.toFixed(2)} s<br><b>acting on</b> a scan ${age.toFixed(2)} s old<br><b>driven blind</b> about ${(.22 * age * 100).toFixed(0)} cm at 0.22 m/s<br><b>state</b> ${st}<br><b>runs</b> ${runs} · safe ${safe} · collisions ${crashes}`;
+    flash.textContent = state === 'crash' ? 'collision: the robot decided too late' : state === 'done' ? `safe run · closest gap ${(Math.max(closest, 0) * 100).toFixed(0)} cm` : '';
+    flash.classList.toggle('bad', state === 'crash');
+  } };
+};
+
+// ---------- Inside a robot: an exploded TurtleBot3 Burger ----------
+// Specs: ROBOTIS TurtleBot3 Burger specification (e-Manual) and turtlebot3_description.
+const BURGER_PARTS = {
+  lds: ['LDS lidar', 'sensor', 'A 360° laser distance sensor: LDS-01, or LDS-02 on newer kits. The LDS-01 measures 0.12–3.5 m, 360 samples per turn at 5 Hz; the LDS-02 reaches 8 m. Publishes <code>/scan</code> (sensor_msgs/msg/LaserScan).'],
+  sbc: ['Raspberry Pi 4', 'brain', 'Single-board computer (a Raspberry Pi 3 B+ on older kits) running Ubuntu and ROS 2: <code>turtlebot3_node</code>, the lidar driver and <code>robot_state_publisher</code>. Joins the laptop over Wi-Fi.'],
+  opencr: ['OpenCR 1.0', 'brain', 'Control board with a 32-bit ARM Cortex-M7 at 216 MHz and an on-board IMU (3-axis gyroscope and accelerometer). Runs firmware, not ROS: it drives the motor bus and talks to <code>turtlebot3_node</code> over USB.'],
+  motors: ['DYNAMIXEL XL430-W250 × 2', 'actuator', 'Smart servos in wheel mode. Each has its own position sensor, so the motor reports how far its wheel turned: that becomes <code>/joint_states</code> and <code>/odom</code>.'],
+  wheels: ['Wheels', 'actuator', 'Radius 33 mm, 160 mm apart (turtlebot3_description). Differential drive: top speed 0.22 m/s forward and 2.84 rad/s turning.'],
+  battery: ['LiPo battery', 'body', 'Lithium polymer 11.1 V, 1800 mAh (19.98 Wh). Expected operating time about 2 h 30 min.'],
+  caster: ['Ball caster', 'body', 'The passive third contact point. No motor and no sensor: not every part of a robot is smart.'],
+  plates: ['Waffle plates', 'body', 'Modular layers that hold everything. Assembled size 138 × 178 × 192 mm (L × W × H), about 1 kg, maximum payload 15 kg.'],
+};
+SCENES['anatomy'] = async (panel) => {
+  const s = base3d({ cam: [.44, .36, .52], target: [0, .15, 0], grid: 1 });
+  const groups = {}, layers = [new THREE.Group(), new THREE.Group(), new THREE.Group(), new THREE.Group()], lbl = {};
+  const model = new THREE.Group(); layers.forEach(l => model.add(l)); s.world.add(model);
+  const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: .55, metalness: .15, ...extra });
+  function add(key, layer, mesh, x, y, z) {
+    const gk = key === 'plates' ? key + layer : key;   // plates belong to every layer
+    const g = (groups[gk] ??= new THREE.Group()); if (!g.parent) layers[layer].add(g);
+    mesh.position.set(x, y, z); mesh.userData.part = key; g.add(mesh); return mesh;
+  }
+  const PLATE_Z = [.012, .062, .102, .142];
+  PLATE_Z.forEach((z, i) => {
+    add('plates', i, box(.138, .132, .003, 0x3d4560), 0, 0, z);
+    if (i) for (const [sx, sy] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const h = z - PLATE_Z[i - 1], post = new THREE.Mesh(new THREE.CylinderGeometry(.003, .003, h, 8), mat(0x8f9ab3));
+      post.rotation.x = Math.PI / 2; add('plates', i, post, sx * .058, sy * .055, z - h / 2);
+    }
+  });
+  for (const sy of [1, -1]) {
+    add('motors', 0, new THREE.Mesh(new THREE.BoxGeometry(.0465, .034, .0285), mat(0x262a35)), 0, sy * .045, .028);
+    const wheel = new THREE.Group(); wheel.userData.part = 'wheels';
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(.033, .033, .018, 32), mat(0x1b1e26)); tire.userData.part = 'wheels';
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .02, 20), mat(0xc9d1e3)); hub.userData.part = 'wheels';
+    wheel.add(tire, hub); add('wheels', 0, wheel, 0, sy * .08, .033);
+  }
+  add('battery', 0, new THREE.Mesh(new THREE.BoxGeometry(.085, .034, .025), mat(0xd9a03b)), -.01, 0, .027);
+  add('caster', 0, new THREE.Mesh(new THREE.SphereGeometry(.01, 16, 12), mat(0xc9d1e3)), -.055, 0, .005);
+  add('opencr', 1, new THREE.Mesh(new THREE.BoxGeometry(.105, .075, .003), mat(0x1f4f8f)), 0, 0, PLATE_Z[1] + .004);
+  add('opencr', 1, box(.008, .008, .002, 0x111111), .03, -.02, PLATE_Z[1] + .0065);
+  add('sbc', 2, new THREE.Mesh(new THREE.BoxGeometry(.085, .056, .002), mat(0x2e7d4f)), 0, 0, PLATE_Z[2] + .004);
+  for (const [x, y] of [[-.035, .012], [-.035, -.012], [.02, 0]]) add('sbc', 2, box(.018, .014, .014, 0xb0b8c8), x, y, PLATE_Z[2] + .012);
+  add('lds', 3, new THREE.Mesh(new THREE.CylinderGeometry(.035, .035, .02, 32).rotateX(Math.PI / 2), mat(0x262a35)), 0, 0, PLATE_Z[3] + .012);
+  const head = add('lds', 3, new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .016, 32).rotateX(Math.PI / 2), mat(0x39425e)), 0, 0, PLATE_Z[3] + .03);
+  const lens = box(.012, .02, .008, C.pink); lens.position.x = .026; lens.userData.part = 'lds'; head.add(lens);
+  for (const k of Object.keys(BURGER_PARTS)) {
+    const g = groups[k] ?? groups[k + '3'], l = label(BURGER_PARTS[k][0], 'small'); g.add(l); lbl[k] = l;
+    const b = new THREE.Box3().setFromObject(g); b.getCenter(l.position); l.position.z = b.max.z + .012;
+    if (k === 'wheels') l.position.y = .1; if (k === 'plates') l.position.set(.07, -.07, PLATE_Z[3] + .005);
+  }
+  const mats = new Map(); s.world.traverse(o => { if (o.isMesh) mats.set(o, o.material.emissive?.clone()); });
+  const real = await turtlebot(); real.visible = false; s.world.add(real);
+  const u = ui(panel);
+  let sel = 'lds', explode = 1, auto = true, showReal = false;
+  const partBtns = Object.keys(BURGER_PARTS).map(k => u.button(BURGER_PARTS[k][0].replace(' × 2', ''), () => select(k, true), k === sel));
+  u.row(...partBtns);
+  const ex = u.slider('explode', 0, 1, .01, explode, v => { explode = v; stopAuto(); });
+  const autoBtn = u.button('auto tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true);
+  u.row(autoBtn, u.button('URDF model', b => { showReal = !showReal; b.classList.toggle('on', showReal); real.visible = showReal; model.visible = !showReal; }));
+  const out = u.readout();
+  u.text('<b>TurtleBot3 Burger</b>: 0.22 m/s, 2.84 rad/s, differential drive. Click a part in 3D or a button. Colours: <b style="color:#58e0d2">sense</b>, <b style="color:#6aa8ff">think</b>, <b style="color:#ffb15a">act</b>.');
+  function stopAuto() { auto = false; autoBtn.classList.remove('on'); }
+  function select(k, manual) {
+    sel = k; if (manual) stopAuto();
+    partBtns.forEach((b, i) => b.classList.toggle('on', Object.keys(BURGER_PARTS)[i] === k));
+    const [name, kind, text] = BURGER_PARTS[k];
+    out.innerHTML = `<b>${name}</b> · ${{ sensor: 'sense', brain: 'think', actuator: 'act', body: 'structure and power' }[kind]}<br>${text}`;
+    for (const [m, e] of mats) if (m.material.emissive) { m.material.emissive.copy(e); if (m.userData.part === k || m.parent?.userData.part === k) m.material.emissive.set(KIND[kind] ?? '#555c70').multiplyScalar(.45); }
+  }
+  // meshes share materials through box(); give each its own so highlighting stays per part
+  for (const m of mats.keys()) m.material = m.material.clone();
+  select(sel);
+  const ORDER = Object.keys(BURGER_PARTS);
+  return { ...s, pick(ray) {
+    const hit = ray.intersectObjects(model.visible ? [model] : [], true).find(h => h.object.userData.part || h.object.parent?.userData.part);
+    if (hit) select(hit.object.userData.part || hit.object.parent.userData.part, true);
+  }, update(t) {
+    if (auto) {
+      explode = .5 - .5 * Math.cos(t * .5); ex.set(explode);
+      const k = ORDER[Math.floor(t / 3.2) % ORDER.length]; if (k !== sel) select(k);
+    }
+    layers.forEach((l, i) => (l.position.z = explode * i * .04));
+    groups.wheels.children.forEach((w, i) => { w.position.y = Math.sign(w.position.y) * (.08 + explode * .03); w.rotation.y = t * 3; });
+    groups.motors.children.forEach(m => (m.position.y = Math.sign(m.position.y) * (.045 + explode * .012)));
+    head.rotation.z = t * Math.PI * 2;
+    for (const [k, l] of Object.entries(lbl)) l.visible = !showReal && (k === sel || explode > .55);
+    real.joints?.wheel_left_joint?.setJointValue(t * 3); real.joints?.wheel_right_joint?.setJointValue(t * 3);
+  } };
+};
+
+// ---------- Inside a robot: sort sensors into inside (proprioceptive) and outside (exteroceptive) ----------
+// Move a node with a short slide from where it was (FLIP), so placing a card reads as motion.
+function flip(node, move) {
+  const a = node.getBoundingClientRect(); move();
+  if (reduceMotion.matches) return;
+  const b = node.getBoundingClientRect();
+  node.animate([{ transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)` }, { transform: 'none' }], { duration: 380, easing: 'cubic-bezier(.45,0,.2,1)' });
+}
+SCENES['sort-sensors'] = async (panel, view) => {
+  const game = view.querySelector('.sort-game'), pool = game.querySelector('.sort-pool');
+  const cards = [...game.querySelectorAll('.sort-card')], bins = [...game.querySelectorAll('.sort-bin')];
+  const u = ui(panel);
+  const score = u.readout(), flash = u.text('', 'scene-flash'), why = u.text('Drag each sensor into a box, or click a sensor and then a box.');
+  let solving = false, nextSolve = 0, selected = null, tries = 0;
+  u.row(u.button('show answers', () => { solving = true; nextSolve = 0; }), u.button('shuffle', () => reset()));
+  u.text('<b>Inside</b> (proprioceptive): the robot measuring itself. <b>Outside</b> (exteroceptive): the robot measuring the world. Each one arrives in ROS 2 as a standard message type.');
+  const placed = () => cards.filter(c => c.classList.contains('placed')).length;
+  const tally = () => { score.innerHTML = `<b>sorted</b> ${placed()} / ${cards.length} · <b>attempts</b> ${tries}`; };
+  function select(c) { selected = c; cards.forEach(k => k.classList.toggle('selected', k === c)); }
+  function drop(card, bin) {
+    if (!bin || card.classList.contains('placed')) return;
+    tries++;
+    const ok = card.dataset.bin === bin.dataset.bin;
+    if (ok) {
+      flip(card, () => bin.querySelector('.sort-drop').append(card));
+      card.classList.add('placed'); card.disabled = true;
+      flash.textContent = `${card.querySelector('strong').textContent} → ${card.querySelector('small').textContent}`; flash.classList.remove('bad');
+    } else {
+      card.classList.remove('wrong'); void card.offsetWidth; card.classList.add('wrong');
+      flash.textContent = 'not quite: try the other box'; flash.classList.add('bad');
+    }
+    why.innerHTML = card.dataset.why;
+    select(null); tally();
+    if (placed() === cards.length) { flash.textContent = `all ${cards.length} sorted`; flash.classList.remove('bad'); }
+  }
+  // pointer drag; a press without movement selects instead
+  let drag = null;
+  cards.forEach(c => {
+    c.addEventListener('pointerdown', e => {
+      if (c.classList.contains('placed')) return;
+      drag = { c, x: e.clientX, y: e.clientY, moved: false }; c.setPointerCapture(e.pointerId);
+    });
+    c.addEventListener('pointermove', e => {
+      if (drag?.c !== c) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+      drag.moved = true; c.classList.add('dragging'); c.style.transform = `translate(${dx}px, ${dy}px)`;
+      c.style.pointerEvents = 'none'; const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.sort-bin'); c.style.pointerEvents = '';
+      bins.forEach(b => b.classList.toggle('hover', b === over));
+    });
+    c.addEventListener('pointerup', e => {
+      if (drag?.c !== c) return;
+      const moved = drag.moved; drag = null;
+      c.style.pointerEvents = 'none'; const over = document.elementFromPoint(e.clientX, e.clientY)?.closest('.sort-bin'); c.style.pointerEvents = '';
+      c.classList.remove('dragging'); bins.forEach(b => b.classList.remove('hover'));
+      if (moved) { c.style.transform = ''; if (over) drop(c, over); }
+      else select(selected === c ? null : c);
+    });
+    c.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); select(c); } });
+  });
+  bins.forEach(b => {
+    b.addEventListener('click', e => { if (selected && !e.target.closest('.sort-card')) drop(selected, b); });
+    b.addEventListener('keydown', e => { if (e.key === 'Enter' && selected) { e.preventDefault(); drop(selected, b); } });
+  });
+  function reset() {
+    solving = false; tries = 0; select(null);
+    cards.sort(() => Math.random() - .5).forEach(c => { c.classList.remove('placed', 'wrong'); c.disabled = false; pool.append(c); });
+    flash.textContent = ''; why.textContent = 'Drag each sensor into a box, or click a sensor and then a box.'; tally();
+  }
+  reset();
+  return { dom: true, reset, update(t) {
+    if (!solving) return;
+    if (t < nextSolve) return;
+    const c = cards.find(k => !k.classList.contains('placed'));
+    if (!c) { solving = false; return; }
+    tries--; drop(c, bins.find(b => b.dataset.bin === c.dataset.bin)); nextSolve = t + .7;
+  } };
+};
+
+// ---------- Inside a robot: actuators need feedback (open vs closed loop) ----------
+SCENES['feedback'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let closed = true, kp = 3, ki = 6, kd = 0;
+  const modeBtns = [['open loop', false], ['closed loop · PID', true]].map(([n, v]) => u.button(n, () => { closed = v; modeBtns.forEach(b => b.classList.toggle('on', b.textContent === n)); integ = 0; sl.forEach(x => (x.input.disabled = !closed)); }, v === closed));
+  u.row(...modeBtns);
+  const sl = [u.slider('Kp', 0, 15, .1, kp, v => (kp = v), v => (+v).toFixed(1)), u.slider('Ki', 0, 20, .1, ki, v => (ki = v), v => (+v).toFixed(1)), u.slider('Kd', 0, .3, .005, kd, v => (kd = v), v => (+v).toFixed(3))];
+  const out = u.readout(), flash = u.text('', 'scene-flash');
+  u.text('The motor gets a <b>command</b>; the encoder <b>measures</b> what really happened. Open loop trusts the command. Closed loop compares and corrects, so the ramp (pink) barely matters. Push Kp high and the 50 ms sensor delay makes it ring.');
+  const TAU = .25, DELAY = .05, H = .001, CYCLE = 12, WIN = 10;
+  const target = tc => (tc < .5 ? 0 : tc < 6 ? .6 : .35), loadOn = tc => tc >= 3 && tc < 9;
+  let w, integ, buf, hist, theta, simT, prevMeas;
+  const reset = () => { w = 0; integ = 0; buf = new Array(Math.round(DELAY / H)).fill(0); hist = []; theta = 0; simT = 0; prevMeas = 0; };
+  reset();
+  let u_ = 0;
+  return { canvas, reset, update(t, dt) {
+    for (let k = 0, n = Math.round(dt / H); k < n; k++) {
+      simT += H; const tc = simT % CYCLE, r = target(tc);
+      const meas = buf.shift(); buf.push(w);
+      if (closed) {
+        const e = r - meas, dm = (meas - prevMeas) / H; prevMeas = meas;
+        const raw = kp * e + ki * integ - kd * dm;
+        u_ = clamp(raw, -1.5, 1.5); if (u_ === raw || Math.sign(e) !== Math.sign(raw)) integ += e * H;
+      } else u_ = r;
+      w += ((u_ - w) / TAU - (loadOn(tc) ? 1 : 0)) * H;
+      theta += w * H * 14;
+      if (k % 20 === 0) hist.push([simT, r, w, loadOn(tc)]);
+    }
+    hist = hist.filter(p => simT - p[0] < WIN);
+    const { ctx, w: W, h: Hh } = fit2d(canvas); ctx.clearRect(0, 0, W, Hh);
+    const dh = Hh * .42, tc = simT % CYCLE, r = target(tc), meas = buf[0];
+    // block diagram
+    const y = dh * .42, fs = W < 520 ? 9 : 11;
+    const bx = [W * .02, W * .25, W * .52], bw = W * .19, bh = 40;
+    const blk = (x, title, sub, c) => { ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.beginPath(); ctx.roundRect(x, y - bh / 2, bw, bh, 6); ctx.fill(); ctx.stroke(); ctx.textAlign = 'center'; ctx.fillStyle = CSS.ink; ctx.font = sans(fs + 2); ctx.fillText(title, x + bw / 2, y - 3); ctx.fillStyle = CSS.muted; ctx.font = mono(fs - 1); ctx.fillText(sub, x + bw / 2, y + 12); };
+    blk(bx[0], 'target speed', `${(r * 100).toFixed(0)} %`, CSS.cyan);
+    blk(bx[1], closed ? 'controller' : 'open loop', closed ? 'PID: u = f(error)' : 'u = target', CSS.blue);
+    blk(bx[2], 'motor', `u = ${(u_ * 100).toFixed(0)} %`, CSS.orange);
+    const wx = W * .88, wy = y, wr = Math.min(dh * .3, 46, W * .075);
+    ctx.strokeStyle = '#8f9ab3'; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(wx, wy, wr, 0, 7); ctx.stroke();
+    ctx.lineWidth = 2; for (let k = 0; k < 4; k++) { const a = theta + k * Math.PI / 2; ctx.beginPath(); ctx.moveTo(wx, wy); ctx.lineTo(wx + wr * Math.cos(a), wy + wr * Math.sin(a)); ctx.stroke(); }
+    dot(ctx, wx, wy, 5, CSS.cyan);
+    if (loadOn(tc)) { ctx.fillStyle = 'rgba(255,114,159,.85)'; ctx.font = mono(fs, 600); ctx.textAlign = 'center'; ctx.fillText('ramp: extra load', wx, wy - wr - 10); }
+    ctx.fillStyle = CSS.ink; ctx.font = mono(fs); ctx.textAlign = 'center'; ctx.fillText(`speed ${(w * 100).toFixed(0)} %`, wx, wy + wr + 16);
+    arrowTo(ctx, bx[0] + bw, y, bx[1] - 2, y, CSS.cyan); arrowTo(ctx, bx[1] + bw, y, bx[2] - 2, y, CSS.blue); arrowTo(ctx, bx[2] + bw, y, wx - wr - 6, y, CSS.orange);
+    const fy = y + bh / 2 + dh * .3;
+    ctx.setLineDash(closed ? [] : [4, 5]); ctx.strokeStyle = closed ? CSS.cyan : 'rgba(168,176,195,.35)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(wx, wy + wr + 22); ctx.lineTo(wx, fy); ctx.lineTo(bx[1] + bw / 2, fy); ctx.stroke(); ctx.setLineDash([]);
+    if (closed) arrowTo(ctx, bx[1] + bw / 2, fy, bx[1] + bw / 2, y + bh / 2 + 2, CSS.cyan);
+    ctx.fillStyle = closed ? CSS.cyan : CSS.muted; ctx.font = mono(fs); ctx.textAlign = 'center';
+    ctx.fillText(closed ? `encoder feedback · measured ${(meas * 100).toFixed(0)} % (50 ms old)` : 'encoder ignored: no feedback', (wx + bx[1] + bw / 2) / 2, fy - 7);
+    const pk = (p, a, b) => dot(ctx, lerp(a[0], b[0], p), lerp(a[1], b[1], p), 4, CSS.ink);
+    const ph = (simT * .8) % 1;
+    pk(ph, [bx[0] + bw, y], [bx[1], y]); pk(ph, [bx[1] + bw, y], [bx[2], y]);
+    if (closed) { const L1 = fy - (wy + wr + 22), L2 = wx - (bx[1] + bw / 2), L3 = fy - (y + bh / 2), q = ph * (L1 + L2 + L3); const p = q < L1 ? [wx, wy + wr + 22 + q] : q < L1 + L2 ? [wx - (q - L1), fy] : [bx[1] + bw / 2, fy - (q - L1 - L2)]; dot(ctx, p[0], p[1], 4, CSS.cyan); }
+    // plot
+    const py = dh + 8, ph2 = Hh - py - 4, X = tt => (tt - (simT - WIN)) / WIN * W, Y = v => py + ph2 - (v + .1) / 1.3 * ph2;
+    ctx.strokeStyle = CSS.line; ctx.lineWidth = 1; ctx.strokeRect(.5, py + .5, W - 1, ph2 - 1);
+    ctx.fillStyle = 'rgba(255,114,159,.1)';
+    hist.forEach((p, i) => { if (p[3] && hist[i + 1]) ctx.fillRect(X(p[0]), py, X(hist[i + 1][0]) - X(p[0]) + .5, ph2); });
+    const line = (k, c, dash) => { ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.setLineDash(dash || []); ctx.beginPath(); hist.forEach((p, i) => (i ? ctx.lineTo(X(p[0]), Y(p[k])) : ctx.moveTo(X(p[0]), Y(p[k])))); ctx.stroke(); ctx.setLineDash([]); };
+    line(1, CSS.cyan, [6, 4]); line(2, CSS.orange);
+    ctx.textAlign = 'left'; ctx.fillStyle = CSS.muted; ctx.font = mono(11); ctx.fillText('wheel speed, % of max · target (dashed) vs measured · last 10 s', 8, py + 15);
+    // readout
+    const recent = hist.filter(p => simT - p[0] < 2), err = r - w;
+    const rms = Math.sqrt(hist.reduce((a, p) => a + (p[1] - p[2]) ** 2, 0) / Math.max(hist.length, 1));
+    let flips = 0; for (let i = 1; i < recent.length; i++) if (Math.sign(recent[i][1] - recent[i][2]) !== Math.sign(recent[i - 1][1] - recent[i - 1][2])) flips++;
+    out.innerHTML = `<b>mode</b> ${closed ? `closed loop · Kp ${kp.toFixed(1)} Ki ${ki.toFixed(1)} Kd ${kd.toFixed(3)}` : 'open loop'}<br><b>target</b> ${(r * 100).toFixed(0)} % · <b>speed</b> ${(w * 100).toFixed(0)} % · <b>error</b> ${(err * 100).toFixed(0)} %<br><b>RMS error</b> over 10 s: ${(rms * 100).toFixed(1)} %`;
+    const bad = flips > 8 || (!closed && loadOn(tc) && Math.abs(err) > .1);
+    flash.textContent = flips > 8 ? 'oscillating: gain too high for the sensor delay' : !closed && loadOn(tc) ? 'open loop: the load slows the wheel and nothing corrects it' : closed && loadOn(tc) && Math.abs(err) < .03 ? 'feedback cancels the load' : '';
+    flash.classList.toggle('bad', bad);
+  } };
+};
+
+// ---------- Inside a robot: the autonomy stack, for a mobile robot and an arm ----------
+const STAGES = [['perception', CSS.cyan], ['localization', CSS.blue], ['planning', CSS.orange], ['control', CSS.pink]];
+const STACK = {
+  nav: { name: 'mobile robot · Nav2', stages: [
+    ['What is around me?', 'Nav2 costmaps (<code>nav2_costmap_2d</code>): obstacle and inflation layers built from <code>/scan</code>', '/scan'],
+    ['Where am I?', '<code>nav2_amcl</code> on a known map, or <code>slam_toolbox</code> while mapping; both publish the map → odom transform', '/map · /amcl_pose · tf'],
+    ['How do I get there?', '<code>planner_server</code> (NavFn or Smac) finds a path to the goal; the behavior tree replans about once a second', '/plan'],
+    ['Which wheel speeds now?', '<code>controller_server</code> (DWB, Regulated Pure Pursuit or MPPI) at 20 Hz, then ros2_control <code>diff_drive_controller</code>', '/cmd_vel'],
+  ] },
+  arm: { name: 'arm · MoveIt 2', stages: [
+    ['What is around me?', 'A depth camera fills the MoveIt planning scene (occupancy map updater), so obstacles are known', '/camera/points'],
+    ['Where is everything?', 'tf2 and <code>robot_state_publisher</code>: the object pose in the arm base frame', '/tf · /joint_states'],
+    ['How do I move?', '<code>move_group</code> with OMPL or Pilz plans a collision-free joint trajectory, then adds timing', 'action: /move_action'],
+    ['Which joint commands now?', 'ros2_control <code>joint_trajectory_controller</code> follows the trajectory at the hardware rate', 'action: follow_joint_trajectory'],
+  ] },
+};
+SCENES['autonomy'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let mode = 'nav', stage = 0, auto = true, regions = [];
+  const modeBtns = Object.entries(STACK).map(([k, m]) => u.button(m.name, () => { mode = k; modeBtns.forEach(b => b.classList.toggle('on', b.textContent === m.name)); info(); }, k === mode));
+  u.row(...modeBtns);
+  const stageBtns = STAGES.map(([n], i) => u.button(n, () => pick(i, true), i === 0));
+  const autoBtn = u.button('auto', b => { auto = !auto; b.classList.toggle('on', auto); }, true);
+  u.row(...stageBtns, autoBtn);
+  const out = u.readout();
+  u.text('Four questions, asked again and again. ROS 2 packages answer each one; the arrows between the boxes are topics, transforms and actions.');
+  function info() { const [q, pkg, topic] = STACK[mode].stages[stage]; out.innerHTML = `<b>${STAGES[stage][0]}</b> · ${q}<br>${pkg}<br><b>data</b> ${topic}`; }
+  function pick(i, manual) { stage = i; stageBtns.forEach((b, k) => b.classList.toggle('on', k === i)); if (manual) { auto = false; autoBtn.classList.remove('on'); } info(); }
+  info();
+  tappable(canvas, () => regions, g => pick(g.i, true));
+  // mobile world, metres
+  const RECTS = [[0, 0, 10, .1], [0, 5.9, 10, .1], [0, 0, .1, 6], [9.9, 0, .1, 6], [3, 0, .3, 3.6], [6.5, 2.4, .3, 3.6], [4.6, 4.2, 1, .8], [8, 1, 1, 1]];
+  const PATH = [[1, 1], [1.2, 4.5], [3.3, 4.6], [4.4, 3.3], [6.6, 1.5], [7.5, 2.8], [9, 3.6]];
+  const seg = PATH.slice(1).map((p, i) => Math.hypot(p[0] - PATH[i][0], p[1] - PATH[i][1])), LEN = seg.reduce((a, b) => a + b, 0);
+  const along = d => { for (let i = 0; i < seg.length; i++) { if (d <= seg[i]) { const f = d / seg[i], a = PATH[i], b = PATH[i + 1]; return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), Math.atan2(b[1] - a[1], b[0] - a[0]), i]; } d -= seg[i]; } const n = PATH.length - 1; return [...PATH[n], Math.atan2(PATH[n][1] - PATH[n - 1][1], PATH[n][0] - PATH[n - 1][0]), n - 1]; };
+  const castRay = (ox, oy, dx, dy) => { let best = 3.5; for (const [x, y, w, h] of RECTS) { let t0 = -1e9, t1 = 1e9; for (const [o, d, lo, hi] of [[ox, dx, x, x + w], [oy, dy, y, y + h]]) { if (Math.abs(d) < 1e-9) { if (o < lo || o > hi) { t0 = 1e9; break; } } else { const a = (lo - o) / d, b = (hi - o) / d; t0 = Math.max(t0, Math.min(a, b)); t1 = Math.min(t1, Math.max(a, b)); } } if (t0 <= t1 && t0 > 0 && t0 < best) best = t0; } return best; };
+  const rand = rng(21), PARTS = Array.from({ length: 50 }, () => [gauss(rand), gauss(rand), gauss(rand)]);
+  // arm world: 2-link planar arm on a table
+  const L1 = 1.3, L2 = 1.2, BASE = [1.2, .4], WAY = [[1.9, 1.3], [2.4, 1.55], [3.2, 1.0], [3.2, .5], [3.2, 1.0], [2.4, 1.55], [1.9, 1.3]];
+  const awSeg = WAY.slice(1).map((p, i) => Math.hypot(p[0] - WAY[i][0], p[1] - WAY[i][1])), AWL = awSeg.reduce((a, b) => a + b, 0);
+  const awAt = d => { for (let i = 0; i < awSeg.length; i++) { if (d <= awSeg[i]) { const f = smooth(d / awSeg[i]); return [lerp(WAY[i][0], WAY[i + 1][0], f), lerp(WAY[i][1], WAY[i + 1][1], f)]; } d -= awSeg[i]; } return WAY[WAY.length - 1]; };
+  const ik2 = ([x, y]) => { const dx = x - BASE[0], dy = y - BASE[1], c = clamp((dx * dx + dy * dy - L1 * L1 - L2 * L2) / (2 * L1 * L2), -1, 1), q2 = -Math.acos(c); return [Math.atan2(dy, dx) - Math.atan2(L2 * Math.sin(q2), L1 + L2 * Math.cos(q2)), q2]; };
+  let prevQ = null;
+  return { canvas, update(t, dt) {
+    if (auto) { const i = Math.floor(t / 3.5) % 4; if (i !== stage) pick(i); }
+    const { ctx, w, h } = fit2d(canvas); ctx.clearRect(0, 0, w, h);
+    const bandH = Math.min(96, h * .26), wh = h - bandH - 10, alpha = i => (i === stage ? 1 : .2);
+    const fs = w < 520 ? 9 : 11;
+    if (mode === 'nav') {
+      const sc = Math.min((w - 16) / 10, (wh - 8) / 6), ox = (w - 10 * sc) / 2, oy = 4 + (wh - 8 - 6 * sc) / 2, P = (x, y) => [ox + x * sc, oy + (6 - y) * sc];
+      const d = (t * .55) % (2 * LEN), [rx, ry, yaw, si] = along(d < LEN ? d : 2 * LEN - d), heading = d < LEN ? yaw : yaw + Math.PI;
+      // perception: inflated costmap + scan
+      ctx.globalAlpha = alpha(0) * .6; ctx.fillStyle = 'rgba(88,224,210,.18)';
+      RECTS.forEach(([x, y, rw, rh]) => { const [a, b] = P(x - .3, y + rh + .3); ctx.beginPath(); ctx.roundRect(a, b, (rw + .6) * sc, (rh + .6) * sc, .3 * sc); ctx.fill(); });
+      ctx.globalAlpha = 1; ctx.fillStyle = '#3a4566'; RECTS.forEach(([x, y, rw, rh]) => { const [a, b] = P(x, y + rh); ctx.fillRect(a, b, rw * sc, rh * sc); });
+      ctx.globalAlpha = alpha(0);
+      for (let k = 0; k < 90; k++) { const a = k * Math.PI / 45, r = castRay(rx, ry, Math.cos(a), Math.sin(a)); if (r < 3.5) { const [px, py] = P(rx + r * Math.cos(a), ry + r * Math.sin(a)); dot(ctx, px, py, 2, CSS.cyan); } }
+      // localization: particles that converge
+      ctx.globalAlpha = alpha(1); const spread = .08 + .6 * (1 - ((t % 4) / 4));
+      PARTS.forEach(([a, b, c]) => { const [px, py] = P(rx + a * spread, ry + b * spread), hh = heading + c * spread * .5; ctx.strokeStyle = CSS.blue; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + 7 * Math.cos(hh), py - 7 * Math.sin(hh)); ctx.stroke(); dot(ctx, px, py, 1.6, CSS.blue); });
+      // planning: global path to the goal
+      ctx.globalAlpha = alpha(2); const goal = d < LEN ? PATH[PATH.length - 1] : PATH[0];
+      const rest = d < LEN ? [[rx, ry], ...PATH.slice(si + 1)] : [[rx, ry], ...PATH.slice(0, si + 1).reverse()];
+      ctx.strokeStyle = CSS.orange; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); rest.forEach((p, i) => (i ? ctx.lineTo(...P(...p)) : ctx.moveTo(...P(...p)))); ctx.stroke(); ctx.setLineDash([]);
+      const [gx, gy] = P(...goal); ctx.fillStyle = CSS.orange; ctx.beginPath(); ctx.moveTo(gx, gy); ctx.lineTo(gx, gy - 18); ctx.lineTo(gx + 12, gy - 13); ctx.lineTo(gx, gy - 8); ctx.fill();
+      // control: candidate arcs, the chosen one bright
+      ctx.globalAlpha = alpha(3);
+      for (let k = -3; k <= 3; k++) {
+        const curv = k * .5; ctx.strokeStyle = k === 0 ? CSS.pink : 'rgba(255,114,159,.35)'; ctx.lineWidth = k === 0 ? 3 : 1.2; ctx.beginPath();
+        for (let s2 = 0; s2 <= 1.0; s2 += .1) { const th = heading + curv * s2, x = rx + (Math.abs(curv) < 1e-6 ? s2 * Math.cos(heading) : (Math.sin(th) - Math.sin(heading)) / curv), y = ry + (Math.abs(curv) < 1e-6 ? s2 * Math.sin(heading) : (Math.cos(heading) - Math.cos(th)) / curv); s2 ? ctx.lineTo(...P(x, y)) : ctx.moveTo(...P(x, y)); }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+      const [bx, by] = P(rx, ry); ctx.fillStyle = '#c9d1e3'; ctx.beginPath(); ctx.arc(bx, by, .2 * sc, 0, 7); ctx.fill();
+      ctx.strokeStyle = '#080d19'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx + .2 * sc * Math.cos(heading), by - .2 * sc * Math.sin(heading)); ctx.stroke();
+    } else {
+      const sc = Math.min((w - 16) / 4.4, (wh - 8) / 2.9), ox = (w - 4.4 * sc) / 2 - .2 * sc, gy = wh - 10, P = (x, y) => [ox + x * sc, gy - y * sc];
+      const d = (t * .5) % AWL, tip = awAt(d), q = ik2(tip), elbow = [BASE[0] + L1 * Math.cos(q[0]), BASE[1] + L1 * Math.sin(q[0])];
+      const qd = prevQ && dt > 0 ? [(q[0] - prevQ[0]) / dt, (q[1] - prevQ[1]) / dt] : [0, 0]; if (dt > 0) prevQ = q;
+      ctx.fillStyle = '#2a3350'; ctx.fillRect(...P(.2, 0), 4 * sc, 8);
+      ctx.fillStyle = '#3a4566'; ctx.fillRect(...P(2.15, .85), .45 * sc, .85 * sc);
+      ctx.fillStyle = CSS.green; ctx.fillRect(...P(3.08, .3), .24 * sc, .3 * sc);
+      const cam = [2.75, 2.65];
+      // perception: camera frustum and points
+      ctx.globalAlpha = alpha(0); ctx.strokeStyle = 'rgba(88,224,210,.5)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(...P(...cam)); ctx.lineTo(...P(1.9, 0)); ctx.moveTo(...P(...cam)); ctx.lineTo(...P(4.1, 0)); ctx.stroke();
+      for (let x = 2.15; x <= 2.6; x += .07) dot(ctx, ...P(x, .85), 2, CSS.cyan);
+      for (let x = 3.08; x <= 3.32; x += .06) dot(ctx, ...P(x, .3), 2, CSS.cyan);
+      for (let x = 3.4; x <= 4.0; x += .1) dot(ctx, ...P(x, 0), 2, CSS.cyan);
+      ctx.fillStyle = '#c9d1e3'; ctx.fillRect(P(...cam)[0] - 9, P(...cam)[1] - 6, 18, 12); ctx.globalAlpha = 1;
+      // localization: frames and the tf link camera -> cup
+      ctx.globalAlpha = alpha(1);
+      const axes = (x, y, n) => { const [px, py] = P(x, y); arrowTo(ctx, px, py, px + 22, py, CSS.pink, 2, 5); arrowTo(ctx, px, py, px, py - 22, CSS.green, 2, 5); ctx.fillStyle = CSS.blue; ctx.font = mono(fs); ctx.textAlign = 'left'; ctx.fillText(n, px + 4, py + 13); };
+      axes(BASE[0] - .45, 0, 'base'); axes(cam[0] + .15, cam[1] - .1, 'camera'); axes(3.2, .3, 'cup');
+      ctx.strokeStyle = CSS.blue; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(...P(BASE[0] - .45, 0)); ctx.lineTo(...P(3.2, .3)); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      // planning: the tool path over the obstacle
+      ctx.globalAlpha = alpha(2); ctx.strokeStyle = CSS.orange; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath();
+      for (let k = 0; k <= 60; k++) { const p = awAt(k / 60 * AWL / 2); k ? ctx.lineTo(...P(...p)) : ctx.moveTo(...P(...p)); } ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+      // the arm
+      ctx.strokeStyle = '#8f9ab3'; ctx.lineCap = 'round'; ctx.lineWidth = .14 * sc; ctx.beginPath(); ctx.moveTo(...P(BASE[0], 0)); ctx.lineTo(...P(...BASE)); ctx.stroke();
+      ctx.strokeStyle = '#c9d1e3'; ctx.lineWidth = .1 * sc; ctx.beginPath(); ctx.moveTo(...P(...BASE)); ctx.lineTo(...P(...elbow)); ctx.lineTo(...P(...tip)); ctx.stroke(); ctx.lineCap = 'butt';
+      // control: joint velocity arcs
+      ctx.globalAlpha = alpha(3);
+      [[BASE, q[0], qd[0]], [elbow, q[0] + q[1], qd[1]]].forEach(([c, a, v]) => { const [px, py] = P(...c), r = 18, sweep = clamp(v * .6, -1.5, 1.5); ctx.strokeStyle = CSS.pink; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(px, py, r, -a, -a - sweep, sweep > 0); ctx.stroke(); });
+      ctx.globalAlpha = 1; [BASE, elbow].forEach(c => dot(ctx, ...P(...c), 6, CSS.orange));
+    }
+    // pipeline band
+    const by = h - bandH, gap = w < 520 ? 14 : 26, bw = (w - 16 - gap * 3) / 4, bh = bandH - 30;
+    regions = STAGES.map(([n, c], i) => {
+      const x = 8 + i * (bw + gap);
+      ctx.fillStyle = i === stage ? 'rgba(255,255,255,.08)' : 'rgba(255,255,255,.03)';
+      ctx.strokeStyle = c; ctx.lineWidth = i === stage ? 2.5 : 1; ctx.beginPath(); ctx.roundRect(x, by, bw, bh, 6); ctx.fill(); ctx.stroke();
+      ctx.textAlign = 'center'; ctx.fillStyle = i === stage ? c : CSS.ink; ctx.font = sans(w < 520 ? 10 : 13); ctx.fillText(n, x + bw / 2, by + bh / 2 - 4);
+      ctx.fillStyle = CSS.muted; ctx.font = mono(fs - 1); ctx.fillText(STACK[mode].stages[i][2].split(' · ')[0].replace('action: ', ''), x + bw / 2, by + bh / 2 + 12);
+      if (i < 3) { arrowTo(ctx, x + bw + 2, by + bh / 2, x + bw + gap - 2, by + bh / 2, CSS.muted, 1.5, 6); dot(ctx, x + bw + gap * ((t * 1.5 + i * .3) % 1), by + bh / 2, 3, c); }
+      return { x, y: by, w: bw, h: bh, i };
+    });
+    ctx.strokeStyle = 'rgba(168,176,195,.4)'; ctx.lineWidth = 1.2; ctx.setLineDash([4, 5]); ctx.beginPath();
+    ctx.moveTo(w - 8 - bw / 2, by + bh); ctx.lineTo(w - 8 - bw / 2, by + bh + 12); ctx.lineTo(8 + bw / 2, by + bh + 12); ctx.lineTo(8 + bw / 2, by + bh + 2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = CSS.muted; ctx.font = mono(fs - 1); ctx.textAlign = 'center'; ctx.fillText('the robot moves, the world changes: repeat', w / 2, by + bh + 24);
+    ctx.textAlign = 'left';
+  } };
+};
+
+// ---------- Inside a robot: loops at different speeds ----------
+const RATES = [
+  [1000, 'motor control', CSS.pink, 'ros2_control update loop. The Franka Panda arm needs new commands every 1 ms.'],
+  [100, 'IMU', CSS.orange, 'Inertial measurement unit: rotation rate and acceleration, typically 100–400 Hz (sensor_msgs/msg/Imu).'],
+  [30, 'camera', CSS.green, 'A colour camera at 30 frames per second (sensor_msgs/msg/Image).'],
+  [20, 'path follower', CSS.blue, 'Nav2 controller_server: controller_frequency defaults to 20 Hz, producing /cmd_vel.'],
+  [5, 'lidar scan', CSS.cyan, 'The TurtleBot3 LDS-01 spins at 5 Hz: one full 360° /scan every 0.2 s.'],
+  [1, 'global replanning', '#c9d1e3', 'Nav2’s default behavior tree recomputes the global path once per second.'],
+];
+SCENES['loop-rates'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let logW = Math.log10(2), auto = true, sel = 0, regions = [], simT = 0;
+  const zoom = u.slider('window', -2, 1, .01, logW, v => { logW = v; auto = false; autoBtn.classList.remove('on'); }, v => { const W = 10 ** v; return W < 1 ? `${(W * 1000).toFixed(0)} ms` : `${W.toFixed(1)} s`; });
+  const autoBtn = u.button('auto zoom', b => { auto = !auto; b.classList.toggle('on', auto); }, true);
+  u.row(autoBtn);
+  const out = u.readout(), detail = u.readout();
+  u.text('Each tick is one run of a loop. Zoom out and the fast loops blur into solid bars: in one global replan the motor loop runs <b>1000 times</b>. Click a lane for an example.');
+  tappable(canvas, () => regions, g => { sel = g.i; });
+  return { canvas, update(t, dt) {
+    if (auto) { logW = -.5 + 1.5 * Math.cos(2 * Math.PI * t / 24 + 1.008); zoom.set(logW); }
+    const W = 10 ** logW, speed = Math.min(1, W / 2); simT += dt * speed;
+    const { ctx, w, h } = fit2d(canvas); ctx.clearRect(0, 0, w, h);
+    const lw = w < 520 ? 92 : 150, tx = lw + 8, tw = w - tx - 10, top = 26, lh = (h - top - 34) / RATES.length;
+    const X = tt => tx + tw - (simT - tt) / W * tw;
+    ctx.font = mono(11); ctx.fillStyle = CSS.muted; ctx.textAlign = 'left';
+    ctx.fillText(speed < 1 ? `slow motion ×${(1 / speed).toFixed(0)}` : 'real time', tx, 16);
+    ctx.textAlign = 'right'; ctx.fillText('now', tx + tw, 16);
+    regions = RATES.map(([f, name, c], i) => {
+      const y = top + i * lh, mid = y + lh / 2;
+      ctx.fillStyle = i === sel ? 'rgba(255,255,255,.06)' : 'rgba(255,255,255,.02)'; ctx.fillRect(0, y + 2, w, lh - 4);
+      ctx.textAlign = 'right'; ctx.fillStyle = i === sel ? c : CSS.ink; ctx.font = sans(w < 520 ? 10 : 13); ctx.fillText(name, lw, mid - 2);
+      ctx.fillStyle = CSS.muted; ctx.font = mono(w < 520 ? 9 : 11); ctx.fillText(f >= 1000 ? '1 kHz' : `${f} Hz`, lw, mid + 13);
+      const spacing = tw / (W * f), k0 = Math.ceil((simT - W) * f), k1 = Math.floor(simT * f);
+      if (spacing < 3) {
+        ctx.fillStyle = c; ctx.globalAlpha = .55; ctx.fillRect(tx, mid - lh * .28, tw, lh * .56); ctx.globalAlpha = 1;
+        ctx.fillStyle = '#080d19'; ctx.font = mono(11, 600); ctx.textAlign = 'center'; ctx.fillText(`${k1 - k0 + 1} runs`, tx + tw / 2, mid + 4);
+      } else {
+        ctx.strokeStyle = c; ctx.lineWidth = spacing > 12 ? 2 : 1;
+        for (let k = k0; k <= k1; k++) { const x = X(k / f), fresh = simT - k / f < Math.min(.12 * speed, 1 / f); ctx.globalAlpha = fresh ? 1 : .75; ctx.beginPath(); ctx.moveTo(x, mid - lh * (fresh ? .36 : .26)); ctx.lineTo(x, mid + lh * (fresh ? .36 : .26)); ctx.stroke(); }
+        ctx.globalAlpha = 1;
+        if (spacing > 40) for (let k = k0; k <= k1; k++) dot(ctx, X(k / f), mid - lh * .3, 2.5, c);
+        if (k1 < k0) { ctx.fillStyle = CSS.muted; ctx.font = mono(10); ctx.textAlign = 'center'; ctx.fillText(`no run in this window · next within ${f >= 1 && 1 / f >= 1 ? (1 / f).toFixed(0) + ' s' : (1000 / f).toFixed(0) + ' ms'}`, tx + tw / 2, mid + 4); }
+      }
+      return { x: 0, y, w, h: lh, i };
+    });
+    // time axis with 1-2-5 steps
+    const raw = W / 5, p10 = 10 ** Math.floor(Math.log10(raw)), step = [1, 2, 5, 10].map(m => m * p10).find(s2 => s2 >= raw);
+    ctx.strokeStyle = CSS.line; ctx.fillStyle = CSS.muted; ctx.font = mono(10); ctx.textAlign = 'center'; const ay = h - 22;
+    ctx.beginPath(); ctx.moveTo(tx, ay); ctx.lineTo(tx + tw, ay); ctx.stroke();
+    for (let k = 0; k * step <= W + 1e-9; k++) { const x = tx + tw - k * step / W * tw; ctx.beginPath(); ctx.moveTo(x, ay); ctx.lineTo(x, ay + 5); ctx.stroke(); const v = k * step; ctx.fillText(k ? `−${v < 1 ? +(v * 1000).toFixed(0) + ' ms' : +v.toFixed(1) + ' s'}` : '0', x, ay + 16); }
+    ctx.textAlign = 'left';
+    out.innerHTML = `<b>window</b> ${W < 1 ? (W * 1000).toFixed(0) + ' ms' : W.toFixed(1) + ' s'}<br>` + RATES.map(([f, n]) => `${n}: ${Math.round(W * f)}`).join(' · ');
+    detail.innerHTML = `<b>${RATES[sel][1]}</b> · ${RATES[sel][0] >= 1000 ? '1 kHz' : RATES[sel][0] + ' Hz'}, every ${(1000 / RATES[sel][0]).toFixed(0)} ms<br>${RATES[sel][3]}`;
+  } };
+};
+
+// ---------- Inside a robot: many programs on many computers ----------
+SCENES['computers'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let flow = 'all', wifi = true, dropAt = null;
+  const FLOWS = {
+    cmd: ['/cmd_vel', CSS.cyan, ['teleop', 'tb3', 'fw', 'motors'], ['/cmd_vel over Wi-Fi (DDS)', 'velocity goal over USB serial', 'motor commands on the DYNAMIXEL bus']],
+    scan: ['/scan', CSS.pink, ['lds', 'lidar', 'rviz'], ['raw lidar packets over USB', '/scan over Wi-Fi (DDS)']],
+    odom: ['/odom + /imu', CSS.orange, ['motors', 'fw', 'tb3', 'rviz'], ['encoder positions on the bus', 'wheel and IMU data over USB', '/odom, /imu, /joint_states over Wi-Fi']],
+  };
+  const btns = [['all', 'all'], ...Object.entries(FLOWS).map(([k, f]) => [k, f[0]])].map(([k, n]) => u.button(n, () => { flow = k; btns.forEach(b => b.classList.toggle('on', b.textContent === n)); info(); }, k === flow));
+  u.row(...btns);
+  u.row(u.button('drop Wi-Fi', b => { wifi = !wifi; b.classList.toggle('on', !wifi); b.textContent = wifi ? 'drop Wi-Fi' : 'Wi-Fi down'; dropAt = null; info(); }));
+  const out = u.readout(), flash = u.text('', 'scene-flash');
+  u.text('Three computers, three kinds of link, one robot. Between the Pi and the laptop, <b>ROS 2</b> does discovery, typed messages and QoS. The OpenCR runs plain firmware; <code>turtlebot3_node</code> translates (micro-ROS can put ROS 2 on microcontrollers too).');
+  function info() {
+    const f = FLOWS[flow];
+    out.innerHTML = flow === 'all' ? '<b>who is listening?</b> <b>what format?</b> <b>which computer?</b><br>Pick a data flow to follow it hop by hop.' : `<b>${f[0]}</b><br>${f[3].map((s2, i) => `${i + 1}. ${s2}`).join('<br>')}`;
+    flash.textContent = wifi ? '' : 'Wi-Fi down: RViz shows stale data and no new /cmd_vel reaches the robot. What should the robot do?';
+    flash.classList.toggle('bad', !wifi);
+  }
+  info();
+  return { canvas, update(t) {
+    const { ctx, w, h } = fit2d(canvas); ctx.clearRect(0, 0, w, h);
+    const fs = w < 520 ? 8.5 : 11;
+    const M = { laptop: [.02, .06, .27, .52, 'Laptop', 'Ubuntu + ROS 2'], pi: [.365, .06, .27, .52, 'Raspberry Pi 4', 'on the robot · ROS 2'], opencr: [.71, .06, .27, .4, 'OpenCR 1.0', 'microcontroller · firmware'] };
+    const HW = { lds: [.4, .78, .2, .14, 'LDS lidar'], motors: [.73, .62, .23, .14, '2 × DYNAMIXEL'] };
+    const R = ([x, y, ww, hh]) => [x * w, y * h, ww * w, hh * h];
+    const PILL = { teleop: ['laptop', 0, 'teleop_keyboard'], rviz: ['laptop', 1, 'rviz2'], tb3: ['pi', 0, 'turtlebot3_node'], lidar: ['pi', 1, 'lidar driver'], rsp: ['pi', 2, 'robot_state_publisher'], fw: ['opencr', 0, 'firmware + IMU'] };
+    const pos = {};
+    for (const [k, [m, i]] of Object.entries(PILL)) { const [x, y, ww] = R(M[m]); pos[k] = [x + ww / 2, y + 48 + i * (fs * 3.2) + fs * 1.15]; }
+    for (const [k, b] of Object.entries(HW)) { const [x, y, ww, hh] = R(b); pos[k] = [x + ww / 2, y + hh / 2]; }
+    if (flow !== 'all') { const [, c, hops] = FLOWS[flow]; ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.setLineDash([3, 5]); ctx.beginPath(); hops.forEach((n, i) => (i ? ctx.lineTo(...pos[n]) : ctx.moveTo(...pos[n]))); ctx.stroke(); ctx.setLineDash([]); }
+    for (const [k, m] of Object.entries(M)) {
+      const [x, y, ww, hh] = R(m); ctx.fillStyle = 'rgba(255,255,255,.035)'; ctx.strokeStyle = k === 'opencr' ? CSS.orange : CSS.blue; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.roundRect(x, y, ww, hh, 8); ctx.fill(); ctx.stroke();
+      ctx.textAlign = 'center'; ctx.fillStyle = CSS.ink; ctx.font = sans(fs + 2, 700); ctx.fillText(m[4], x + ww / 2, y + 18); ctx.fillStyle = CSS.muted; ctx.font = mono(fs - 1); ctx.fillText(m[5], x + ww / 2, y + 32);
+    }
+    for (const [k, [m, i, name]] of Object.entries(PILL)) {
+      const [x, y, ww] = R(M[m]), py = y + 48 + i * (fs * 3.2), px = x + 8, pw = ww - 16, ph = fs * 2.3;
+      const hot = flow !== 'all' && FLOWS[flow][2].includes(k);
+      ctx.fillStyle = hot ? '#1a2440' : '#11182c'; ctx.strokeStyle = hot ? FLOWS[flow][1] : m === 'opencr' ? 'rgba(255,177,90,.6)' : 'rgba(88,224,210,.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(px, py, pw, ph, ph / 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = CSS.ink; ctx.font = mono(fs); ctx.fillText(name, px + pw / 2, py + ph / 2 + fs * .35);
+    }
+    for (const [k, b] of Object.entries(HW)) { const [x, y, ww, hh] = R(b), hot = flow !== 'all' && FLOWS[flow][2].includes(k); ctx.fillStyle = '#11182c'; ctx.strokeStyle = hot ? FLOWS[flow][1] : '#8f9ab3'; ctx.beginPath(); ctx.roundRect(x, y, ww, hh, 6); ctx.fill(); ctx.stroke(); ctx.fillStyle = CSS.ink; ctx.font = sans(fs + 1); ctx.fillText(b[4], x + ww / 2, y + hh / 2 + 4); }
+    // links between machines
+    const link = (a, b, text, dashed, bad) => {
+      ctx.strokeStyle = bad ? CSS.pink : 'rgba(168,176,195,.6)'; ctx.lineWidth = 2; ctx.setLineDash(dashed ? [6, 5] : []);
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = bad ? CSS.pink : CSS.muted; ctx.font = mono(fs - 1); ctx.fillText(text, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 8);
+      if (bad) { const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2; ctx.strokeStyle = CSS.pink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(mx - 7, my - 7 + 8); ctx.lineTo(mx + 7, my + 7 + 8); ctx.moveTo(mx + 7, my - 7 + 8); ctx.lineTo(mx - 7, my + 7 + 8); ctx.stroke(); }
+    };
+    const wy = h * .32;
+    link([w * .29, wy], [w * .365, wy], 'Wi-Fi', true, !wifi);
+    link([w * .635, h * .3], [w * .71, h * .3], 'USB', false);
+    link([w * .5, h * .58], [w * .5, h * .78], 'USB', false);
+    link([w * .845, h * .46], [w * .845, h * .62], 'TTL bus', false);
+    // packets along each flow
+    for (const [k, [, c, hops]] of Object.entries(FLOWS)) {
+      const on = flow === 'all' || flow === k; ctx.globalAlpha = on ? 1 : .12;
+      const pts = hops.map(n => pos[n]), segs = pts.slice(1).map((p, i) => Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1])), L = segs.reduce((a, b) => a + b, 0);
+      for (let n = 0; n < 2; n++) {
+        let d = ((t * .32 + n * .5 + { cmd: 0, scan: .17, odom: .33 }[k]) % 1) * L, i = 0;
+        while (i < segs.length - 1 && d > segs[i]) d -= segs[i++];
+        const a = pts[i], b = pts[i + 1], f = d / segs[i], x = lerp(a[0], b[0], f), y = lerp(a[1], b[1], f);
+        const crossesWifi = (a[0] < w * .3) !== (b[0] < w * .3);
+        if (!wifi && crossesWifi && f > .5) { if (f < .7) { ctx.strokeStyle = CSS.pink; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 6 + (f - .5) * 60, 0, 7); ctx.stroke(); } continue; }
+        if (!wifi && hops.slice(0, i + 1).some((hp, j) => j < i && (pos[hops[j]][0] < w * .3) !== (pos[hops[j + 1]][0] < w * .3))) continue;
+        dot(ctx, x, y, 5, c);
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = CSS.muted; ctx.font = mono(fs); ctx.textAlign = 'left';
+    ctx.fillText('ROS 2 graph: laptop + Pi', 8, h - 8); ctx.textAlign = 'right'; ctx.fillText('below ROS: firmware and buses', w - 8, h - 8); ctx.textAlign = 'left';
+    if (!wifi) { const [x, y, ww] = R(M.laptop); ctx.fillStyle = CSS.pink; ctx.font = mono(fs, 600); ctx.textAlign = 'center'; dropAt ??= t; ctx.fillText(`no new data for ${(t - dropAt).toFixed(0)} s`, x + ww / 2, y + 48 + 3 * fs * 3.2); ctx.textAlign = 'left'; }
+  } };
+};
+
+// ---------- Inside a robot: quick check ----------
+SCENES['quiz'] = async (panel, view) => {
+  const qs = [...view.querySelectorAll('.quiz-q')];
+  const u = ui(panel), score = u.readout(), flash = u.text('', 'scene-flash');
+  u.row(u.button('try again', () => reset()));
+  u.text('Answer in pairs first, then click. Each answer explains itself.');
+  const tally = () => { const done = qs.filter(q => q.classList.contains('done')), right = done.filter(q => q.dataset.first === 'right').length; score.innerHTML = `<b>answered</b> ${done.length} / ${qs.length} · <b>right first time</b> ${right}`; if (done.length === qs.length) { flash.textContent = right === qs.length ? 'all right first time' : 'all answered: read the explanations again'; flash.classList.toggle('bad', right < qs.length); } };
+  qs.forEach(q => q.querySelectorAll('.quiz-options button').forEach(b => b.addEventListener('click', () => {
+    if (q.classList.contains('done')) return;
+    const ok = 'correct' in b.dataset;
+    q.dataset.first ??= ok ? 'right' : 'wrong';
+    b.classList.remove('wrong'); void b.offsetWidth; b.classList.add(ok ? 'right' : 'wrong'); b.blur();
+    if (ok) q.classList.add('done');
+    tally();
+  })));
+  function reset() { qs.forEach(q => { q.classList.remove('done'); delete q.dataset.first; q.querySelectorAll('button').forEach(b => b.classList.remove('right', 'wrong')); }); flash.textContent = ''; tally(); }
+  reset();
+  return { dom: true, update() {} };
+};
+
+// ======================================================================
 // Engine: one renderer, mounted on the active slide's .scene3d.
 // ======================================================================
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -813,10 +1622,10 @@ let cur = null, clock = 0, last = 0, raf = 0;
 
 function build(el) {
   const panel = el.querySelector('.scene-panel');
-  return SCENES[el.dataset.scene](panel).catch(err => { panel.textContent = 'Could not load this scene: ' + err.message; throw err; });
+  return SCENES[el.dataset.scene](panel, el.querySelector('.scene-view')).catch(err => { panel.textContent = 'Could not load this scene: ' + err.message; throw err; });
 }
 function snapshot() {
-  if (!cur?.inst) return;
+  if (!cur?.inst || cur.inst.dom) return;
   const img = cur.el.querySelector('.scene-snap');
   if (!img) return;
   img.src = (cur.inst.canvas || renderer.domElement).toDataURL('image/png');
@@ -843,7 +1652,7 @@ async function mount(slide) {
   view.classList.remove('loading');
   me.inst = inst;
   if (inst.canvas) view.prepend(inst.canvas);
-  else {
+  else if (!inst.dom) {
     labels.domElement.replaceChildren();   // drop labels left by the previous scene
     view.prepend(renderer.domElement, labels.domElement);
     me.controls = new OrbitControls(inst.camera, renderer.domElement);
@@ -854,11 +1663,11 @@ async function mount(slide) {
 }
 function tick(now) {
   if (!cur?.inst) return;
-  const dt = Math.min((now - last) / 1000, .05); last = now;
+  const dt = clamp((now - last) / 1000, 0, .05); last = Math.max(last, now);   // rAF time can precede the mount time
   const step = isPaused() ? 0 : dt; clock += step;
   const { inst, view } = cur, w = view.clientWidth, h = view.clientHeight;
   inst.update(clock, step);
-  if (!inst.canvas) {
+  if (!inst.canvas && !inst.dom) {
     if (renderer.domElement.width !== Math.round(w * renderer.getPixelRatio()) || renderer.domElement.height !== Math.round(h * renderer.getPixelRatio())) {
       renderer.setSize(w, h, false); labels.setSize(w, h); inst.camera.aspect = w / h; inst.camera.updateProjectionMatrix();
     }
@@ -867,6 +1676,16 @@ function tick(now) {
   }
   raf = requestAnimationFrame(tick);
 }
+// A click without a drag picks in 3D scenes that offer pick(raycaster).
+const picker = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let pressed = null;
+renderer.domElement.addEventListener('pointerdown', e => { pressed = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!pressed || !cur?.inst?.pick || Math.hypot(e.clientX - pressed[0], e.clientY - pressed[1]) > 5) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  picker.setFromCamera(ndc, cur.inst.camera); cur.inst.pick(picker);
+});
 document.addEventListener('deck:slide', e => mount(e.detail));
 document.addEventListener('deck:restart', () => { clock = 0; cur?.inst?.reset?.(); });
 window.addEventListener('beforeprint', snapshot);
