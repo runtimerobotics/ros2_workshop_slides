@@ -38,7 +38,7 @@ Open <http://localhost:8000>.
 
 Each slide has a stable URL hash such as `#12`, so links can open a specific slide.
 
-Communication, parameters, launch, ros2 bag, TF2, URDF, and the Gazebo loop are shown as looping animations. Complex concepts also use progressive reveals so the presenter can explain one stage at a time. Motion automatically reduces when the operating system's **Reduce Motion** preference is enabled.
+ROS 1 vs ROS 2 architecture, communication, parameters, launch, ros2 bag, TF2, URDF, and the Gazebo loop are shown as looping animations, including animated turtlesim demos with typed terminal commands for topics, services, actions, parameters, launch, and ros2 bag. Complex concepts also use progressive reveals so the presenter can explain one stage at a time. Motion automatically reduces when the operating system's **Reduce Motion** preference is enabled.
 
 ## Publish with GitHub Pages
 
