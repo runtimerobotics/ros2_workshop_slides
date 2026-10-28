@@ -358,3 +358,37 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 @keyframes pop { 50% { transform: scale(1.07); } }
 @media (max-width: 680px) { .sort-bins { grid-template-columns: 1fr; }.section-break .ros-anim { max-height: none; } }
 @media print { .sort-card small, .quiz-why { display: block; }.scene-dom .scene-view { overflow: visible; } }
+
+/* Spotlight (script.js): one card, row, or step at a time, with a 2 s progress bar */
+.flow-item { position: relative; transition: background-color .35s ease, box-shadow .35s ease, transform .35s ease; }
+.flow-item.flow-on { background-color: rgba(88,224,210,.09); box-shadow: inset 0 0 0 1px rgba(88,224,210,.45), 0 0 28px rgba(88,224,210,.12); }
+.flow-item.flow-on::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--cyan); transform-origin: left; animation: flow-bar 2s linear both; pointer-events: none; }
+.flow-item.flow-on > code:first-child { display: inline-block; animation: type-in calc(var(--n, 20) * 28ms) steps(var(--n, 20)) both; }
+.steps > li.flow-item.flow-on::before { color: var(--cyan); }
+.table-row.flow-item.flow-on > strong { color: var(--cyan); }
+@keyframes flow-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes type-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+/* code arrives line by line */
+pre.code-reveal > code { display: block; animation: code-in var(--dur, 1s) steps(var(--lines, 8)) both; }
+pre.code-reveal { position: relative; }
+pre.code-reveal::after { content: ""; position: absolute; right: .8rem; bottom: .7rem; width: .55em; height: 1.1em; background: var(--cyan); animation: caret 1s steps(2) 3; opacity: 0; }
+@keyframes code-in { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes caret { 0% { opacity: 0; } 50% { opacity: .8; } }
+body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active pre.code-reveal > code, body.anim-paused .slide.active .sensor-icon { animation-play-state: paused; }
+/* chapter dividers: drifting graph behind the title, title rises in */
+.section-break .ros-anim.deco { position: absolute; right: -6vw; top: 50%; width: min(44vw, 40rem); max-width: none; max-height: none; height: auto; margin: 0; transform: translateY(-50%); opacity: .5; pointer-events: none; z-index: 0; }
+.section-break > *:not(.deco) { position: relative; z-index: 1; }
+.ros-anim .deco-edge { stroke: rgba(106,168,255,.3); stroke-width: 1.5; }.ros-anim .deco-node { fill: #11182c; stroke: var(--cyan); stroke-width: 2; }
+.slide.section-break.active > .chapter-number, .slide.section-break.active > .eyebrow, .slide.section-break.active > h2, .slide.section-break.active > .chapter-prompt { animation: item-rise .6s ease-out both; }
+.slide.section-break.active > .eyebrow { animation-delay: .12s; }.slide.section-break.active > h2 { animation-delay: .22s; }.slide.section-break.active > .chapter-prompt { animation-delay: .34s; }
+/* simulated sensors come alive */
+.slide.active .sensor-icon.lidar { animation: ping 1.6s ease-out infinite; }
+.slide.active .sensor-icon.camera { animation: flash 2.4s ease-in-out infinite; }
+.slide.active .sensor-icon.imu { animation: wobble 2.2s ease-in-out infinite; }
+.slide.active .sensor-icon.contact { animation: buzz 1.2s steps(2) infinite; }
+@keyframes ping { 0% { box-shadow: 0 0 0 0 rgba(88,224,210,.55); } 100% { box-shadow: 0 0 0 22px rgba(88,224,210,0); } }
+@keyframes flash { 0%, 80%, 100% { background: transparent; } 85% { background: rgba(255,255,255,.35); } }
+@keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+@keyframes buzz { 50% { transform: translateX(2px); } }
+@media (max-width: 680px) { .section-break .ros-anim.deco { opacity: .25; width: 90vw; right: -20vw; } }
+@media print { .flow-item.flow-on { background: none; box-shadow: none; }.flow-item::after, pre::after { display: none; } pre > code { animation: none!important; clip-path: none!important; } .section-break .ros-anim.deco .packet { display: none; } }

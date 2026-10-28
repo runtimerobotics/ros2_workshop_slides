@@ -19,12 +19,32 @@
 
   document.documentElement.classList.add('js-ready');
 
+  // Chapter dividers: a drifting ROS graph behind the title. Seeded per slide so it is the same every visit.
+  const NS = 'http://www.w3.org/2000/svg';
+  slides.forEach((slide, k) => {
+    if (!slide.classList.contains('section-break') || slide.querySelector('.ros-anim')) return;
+    let seed = k * 7919 + 13;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'ros-anim deco'); svg.setAttribute('viewBox', '0 0 600 600'); svg.setAttribute('aria-hidden', 'true');
+    const pts = Array.from({ length: 13 }, () => [60 + rnd() * 480, 60 + rnd() * 480]);
+    const edges = [];
+    pts.forEach((p, i) => pts.map((q, j) => [j, Math.hypot(p[0] - q[0], p[1] - q[1])]).filter(([j]) => j > i).sort((a, b) => a[1] - b[1]).slice(0, 2).forEach(([j]) => edges.push([i, j])));
+    let body = edges.map(([i, j]) => `<line class="deco-edge" x1="${pts[i][0]}" y1="${pts[i][1]}" x2="${pts[j][0]}" y2="${pts[j][1]}"/>`).join('');
+    body += pts.map(([x, y], i) => `<circle class="deco-node" cx="${x}" cy="${y}" r="${i % 4 ? 7 : 12}"><animate attributeName="r" dur="${(3 + rnd() * 3).toFixed(1)}s" repeatCount="indefinite" values="${i % 4 ? '7;9;7' : '12;15;12'}"/></circle>`).join('');
+    body += edges.filter((_, n) => n % 2 === 0).map(([i, j], n) => {
+      const dur = (2.5 + rnd() * 3).toFixed(1), path = `M${pts[i][0]},${pts[i][1]} L${pts[j][0]},${pts[j][1]}`;
+      return `<g class="packet"><circle class="${['req', 'fb', 'res'][n % 3]}" r="5"/><animateMotion dur="${dur}s" begin="${(rnd() * 2).toFixed(1)}s" repeatCount="indefinite" path="${path}"/></g>`;
+    }).join('');
+    svg.innerHTML = body; slide.append(svg);
+  });
+
   // Animated diagrams: near the end of a cycle every terminal line and result is visible.
   const cycleOf = svg => parseFloat(svg.querySelector('animate, animateMotion, animateTransform')?.getAttribute('dur')) || 0;
   const freeze = svg => { svg.setCurrentTime(cycleOf(svg) * .9); svg.pauseAnimations(); };
   const restart = svg => { svg.setCurrentTime(0); svg.unpauseAnimations(); };
   const activeAnims = () => [...slides[index].querySelectorAll('svg.ros-anim')];
-  const hasAnimation = () => activeAnims().length || slides[index].querySelector('.scene3d');
+  const hasAnimation = () => activeAnims().length || slides[index].querySelector('.scene3d') || flowItems.length || slides[index].querySelector('pre');
 
   function clamp(value) { return Math.max(0, Math.min(value, slides.length - 1)); }
 
@@ -153,6 +173,39 @@
     touchStart = null;
   }, { passive: true });
 
+  // Spotlight: on slides without a diagram animation, walk through cards, rows, and steps one at a time.
+  // Command cards retype their command; code blocks reveal line by line on arrival.
+  const FLOW = '.outcome-path > article, .agenda-days li, .learning-loop > div, .build-order > div, .startup-checks > div, .pipeline > div, .grasp-sequence > div, .debug-order > div, .validation-ladder > div, .capstone > div, .scene-layers > div, .constraint-rings > div, .vocabulary > div, .decision-path > div, .sensor-contract > div, .filter-funnel > div, .stack-flow > div, .control-loop > div, .concept-map > div, .concept-result, .object-states > div, .moveit-map > div, .message-journey > div, .fault-pairs > p, .scan-fields > p, .pattern-table > .table-row:not(.header), .command-map > div, .steps > li, .compare > article, .sensor-list > article, .evidence-strip > span, .example-strip > span, .overlay-stack > div, .scope-example > div, .layers > div, .geometry-roles > article, .qos-spectrum > .qos-end, .definition-row > p';
+  let flowItems = [], flowAt = 0, flowTimer = 0;
+  const visibleStep = el => { const st = el.closest('[data-step]'); return !st || st.classList.contains('step-visible'); };
+  function flowStep() {
+    if (document.body.classList.contains('anim-paused')) return;
+    flowItems.forEach(el => el.classList.remove('flow-on'));
+    const live = flowItems.filter(visibleStep);
+    if (!live.length) return;
+    const el = live[flowAt++ % live.length];
+    el.classList.remove('flow-on'); void el.offsetWidth; el.classList.add('flow-on');
+    const code = el.querySelector(':scope > code');
+    if (code) code.style.setProperty('--n', Math.min(code.textContent.length, 60));
+  }
+  function startFlow() {
+    clearInterval(flowTimer); flowItems.forEach(el => el.classList.remove('flow-on', 'flow-item'));
+    const slide = slides[index];
+    flowItems = reduceMotion.matches || slide.querySelector('.ros-anim:not(.deco), .scene3d') ? [] : [...slide.querySelectorAll(FLOW)];
+    flowItems.forEach(el => el.classList.add('flow-item'));
+    flowAt = 0;
+    if (flowItems.length) { flowStep(); flowTimer = setInterval(flowStep, 2000); }
+    slide.querySelectorAll('pre').forEach(pre => {
+      if (pre.closest('.scene3d')) return;
+      const lines = pre.textContent.replace(/\n$/, '').split('\n').length;
+      pre.style.setProperty('--lines', lines); pre.style.setProperty('--dur', `${Math.min(lines * 110, 2200)}ms`);
+      pre.classList.remove('code-reveal'); void pre.offsetWidth; if (!reduceMotion.matches) pre.classList.add('code-reveal');
+    });
+  }
+  document.addEventListener('deck:slide', startFlow);
+  document.addEventListener('deck:restart', startFlow);
+
+  window.addEventListener('beforeprint', () => { clearInterval(flowTimer); flowItems.forEach(el => el.classList.remove('flow-on')); document.querySelectorAll('pre.code-reveal').forEach(p => p.classList.remove('code-reveal')); });
   window.addEventListener('beforeprint', () => document.querySelectorAll('svg.ros-anim').forEach(freeze));
   window.addEventListener('afterprint', () => { document.querySelectorAll('svg.ros-anim').forEach(svg => svg.unpauseAnimations()); show(index, false); });
 
