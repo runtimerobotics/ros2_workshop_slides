@@ -14,6 +14,7 @@
   const stepBar = document.getElementById('step-bar');
   const slideSelect = document.getElementById('slide-select');
   const stepState = slides.map(() => 0);
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let index = 0;
 
   document.documentElement.classList.add('js-ready');
@@ -41,7 +42,7 @@
     const note = slides[index].querySelector('.notes');
     notesContent.textContent = note ? note.textContent.trim() : 'No speaker notes for this slide.';
     renderSteps();
-    slides[index].querySelectorAll('svg.ros-anim').forEach(svg => svg.setCurrentTime(0));
+    slides[index].querySelectorAll('svg.ros-anim').forEach(svg => { svg.setCurrentTime(0); if (reduceMotion.matches) svg.pauseAnimations(); else svg.unpauseAnimations(); });
     if (updateHash) history.replaceState(null, '', `#${index + 1}`);
   }
 

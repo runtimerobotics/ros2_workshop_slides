@@ -7,7 +7,7 @@ The deck follows the supplied programme and covers:
 - Prerequisites: essential Linux terminal commands and Python basics, with self-checks
 - Installing ROS 2 Jazzy and setting up the environment
 - What ROS 2 is, the history of ROS and ROS 2, and ROS 1 vs ROS 2
-- ROS 2 architecture, DDS and its implementations, and QoS
+- ROS 2 architecture, client libraries (rclcpp, rclpy, rcl), DDS and its implementations, and QoS
 - Topics, messages, first rclpy publisher and subscriber, ros2 bag, and rqt
 - Services, actions, parameters, package anatomy, timers, and launch
 - TF2, URDF, robot_state_publisher, RViz2, Gazebo Harmonic, and sensor simulation
@@ -38,7 +38,7 @@ Open <http://localhost:8000>.
 
 Each slide has a stable URL hash such as `#12`, so links can open a specific slide.
 
-Complex concepts use progressive reveals so the presenter can explain one stage at a time. Motion automatically reduces when the operating system's **Reduce Motion** preference is enabled.
+Communication, parameters, launch, ros2 bag, TF2, URDF, and the Gazebo loop are shown as looping animations. Complex concepts also use progressive reveals so the presenter can explain one stage at a time. Motion automatically reduces when the operating system's **Reduce Motion** preference is enabled.
 
 ## Publish with GitHub Pages
 
