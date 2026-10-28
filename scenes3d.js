@@ -871,3 +871,5 @@ document.addEventListener('deck:slide', e => mount(e.detail));
 document.addEventListener('deck:restart', () => { clock = 0; cur?.inst?.reset?.(); });
 window.addEventListener('beforeprint', snapshot);
 mount(document.querySelector('.slide.active'));
+// Fetch and parse the robot models in the background so the first 3D slide opens instantly.
+setTimeout(() => { panda().catch(() => {}); turtlebot().catch(() => {}); }, 3000);
