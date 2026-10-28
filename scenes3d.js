@@ -1611,6 +1611,225 @@ SCENES['quiz'] = async (panel, view) => {
   return { dom: true, update() {} };
 };
 
+// ---------- ROS 2 overview: the ROS equation, built as a stack ----------
+const TERMS = [
+  ['Plumbing', CSS.cyan, 'nodes, topics, services, actions, discovery, QoS', 'Programs find each other and exchange typed messages, on one computer or across a network.', 'your own sockets, message formats and discovery'],
+  ['Tools', CSS.blue, 'ros2 CLI, RViz2, rqt, ros2 bag, launch, Gazebo', 'See inside a running system: list nodes, echo topics, visualize sensors, record and replay.', 'print statements and custom viewers'],
+  ['Capabilities', CSS.orange, 'Nav2, MoveIt 2, ros2_control, TF2, perception', 'Ready-made navigation, motion planning, control and coordinate frames.', 'years of writing planners and controllers'],
+  ['Community', CSS.pink, 'docs, Q&A, Discourse, package index, ROSCon', 'Thousands of packages, answers to common errors, and people who have hit your bug before.', 'working alone'],
+];
+SCENES['ros-equation'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let auto = true, focus = -1, regions = [];
+  const btns = TERMS.map(([n], i) => u.button(n, () => pick(i, true)));
+  const autoBtn = u.button('build', b => { auto = !auto; b.classList.toggle('on', auto); }, true);
+  u.row(...btns, autoBtn);
+  const out = u.readout();
+  u.text('ROS 2 is <b>not an operating system</b>. It is open-source middleware, libraries and tools that run on top of Linux, Windows, macOS and RTOS targets.');
+  function pick(i, manual) {
+    focus = i; btns.forEach((b, k) => b.classList.toggle('on', k === i));
+    if (manual) { auto = false; autoBtn.classList.remove('on'); }
+    if (i < 0) { out.innerHTML = '<b>ROS 2</b> = Plumbing + Tools + Capabilities + Community<br>Reuse the first four so you can spend your time on what makes your robot different.'; return; }
+    const [n, , list, what, instead] = TERMS[i];
+    out.innerHTML = `<b>${n}</b> · ${list}<br>${what}<br><b>without it</b> ${instead}`;
+  }
+  pick(-1);
+  tappable(canvas, () => regions, g => pick(g.i, true));
+  const CYC = 16;
+  return { canvas, update(t) {
+    const tc = t % CYC, shown = auto ? Math.min(4, Math.floor((tc - 1.2) / 2.4) + 1) : 4;
+    if (auto) { const f = tc < 1.2 ? -1 : Math.min(3, Math.floor((tc - 1.2) / 2.4)); if (tc > 11.6) { if (focus !== -1) pick(-1); } else if (f !== focus) pick(f); }
+    const { ctx, w, h } = fit2d(canvas); ctx.clearRect(0, 0, w, h);
+    const fs = w < 520 ? 9 : 11, narrow = w < 520;
+    // equation line
+    ctx.font = sans(17, 700); ctx.textAlign = 'left';
+    const eqW = ctx.measureText('ROS 2 = Plumbing + Tools + Capabilities + Community').width; ctx.font = sans(Math.min(17, 17 * (w - 24) / eqW), 700);
+    const parts = [['ROS 2', CSS.ink], [' = ', CSS.muted], ...TERMS.flatMap(([n, c], i) => [[n, i < shown ? (focus === i ? c : CSS.ink) : 'rgba(168,176,195,.25)'], ...(i < 3 ? [[' + ', CSS.muted]] : [])])];
+    let x = 12; parts.forEach(([s2, c]) => { ctx.fillStyle = c; ctx.fillText(s2, x, 26); x += ctx.measureText(s2).width; });
+    // stack: OS at the bottom, ROS 2 layers above, community around everything
+    const L = w * .1, R = w * .9, top = 52, osH = 34, gap = 8, lh = (h - top - osH - 40 - gap * 4) / 3;
+    const osY = h - 26 - osH;
+    ctx.strokeStyle = '#8f9ab3'; ctx.fillStyle = 'rgba(143,154,179,.12)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(L, osY, R - L, osH, 6); ctx.fill(); ctx.stroke();
+    ['Linux', 'Windows', 'macOS', 'RTOS'].forEach((n, i) => { ctx.fillStyle = CSS.ink; ctx.font = mono(fs + 1); ctx.textAlign = 'center'; ctx.fillText(n, L + (R - L) * (i + .5) / 4, osY + osH / 2 + 4); });
+    ctx.fillStyle = CSS.muted; ctx.font = mono(fs - 1); ctx.fillText('operating system: not ROS', (L + R) / 2, osY + osH + 14);
+    regions = [];
+    const layer = (i, y, hh) => {
+      const [n, c] = TERMS[i], k = auto ? clamp((tc - 1.2 - i * 2.4) / .6, 0, 1) : 1;
+      if (k <= 0) return null;
+      const off = (1 - smooth(k)) * -40;
+      ctx.globalAlpha = smooth(k) * (focus < 0 || focus === i ? 1 : .35);
+      ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.strokeStyle = c; ctx.lineWidth = focus === i ? 2.5 : 1.5;
+      ctx.beginPath(); ctx.roundRect(L, y + off, R - L, hh, 8); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = c; ctx.font = sans(narrow ? 11 : 14, 700); ctx.textAlign = 'left'; ctx.fillText(n, L + 10, y + off + 20);
+      ctx.fillStyle = CSS.muted; ctx.font = mono(fs - 1); ctx.fillText(TERMS[i][2], L + 10, y + off + hh - 8);
+      return off;
+    };
+    // plumbing: nodes with packets and a service round trip
+    const pY = osY - gap - lh, o0 = layer(0, pY, lh);
+    if (o0 !== null) {
+      const y = pY + o0 + lh * .5, xs = [.42, .58, .74, .9].map(f => L + (R - L) * f - 20);
+      ctx.save(); ctx.globalAlpha *= 1;
+      ctx.strokeStyle = 'rgba(88,224,210,.4)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(xs[0], y); ctx.lineTo(xs[3], y); ctx.stroke();
+      xs.forEach(px => { ctx.fillStyle = '#11182c'; ctx.strokeStyle = CSS.cyan; ctx.beginPath(); ctx.arc(px, y, 9, 0, 7); ctx.fill(); ctx.stroke(); });
+      for (let k = 0; k < 3; k++) { const f = (t * .9 + k / 3) % 1; dot(ctx, lerp(xs[0], xs[2], f), y, 3.5, CSS.cyan); }
+      const sv = (t * .6) % 1; dot(ctx, xs[3] - (sv < .5 ? sv * 2 : 2 - sv * 2) * (xs[3] - xs[2]), y - 12, 3, sv < .5 ? CSS.blue : CSS.orange);
+      ctx.restore();
+    }
+    // tools: a typing terminal and a spinning scan
+    const tY = pY - gap - lh, o1 = shown > 1 || !auto ? layer(1, tY, lh) : null;
+    if (o1 !== null && o1 !== undefined) {
+      const y = tY + o1, cmd = '$ ros2 topic echo /scan', n = Math.floor((t * 8) % (cmd.length + 12));
+      const bx = L + (R - L) * .34;
+      ctx.fillStyle = '#080d19'; ctx.strokeStyle = 'rgba(106,168,255,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(bx, y + 8, (R - L) * .36, lh - 16, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#dce8ff'; ctx.font = mono(fs); ctx.textAlign = 'left'; ctx.fillText(cmd.slice(0, n) + (Math.floor(t * 2) % 2 ? '▌' : ''), bx + 8, y + 8 + (lh - 16) / 2 + 4);
+      const cx = L + (R - L) * .85, cy = y + lh / 2, r = Math.min(lh * .38, 34);
+      ctx.strokeStyle = CSS.line; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+      for (let k = 0; k < 40; k++) { const a = k / 40 * 7 + t * .8, rr = r * (.55 + .35 * Math.abs(Math.sin(k * 1.7))); dot(ctx, cx + rr * Math.cos(a), cy + rr * Math.sin(a), 1.6, CSS.pink); }
+      ctx.strokeStyle = CSS.blue; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + r * Math.cos(t * 3), cy + r * Math.sin(t * 3)); ctx.stroke();
+    }
+    // capabilities: a path being drawn and an arm swinging
+    const cY = tY - gap - lh, o2 = auto && shown < 3 ? null : layer(2, cY, lh);
+    if (o2 !== null && o2 !== undefined) {
+      const y = cY + o2, x0 = L + (R - L) * .36, x1 = L + (R - L) * .66, f = (t * .35) % 1;
+      ctx.strokeStyle = CSS.orange; ctx.lineWidth = 2.5; ctx.setLineDash([6, 5]); ctx.beginPath();
+      for (let k = 0; k <= 40 * f; k++) { const s2 = k / 40, px = lerp(x0, x1, s2), py = y + lh / 2 + Math.sin(s2 * 6) * lh * .22; k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.stroke(); ctx.setLineDash([]);
+      dot(ctx, lerp(x0, x1, f), y + lh / 2 + Math.sin(f * 6) * lh * .22, 5, '#c9d1e3');
+      const base = [L + (R - L) * .84, y + lh - 10], a1 = -1.9 + .5 * Math.sin(t * 1.2), a2 = .9 + .5 * Math.sin(t * 1.7), e = pol(base, lh * .38, a1), tip = pol(e, lh * .32, a1 + a2);
+      ctx.strokeStyle = '#c9d1e3'; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(...base); ctx.lineTo(...e); ctx.lineTo(...tip); ctx.stroke(); ctx.lineCap = 'butt';
+      [base, e].forEach(p => dot(ctx, ...p, 4, CSS.orange));
+    }
+    // community: people around the stack, linked to each other
+    const o3 = auto && shown < 4 ? null : 0;
+    if (o3 !== null) {
+      const k = auto ? smooth(clamp((tc - 1.2 - 3 * 2.4) / .8, 0, 1)) : 1;
+      ctx.globalAlpha = k * (focus < 0 || focus === 3 ? 1 : .35);
+      const ppl = Array.from({ length: 14 }, (_, i) => { const side = i % 2 ? R + (w - R) / 2 : L / 2, yy = top + 10 + (i >> 1) * ((osY - top) / 7); return [side + 6 * Math.sin(t + i), yy]; });
+      ctx.strokeStyle = 'rgba(255,114,159,.35)'; ctx.lineWidth = 1;
+      ppl.forEach((p, i) => { const q = ppl[i + 2]; if (q) { ctx.beginPath(); ctx.moveTo(...p); ctx.lineTo(...q); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(...p); ctx.lineTo(i % 2 ? R : L, p[1]); ctx.stroke(); });
+      ppl.forEach(p => dot(ctx, ...p, 4, CSS.pink));
+      for (let k = 0; k < 2; k++) { const i = (Math.floor(t * .7) * 5 + k * 7) % 14, p = ppl[i], f = (t * .7) % 1; dot(ctx, lerp(p[0], i % 2 ? R : L, f), p[1], 2.5, CSS.ink); }
+      ctx.fillStyle = CSS.pink; ctx.font = mono(fs, 600); ctx.textAlign = 'center'; if (!narrow) ctx.fillText('Community', L / 2, top + 2);
+      ctx.globalAlpha = 1;
+      regions.push({ x: 0, y: top, w: L, h: osY - top, i: 3 }, { x: R, y: top, w: w - R, h: osY - top, i: 3 });
+    }
+    ctx.globalAlpha = 1;
+    regions.push({ x: L, y: pY, w: R - L, h: lh, i: 0 }, { x: L, y: tY, w: R - L, h: lh, i: 1 }, { x: L, y: cY, w: R - L, h: lh, i: 2 });
+    ctx.textAlign = 'left';
+  } };
+};
+
+// ---------- ROS 2 overview: why ROS 2, four cases side by side ----------
+const WHY = [
+  ['No single point of failure', 'ROS 1: every node registers with one roscore master. Stop it and running links keep going, but no new node can connect. ROS 2: nodes discover each other directly; one node stopping affects only that node.'],
+  ['Real products', 'Managed (lifecycle) nodes start in a known order, SROS2 encrypts and authenticates traffic, and LTS releases get five years of support: Jazzy until May 2029.'],
+  ['Real networks', 'QoS per topic. Reliable resends a lost message (commands, maps). Best effort drops it and moves on, so sensor data stays fresh on lossy Wi-Fi.'],
+  ['More platforms', 'The same graph spans Linux, Windows and macOS computers, and microcontrollers through micro-ROS.'],
+];
+SCENES['why-ros2'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let auto = true, sel = 0, t0 = 0;
+  const btns = WHY.map(([n], i) => u.button(n, () => pick(i, true), i === 0));
+  const autoBtn = u.button('auto', b => { auto = !auto; b.classList.toggle('on', auto); }, true);
+  u.row(...btns, autoBtn);
+  const out = u.readout();
+  u.text('<b>ROS 1 reached end of life in May 2025.</b> New projects should start on ROS 2. Click a reason, or let auto cycle through all four.');
+  let now = 0;
+  function pick(i, manual) { sel = i; t0 = now; btns.forEach((b, k) => b.classList.toggle('on', k === i)); if (manual) { auto = false; autoBtn.classList.remove('on'); } out.innerHTML = `<b>${String(i + 1).padStart(2, '0')} · ${WHY[i][0]}</b><br>${WHY[i][1]}`; }
+  pick(0);
+  const CYC = 9;
+  const node = (ctx, x, y, name, c, dead, fs) => { ctx.globalAlpha = dead ? .3 : 1; ctx.fillStyle = '#11182c'; ctx.strokeStyle = dead ? CSS.pink : c; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(x, y, fs * 4.6, fs * 1.6, 0, 0, 7); ctx.fill(); ctx.stroke(); ctx.fillStyle = CSS.ink; ctx.font = mono(fs); ctx.textAlign = 'center'; ctx.fillText(name, x, y + fs * .35); ctx.globalAlpha = 1; if (dead) { ctx.strokeStyle = CSS.pink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - 9, y - 9); ctx.lineTo(x + 9, y + 9); ctx.moveTo(x + 9, y - 9); ctx.lineTo(x - 9, y + 9); ctx.stroke(); } };
+  const line = (ctx, a, b, c, dash, wdt = 1.5) => { ctx.strokeStyle = c; ctx.lineWidth = wdt; ctx.setLineDash(dash || []); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]); };
+  const moving = (ctx, a, b, f, c, r = 4) => dot(ctx, lerp(a[0], b[0], f), lerp(a[1], b[1], f), r, c);
+  return { canvas, update(t) {
+    now = t;
+    if (auto && t - t0 > CYC) pick((sel + 1) % 4);
+    const lt = t - t0, ph = (lt % CYC) / CYC;
+    const { ctx, w, h } = fit2d(canvas); ctx.clearRect(0, 0, w, h);
+    const fs = w < 520 ? 8.5 : 11, half = w / 2;
+    if (sel !== 3) {
+      ctx.strokeStyle = CSS.line; ctx.beginPath(); ctx.moveTo(half, 34); ctx.lineTo(half, h - 10); ctx.stroke();
+      ctx.font = sans(fs + 4, 700); ctx.textAlign = 'center'; ctx.fillStyle = CSS.orange; ctx.fillText(sel === 2 ? 'Reliable' : 'ROS 1', half / 2, 24); ctx.fillStyle = CSS.cyan; ctx.fillText(sel === 2 ? 'Best effort' : 'ROS 2', half * 1.5, 24);
+    }
+    const msg = (text, x, y, c = CSS.muted) => { ctx.fillStyle = c; ctx.font = mono(fs); ctx.textAlign = 'center'; ctx.fillText(text, x, y); };
+    if (sel === 0) {
+      const dead = ph > .35, late = ph > .55;
+      // ROS 1: star around the master
+      const m = [half / 2, h * .45], ns = [[half * .2, h * .2], [half * .8, h * .2], [half * .2, h * .72], [half * .8, h * .72]], names = ['/camera', '/detector', '/planner', '/motors'];
+      ns.forEach(p => line(ctx, p, m, dead ? 'rgba(255,114,159,.3)' : 'rgba(255,177,90,.45)', [3, 4]));
+      line(ctx, ns[0], ns[1], 'rgba(255,255,255,.25)'); moving(ctx, ns[0], ns[1], (lt * .8) % 1, CSS.orange);
+      if (!dead) ns.forEach((p, i) => moving(ctx, p, m, ((lt * .5 + i * .25) % 1), 'rgba(255,177,90,.8)', 2.5));
+      node(ctx, ...m, 'roscore', CSS.orange, dead, fs);
+      ns.forEach((p, i) => node(ctx, ...p, names[i], CSS.orange, false, fs));
+      if (late) { const nn = [half / 2, h * .86]; node(ctx, ...nn, '/logger', CSS.orange, false, fs); msg('waiting for master…', nn[0], nn[1] - fs * 2.6, CSS.pink); }
+      msg(dead ? 'master down: old link works,' : 'every node registers', half / 2, h - 22, dead ? CSS.pink : CSS.muted); msg(dead ? 'no new links can form' : 'with the master', half / 2, h - 7, dead ? CSS.pink : CSS.muted);
+      // ROS 2: mesh, discovery
+      const ms = [[half * 1.2, h * .2], [half * 1.8, h * .2], [half * 1.2, h * .72], [half * 1.8, h * .72]];
+      for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++) if (!(dead && (i === 3 || j === 3))) line(ctx, ms[i], ms[j], 'rgba(88,224,210,.25)', [3, 4]);
+      moving(ctx, ms[0], ms[1], (lt * .8) % 1, CSS.cyan); moving(ctx, ms[1], ms[2], (lt * .8 + .5) % 1, CSS.cyan);
+      ms.forEach((p, i) => node(ctx, ...p, names[i], CSS.cyan, dead && i === 3, fs));
+      if (late) { const nn = [half * 1.5, h * .86]; const k = clamp((ph - .55) / .1, 0, 1); ctx.strokeStyle = CSS.cyan; ctx.globalAlpha = 1 - k; ctx.beginPath(); ctx.arc(...nn, 10 + k * 90, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; if (ph > .65) { line(ctx, nn, ms[1], 'rgba(88,224,210,.5)'); moving(ctx, ms[1], nn, (lt * .8) % 1, CSS.cyan); } node(ctx, ...nn, '/logger', CSS.cyan, false, fs); }
+      msg(dead ? 'one node stops, the rest carry on,' : 'no master: nodes find', half * 1.5, h - 22, dead ? CSS.cyan : CSS.muted); msg(dead ? 'and /logger joins by discovery' : 'each other directly', half * 1.5, h - 7, dead ? CSS.cyan : CSS.muted);
+    } else if (sel === 1) {
+      // ROS 1 side: a node that starts in any order and plain-text traffic
+      const a = [half * .25, h * .32], b = [half * .75, h * .32];
+      node(ctx, ...a, '/driver', CSS.orange, false, fs); node(ctx, ...b, '/planner', CSS.orange, false, fs);
+      line(ctx, a, b, 'rgba(255,177,90,.4)'); const f = (lt * .6) % 1; ctx.fillStyle = CSS.orange; ctx.font = mono(fs); ctx.textAlign = 'center'; ctx.fillText('{x: 1.2}', lerp(a[0] + 30, b[0] - 30, f), a[1] - 16);
+      msg('plain traffic, anyone on the network can read it', half / 2, h * .32 + 34);
+      msg('nodes start in whatever order they start', half / 2, h * .62);
+      msg('ROS 1 ended: May 2025', half / 2, h * .82, CSS.pink);
+      // ROS 2 side: lifecycle states, encrypted traffic, LTS bar
+      const ST = ['unconfigured', 'inactive', 'active'], k = Math.min(2, Math.floor(ph * 3.3)), sx = i => half + half * (.18 + i * .32);
+      ST.forEach((s2, i) => { ctx.fillStyle = i === k ? 'rgba(88,224,210,.18)' : '#11182c'; ctx.strokeStyle = i <= k ? CSS.cyan : CSS.line; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(sx(i) - half * .14, h * .18, half * .28, 30, 15); ctx.fill(); ctx.stroke(); msg(s2, sx(i), h * .18 + 19, i === k ? CSS.cyan : CSS.ink); if (i < 2) arrowTo(ctx, sx(i) + half * .14, h * .18 + 15, sx(i + 1) - half * .14, h * .18 + 15, i < k ? CSS.cyan : CSS.muted, 1.5, 5); });
+      msg(['starts unconfigured: nothing runs yet', 'configured: parameters loaded, not publishing', 'activated: publishing, in a known order'][k], half * 1.5, h * .18 + 50, CSS.cyan);
+      const a2 = [half * 1.25, h * .5], b2 = [half * 1.75, h * .5]; line(ctx, a2, b2, 'rgba(88,224,210,.4)');
+      const g = (lt * .6) % 1; ctx.fillStyle = CSS.cyan; ctx.font = mono(fs); ctx.textAlign = 'center'; ctx.fillText('🔒 9f2c…', lerp(a2[0], b2[0], g), a2[1] - 10);
+      msg('SROS2: encrypted and authenticated', half * 1.5, a2[1] + 22);
+      const by = h * .76, x0 = half * 1.1, x1 = half * 1.9, yr = [2024, 2029], fx = yv => lerp(x0, x1, (yv - yr[0]) / (yr[1] - yr[0]));
+      ctx.fillStyle = 'rgba(88,224,210,.25)'; ctx.fillRect(x0, by, (x1 - x0) * Math.min(1, ph * 1.4), 12); ctx.strokeStyle = CSS.cyan; ctx.strokeRect(x0, by, x1 - x0, 12);
+      [2024, 2026, 2029].forEach(yv => msg(String(yv), fx(yv), by + 28)); ctx.strokeStyle = CSS.orange; ctx.beginPath(); ctx.moveTo(fx(2026.8), by - 4); ctx.lineTo(fx(2026.8), by + 16); ctx.stroke();
+      msg('Jazzy LTS: May 2024 – May 2029 · today', half * 1.5, by - 10, CSS.cyan);
+    } else if (sel === 2) {
+      // a lossy link: every third message is lost
+      for (const [side, reliable] of [[0, true], [1, false]]) {
+        const x0 = half * side + half * .15, x1 = half * side + half * .85, y = h * .42, c = reliable ? CSS.orange : CSS.cyan;
+        node(ctx, x0, y - 60, 'pub', c, false, fs); node(ctx, x1, y - 60, 'sub', c, false, fs);
+        ctx.strokeStyle = 'rgba(255,255,255,.15)'; ctx.setLineDash([5, 5]); ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); ctx.setLineDash([]);
+        msg('lossy Wi-Fi', (x0 + x1) / 2, y + 18);
+        const rate = 1.4, recv = [];
+        for (let k = Math.floor(lt * rate) - 6; k <= Math.floor(lt * rate); k++) {
+          if (k < 0) continue;
+          const lost = k % 3 === 1, age = lt - k / rate, dur = 1.6;
+          if (lost) {
+            const f = age / dur;
+            if (f < .5) moving(ctx, [x0, y], [x1, y], f, c, 6); else if (f < .62) { ctx.strokeStyle = CSS.pink; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lerp(x0, x1, .5), y, 6 + (f - .5) * 120, 0, 7); ctx.stroke(); }
+            if (reliable) { const f2 = (age - dur * .7) / dur; if (f2 > 0 && f2 < 1) { moving(ctx, [x0, y], [x1, y], f2, c, 6); ctx.fillStyle = c; ctx.font = mono(fs); ctx.fillText('resend', lerp(x0, x1, f2), y - 12); } if (f2 >= 1) recv.push([k, age - dur * 1.7]); }
+          } else { const f = age / dur; if (f < 1) moving(ctx, [x0, y], [x1, y], f, c, 6); else recv.push([k, age - dur]); }
+        }
+        const lastOk = recv.sort((a, b) => b[0] - a[0])[0];
+        msg(lastOk ? `last received: #${lastOk[0]}` : 'waiting…', x1, y - 84, c);
+        msg(reliable ? 'every message arrives, some late' : 'lost ones are skipped: always fresh', (x0 + x1) / 2, h * .7, c);
+        msg(reliable ? 'use for commands, maps, goals' : 'use for camera, lidar, IMU', (x0 + x1) / 2, h * .7 + 18);
+      }
+    } else {
+      // one graph across platforms
+      const P = [['Linux', 'Ubuntu 24.04', [w * .2, h * .25]], ['Windows', 'Windows 10', [w * .8, h * .25]], ['macOS', 'from source', [w * .2, h * .72]], ['micro-ROS', 'microcontroller', [w * .8, h * .72]]];
+      const c0 = [w / 2, h * .48];
+      ctx.strokeStyle = 'rgba(88,224,210,.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(...c0, w * .14, h * .1, 0, 0, 7); ctx.stroke();
+      msg('one ROS 2 graph', c0[0], c0[1] + 4, CSS.cyan);
+      P.forEach(([n, sub, p], i) => {
+        line(ctx, p, c0, 'rgba(88,224,210,.3)', [3, 4]);
+        moving(ctx, p, c0, (lt * .5 + i * .25) % 1, [CSS.cyan, CSS.blue, CSS.orange, CSS.pink][i]); moving(ctx, c0, p, (lt * .5 + i * .25 + .5) % 1, [CSS.cyan, CSS.blue, CSS.orange, CSS.pink][i], 3);
+        ctx.fillStyle = '#11182c'; ctx.strokeStyle = [CSS.cyan, CSS.blue, CSS.orange, CSS.pink][i]; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(p[0] - w * .12, p[1] - 24, w * .24, 48, 8); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = CSS.ink; ctx.font = sans(fs + 3, 700); ctx.textAlign = 'center'; ctx.fillText(n, p[0], p[1] - 2); msg(sub, p[0], p[1] + 14);
+      });
+      msg('Jazzy Tier 1: Ubuntu 24.04 and Windows 10 · macOS builds from source', w / 2, h - 8);
+    }
+    ctx.textAlign = 'left';
+  } };
+};
+
 // ======================================================================
 // Engine: one renderer, mounted on the active slide's .scene3d.
 // ======================================================================

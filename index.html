@@ -176,17 +176,10 @@
       <aside class="notes">About 30 minutes. History and the ROS 1 comparison can be a pre-read if the room already knows ROS.</aside>
     </section>
 
-    <section class="slide" data-section="Welcome · ROS 2 overview" data-title="What is ROS 2?">
+    <section class="slide scene-slide" data-section="Welcome · ROS 2 overview" data-title="What is ROS 2?">
       <div class="slide-head"><p class="eyebrow">The ROS equation</p><h2>What is ROS 2?</h2></div>
-      <div class="ros-equation">
-        <span><strong>ROS 2</strong></span><b>=</b>
-        <span data-step><strong>Plumbing</strong><small>nodes, topics, services, actions, discovery, QoS</small></span><b>+</b>
-        <span data-step><strong>Tools</strong><small>ros2 CLI, RViz2, rqt, ros2 bag, launch, Gazebo</small></span><b>+</b>
-        <span data-step><strong>Capabilities</strong><small>Nav2, MoveIt 2, ros2_control, TF2, perception</small></span><b>+</b>
-        <span data-step><strong>Community</strong><small>docs, Q&amp;A, Discourse, package index, ROSCon</small></span>
-      </div>
-      <p class="takeaway">ROS 2 is not an operating system. It is open-source middleware, libraries, and tools that run on top of Linux, Windows, macOS, and RTOS targets.</p>
-      <aside class="notes">Reveal one term at a time; the next four slides animate each term. The point: participants reuse plumbing, tools, and capabilities so they can focus on their robot's unique problem.</aside>
+      <div class="scene3d" data-scene="ros-equation"><div class="scene-view"><img class="scene-snap" alt="What is ROS 2?: the ROS 2 stack of plumbing, tools, capabilities and community on top of the operating system"></div><div class="scene-panel"></div></div>
+      <aside class="notes">The stack builds itself: the operating system at the bottom (not ROS), then plumbing, tools, capabilities, and the community around everything. Click a layer or a button to stop and talk about it; the next four slides animate each term in detail. The point: participants reuse plumbing, tools, and capabilities so they can focus on their robot's unique problem.</aside>
     </section>
 
     <section class="slide" data-section="Welcome · ROS 2 overview" data-title="Plumbing: how programs talk">
@@ -244,16 +237,10 @@
       <aside class="notes">Releases are named alphabetically after turtles and arrive every May 23, World Turtle Day. Even years are LTS with five years of support; odd years get about 18 months. On the workshop date Humble, Jazzy, Kilted, and Lyrical are supported. Source: docs.ros.org Releases page.</aside>
     </section>
 
-    <section class="slide" data-section="Welcome · ROS 2 overview" data-title="Why ROS 2?">
+    <section class="slide scene-slide" data-section="Welcome · ROS 2 overview" data-title="Why ROS 2?">
       <div class="slide-head"><p class="eyebrow">Why a new version</p><h2>Why ROS 2?</h2></div>
-      <div class="learning-loop">
-        <div data-step><span>01</span><strong>No single point of failure</strong><p>ROS 1 needed a central master. ROS 2 nodes discover each other directly.</p></div>
-        <div data-step><span>02</span><strong>Real products</strong><p>Security, real-time support, lifecycle nodes, and long-term support releases.</p></div>
-        <div data-step><span>03</span><strong>Real networks</strong><p>QoS handles lossy Wi-Fi, multiple robots, and high-rate sensor data.</p></div>
-        <div data-step><span>04</span><strong>More platforms</strong><p>Linux, Windows, macOS, and microcontrollers through micro-ROS.</p></div>
-      </div>
-      <p class="callout">ROS 1 reached end of life in May 2025. New projects should start on ROS 2.</p>
-      <aside class="notes">ROS 1 was designed for research with one robot, a reliable network, and a single workstation. Those assumptions do not hold in fleets, factories, or embedded products, so ROS 2 was redesigned rather than patched.</aside>
+      <div class="scene3d" data-scene="why-ros2"><div class="scene-view"><img class="scene-snap" alt="Why ROS 2?: ROS 1 and ROS 2 compared side by side"></div><div class="scene-panel"></div></div>
+      <aside class="notes">Four animated reasons, nine seconds each. 1: stop the ROS 1 master and the existing link keeps flowing, but the new /logger waits forever; in ROS 2 a node stops, the rest carry on, and /logger joins by discovery. 2: lifecycle states, SROS2 encryption, and Jazzy's five-year LTS. 3: on lossy Wi-Fi, reliable resends message 1 late while best effort skips it and stays fresh. 4: one graph across Linux, Windows, macOS and micro-ROS. ROS 1 was designed for research with one robot, a reliable network, and a single workstation; ROS 2 was redesigned rather than patched. ROS 1 reached end of life in May 2025.</aside>
     </section>
 
     <section class="slide" data-section="Welcome · ROS 2 overview" data-title="ROS 1 vs ROS 2 architecture">
@@ -2283,6 +2270,6 @@ ros2 run demo_nodes_py listener \
   <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>Space</kbd> <kbd>→</kbd> Reveal next step or advance</p><p><kbd>←</kbd> Hide previous step or go back</p><p><kbd>G</kbd> Choose a slide from the list</p><p><kbd>K</kbd> Pause or resume an animation</p><p><kbd>R</kbd> Restart an animation</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
   <script src="script.js?v=9"></script>
   <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/examples/jsm/": "./vendor/three/jsm/" } }</script>
-  <script type="module" src="scenes3d.js?v=8"></script>
+  <script type="module" src="scenes3d.js?v=9"></script>
 </body>
 </html>
