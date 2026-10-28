@@ -10,13 +10,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
     <a class="brand" href="#1" aria-label="Go to title slide"><span class="brand-mark">R2</span><span>ROS 2 Workshop</span></a>
     <div class="chapter-label" id="chapter-label">Welcome</div>
-    <div class="counter"><span id="current-slide">1</span><span class="counter-separator">/</span><span id="total-slides">1</span></div>
+    <div class="counter"><select id="slide-select" aria-label="Choose a slide"></select><span id="current-slide">1</span><span class="counter-separator">/</span><span id="total-slides">1</span></div>
   </header>
 
   <main class="deck" id="deck">
@@ -58,7 +58,7 @@
         <article class="agenda-day"><p class="day-number">Day 2 · Tuesday</p><h3>Model and simulation</h3><ol><li><time>09:30</time> TF2 and coordinates</li><li><time>11:15</time> URDF robot modeling</li><li><time>13:30</time> Gazebo simulation</li><li><time>15:15</time> Sensor simulation</li></ol></article>
         <article class="agenda-day"><p class="day-number">Day 3 · Wednesday</p><h3>Robot manipulation</h3><ol><li><time>09:30</time> Manipulator fundamentals</li><li><time>11:15</time> ros2_control and MoveIt 2</li><li><time>13:30</time> Motion planning</li><li><time>15:15</time> Cartesian motion and grasping</li></ol></article>
       </div>
-      <p class="faculty-line">Before 09:30 on Day 1: ROS 2 overview and install check · Capstone: take-home or within the final Day 3 lab</p>
+      <p class="faculty-line">Pre-read: Linux and Python essentials · Before 09:30 on Day 1: ROS 2 overview and install check · Capstone: take-home or within the final Day 3 lab</p>
       <p class="faculty-line">Morning faculty: Shri. Lentin Joseph · Afternoon faculty: Shri. Adarsh R S</p>
       <aside class="notes">This agenda follows the supplied Phase I programme. Breaks are scheduled between each 90-minute block.</aside>
     </section>
@@ -132,6 +132,162 @@
         <div class="table-row"><strong>Launch</strong><span>XML only</span><span>Python, XML, or YAML</span></div>
       </div>
       <aside class="notes">ros1_bridge can connect ROS 1 and ROS 2 systems during migration, but ROS 1 is now end of life. Optional if time is short: summarize in two minutes and share the slide as a pre-read.</aside>
+    </section>
+
+    <section class="slide section-break" data-section="Prerequisites" data-title="Prerequisites">
+      <p class="chapter-number">00</p><p class="eyebrow">Before Day 1 · pre-read</p><h2>Linux and Python essentials</h2><p class="chapter-prompt">What do you need before installing ROS 2 and writing your first node?</p>
+      <aside class="notes">Share these slides before the workshop. Participants who already use the Linux terminal and Python classes daily can skip to the install check.</aside>
+    </section>
+
+    <section class="slide" data-section="Prerequisites · Linux" data-title="Navigate the file system">
+      <div class="slide-head"><p class="eyebrow">Linux terminal · 1 of 3</p><h2>Navigate the file system</h2></div>
+      <div class="command-map">
+        <div><code>pwd</code><p>Print the current folder</p></div><div><code>ls -la</code><p>List files, including hidden ones</p></div><div><code>cd ~/ros2_ws/src</code><p>Change folder; <code>~</code> is your home</p></div><div><code>cd ..</code><p>Go up one folder</p></div><div><code>mkdir -p ~/ros2_ws/src</code><p>Create folders, including parents</p></div><div><code>cp a.py b.py · mv a.py src/</code><p>Copy, move, or rename</p></div><div><code>rm file · rm -r folder</code><p>Delete permanently; there is no bin</p></div><div><code>cat · less · nano file.py</code><p>Show, page through, or edit a file</p></div>
+      </div>
+      <p class="callout">Press <kbd>Tab</kbd> to complete names. It saves typing and catches spelling mistakes in package and topic names too.</p>
+      <aside class="notes">Every ROS workspace is a folder tree. Most beginner errors come from running a command in the wrong folder, so check pwd first.</aside>
+    </section>
+
+    <section class="slide" data-section="Prerequisites · Linux" data-title="Processes, search, and permissions">
+      <div class="slide-head"><p class="eyebrow">Linux terminal · 2 of 3</p><h2>Processes, search, and permissions</h2></div>
+      <div class="command-map">
+        <div><code>Ctrl+C</code><p>Stop the running program, such as a node</p></div><div><code>ps aux | grep ros</code><p>Find running ROS processes</p></div><div><code>htop</code><p>Watch CPU and memory use</p></div><div><code>kill 4242</code><p>Stop a process by its ID</p></div><div><code>grep -rn "chatter" src/</code><p>Search text inside files</p></div><div><code>find . -name "*.launch.py"</code><p>Find files by name</p></div><div><code>chmod +x script.py</code><p>Make a file executable</p></div><div><code>sudo apt install pkg</code><p>Run one command as administrator</p></div>
+      </div>
+      <p class="callout warning">Never run <code>colcon build</code> or <code>ros2</code> commands with <code>sudo</code>. Root-owned build files break later builds.</p>
+      <aside class="notes">The pipe | sends one command's output into the next. It is the most useful idea on this slide: ros2 topic list | grep scan.</aside>
+    </section>
+
+    <section class="slide" data-section="Prerequisites · Linux" data-title="Environment and packages">
+      <div class="slide-head"><p class="eyebrow">Linux terminal · 3 of 3</p><h2>Environment and packages</h2></div>
+      <div class="split">
+        <pre><code><span class="comment"># Install software from Ubuntu or ROS repositories</span>
+sudo apt update
+sudo apt install ros-jazzy-turtlesim
+
+<span class="comment"># Environment variables configure programs</span>
+echo $ROS_DISTRO
+export ROS_DOMAIN_ID=7
+printenv | grep ROS
+
+<span class="comment"># source runs a script in this terminal</span>
+source /opt/ros/jazzy/setup.bash
+
+<span class="comment"># ~/.bashrc runs in every new terminal</span>
+echo "export ROS_DOMAIN_ID=7" &gt;&gt; ~/.bashrc</code></pre>
+        <div><h3>Why this matters for ROS 2</h3><ul class="arrow-list"><li><code>apt</code> installs ROS packages</li><li>Variables such as <code>ROS_DOMAIN_ID</code> change ROS behavior</li><li><code>export</code> lasts only for this terminal</li><li>Each new terminal must be sourced again, or set up in <code>~/.bashrc</code></li></ul><p class="callout">Use <kbd>Ctrl+Shift+T</kbd> for a new terminal tab and <kbd>Ctrl+R</kbd> to search command history.</p></div>
+      </div>
+      <aside class="notes">Most "it works in one terminal but not another" problems are environment differences. Compare printenv | grep ROS in both terminals.</aside>
+    </section>
+
+    <section class="slide lab-slide" data-section="Prerequisites · Linux" data-title="Self-check: Linux">
+      <div class="slide-head"><p class="eyebrow">Self-check · 10 minutes</p><h2>Self-check: Linux</h2></div>
+      <div class="lab-layout"><div><ol class="steps"><li>Create a workspace folder.</li><li>Create and edit a file inside it.</li><li>Find the file from your home folder.</li><li>Set a variable and read it back.</li><li>Open a new tab and check the variable again.</li></ol><p class="success">Done when you can explain why the variable is missing in the new tab.</p></div><pre><code>mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+nano hello.txt
+cd ~
+find ~/ros2_ws -name "hello.txt"
+
+export ROBOT_NAME=turtle
+echo $ROBOT_NAME
+
+<span class="comment"># New tab: Ctrl+Shift+T</span>
+echo $ROBOT_NAME</code></pre></div>
+      <aside class="notes">The empty result in the new tab is the same reason an unsourced terminal cannot find ros2.</aside>
+    </section>
+
+    <section class="slide" data-section="Prerequisites · Python" data-title="Python basics">
+      <div class="slide-head"><p class="eyebrow">Python · 1 of 3</p><h2>Python basics</h2></div>
+      <div class="split">
+        <pre><code>speed = 0.5                  <span class="comment"># float</span>
+name = 'turtle1'             <span class="comment"># string</span>
+joints = ['joint1', 'joint2'] <span class="comment"># list</span>
+limits = {'max_speed': 1.0}  <span class="comment"># dictionary</span>
+
+print(f'{name} moves at {speed} m/s')
+
+for joint in joints:
+    print(joint)
+
+if speed &gt; limits['max_speed']:
+    print('too fast')
+else:
+    print('ok')
+
+def clamp(value, low, high):
+    return max(low, min(value, high))</code></pre>
+        <div><h3>Rules to remember</h3><ul class="arrow-list"><li>Indentation defines blocks; use 4 spaces</li><li><code>f'...'</code> strings insert values</li><li>Lists keep order; dictionaries map names to values</li><li><code>def</code> creates a function</li></ul><p class="callout">Run a file with <code>python3 file.py</code>. Try ideas in the <code>python3</code> prompt.</p></div>
+      </div>
+      <aside class="notes">ROS 2 Jazzy uses Python 3.12. Messages behave like objects with typed fields, and parameters often arrive as lists and dictionaries from YAML.</aside>
+    </section>
+
+    <section class="slide" data-section="Prerequisites · Python" data-title="Classes and objects">
+      <div class="slide-head"><p class="eyebrow">Python · 2 of 3</p><h2>Classes and objects</h2></div>
+      <div class="split">
+        <pre><code>class Robot:
+    def __init__(self, name):
+        self.name = name        <span class="comment"># attribute</span>
+        self.speed = 0.0
+
+    def drive(self, speed):    <span class="comment"># method</span>
+        self.speed = speed
+        print(f'{self.name}: {speed} m/s')
+
+class Rover(Robot):            <span class="comment"># inherits Robot</span>
+    def __init__(self):
+        super().__init__('rover')
+
+r = Rover()
+r.drive(0.3)</code></pre>
+        <div><h3>Every ROS 2 node is a class</h3><ul class="arrow-list"><li><code>__init__</code> runs when the object is created</li><li><code>self</code> is the object itself</li><li><code>Rover(Robot)</code> reuses everything in <code>Robot</code></li><li><code>super().__init__</code> sets up the parent</li></ul><p class="callout">Your nodes write <code>class Talker(Node)</code> and call <code>super().__init__('talker')</code>.</p></div>
+      </div>
+      <aside class="notes">Spend the most time here. Participants who understand self and inheritance will read every rclpy example without trouble.</aside>
+    </section>
+
+    <section class="slide" data-section="Prerequisites · Python" data-title="Imports and callbacks">
+      <div class="slide-head"><p class="eyebrow">Python · 3 of 3</p><h2>Imports and callbacks</h2></div>
+      <div class="split">
+        <pre><code>import math
+from std_msgs.msg import String   <span class="comment"># from a package</span>
+
+def on_message(text):
+    print('received:', text)
+
+def subscribe(callback):
+    <span class="comment"># the caller decides what happens later</span>
+    for text in ['hello', 'world']:
+        callback(text)
+
+subscribe(on_message)   <span class="comment"># pass the function, no ()</span>
+
+def main():
+    print(math.pi)
+
+if __name__ == '__main__':
+    main()</code></pre>
+        <div><h3>The callback idea</h3><ul class="arrow-list"><li><code>import</code> brings in code from other packages</li><li>A callback is a function you hand to someone else</li><li>ROS calls it when a message, timer, or request arrives</li><li><code>main()</code> is the entry point <code>ros2 run</code> starts</li></ul><p class="callout warning"><code>subscribe(on_message())</code> calls it immediately. Pass <code>on_message</code> without brackets.</p></div>
+      </div>
+      <aside class="notes">This is the bridge to create_subscription(String, 'chatter', self.on_msg, 10) and create_timer(0.5, self.tick).</aside>
+    </section>
+
+    <section class="slide lab-slide" data-section="Prerequisites · Python" data-title="Self-check: Python">
+      <div class="slide-head"><p class="eyebrow">Self-check · 15 minutes</p><h2>Self-check: Python</h2></div>
+      <div class="lab-layout"><div><ol class="steps"><li>Write a <code>Robot</code> class with a name and a battery level.</li><li>Add a <code>drive</code> method that uses 10% battery.</li><li>Refuse to drive below 20% battery.</li><li>Call a callback each time the battery changes.</li></ol><p class="success">Done when the program prints each battery change through your callback.</p></div><pre><code>class Robot:
+    def __init__(self, name, on_change):
+        self.name = name
+        self.battery = 100
+        self.on_change = on_change
+
+    def drive(self):
+        if self.battery if self.battery &lt; 20:lt;= 20:
+            print('battery low')
+            return
+        self.battery -= 10
+        self.on_change(self.battery)
+
+r = Robot('rover', lambda b: print(f'battery {b}%'))
+for _ in range(10):
+    r.drive()</code></pre></div>
+      <aside class="notes">If this exercise feels easy, the Python in the workshop will too. If not, pair the participant with someone confident before Day 1.</aside>
     </section>
 
     <section class="slide" data-section="Welcome" data-title="Install ROS 2 Jazzy">
@@ -1209,7 +1365,7 @@ ros2 action list -t
   <nav class="nav-buttons" aria-label="Slide navigation"><button id="prev" aria-label="Previous slide">←</button><button id="next" aria-label="Next slide">→</button></nav>
   <div class="overview" id="overview" aria-hidden="true"><div class="overview-head"><h2>Slide overview</h2><button id="close-overview" aria-label="Close overview">×</button></div><div class="overview-grid" id="overview-grid"></div></div>
   <div class="notes-panel" id="notes-panel" aria-hidden="true"><div><span>Speaker notes</span><button id="close-notes" aria-label="Close notes">×</button></div><p id="notes-content"></p></div>
-  <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>Space</kbd> <kbd>→</kbd> Reveal next step or advance</p><p><kbd>←</kbd> Hide previous step or go back</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
-  <script src="script.js?v=3"></script>
+  <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>Space</kbd> <kbd>→</kbd> Reveal next step or advance</p><p><kbd>←</kbd> Hide previous step or go back</p><p><kbd>G</kbd> Choose a slide from the list</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
+  <script src="script.js?v=4"></script>
 </body>
 </html>

@@ -12,6 +12,7 @@
   const stepIndicator = document.getElementById('step-indicator');
   const stepLabel = document.getElementById('step-label');
   const stepBar = document.getElementById('step-bar');
+  const slideSelect = document.getElementById('slide-select');
   const stepState = slides.map(() => 0);
   let index = 0;
 
@@ -32,6 +33,7 @@
       slide.setAttribute('aria-hidden', String(!active));
     });
     currentEl.textContent = String(index + 1);
+    slideSelect.value = String(index);
     totalEl.textContent = String(slides.length);
     chapterEl.textContent = slides[index].dataset.section || '';
     progress.style.width = `${((index + 1) / slides.length) * 100}%`;
@@ -99,8 +101,12 @@
     card.innerHTML = `<span>${String(i + 1).padStart(2, '0')} · ${slide.dataset.section || ''}</span><strong>${slide.dataset.title || `Slide ${i + 1}`}</strong><small>Open slide</small>`;
     card.addEventListener('click', () => { show(i); toggleOverview(false); });
     overviewGrid.append(card);
+    const section = slide.dataset.section || '';
+    if (slideSelect.lastElementChild?.label !== section) slideSelect.append(Object.assign(document.createElement('optgroup'), { label: section }));
+    slideSelect.lastElementChild.append(new Option(`${i + 1} · ${slide.dataset.title || `Slide ${i + 1}`}`, String(i)));
   });
 
+  slideSelect.addEventListener('change', () => { show(Number(slideSelect.value)); slideSelect.blur(); });
   document.getElementById('prev').addEventListener('click', retreat);
   document.getElementById('next').addEventListener('click', advance);
   document.getElementById('close-overview').addEventListener('click', () => toggleOverview(false));
@@ -113,6 +119,7 @@
     else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp' || event.key === 'PageUp') { event.preventDefault(); retreat(); }
     else if (event.key === 'Home') show(0);
     else if (event.key === 'End') show(slides.length - 1);
+    else if (event.key.toLowerCase() === 'g') { event.preventDefault(); slideSelect.focus(); slideSelect.showPicker?.(); }
     else if (event.key.toLowerCase() === 'o') toggleOverview();
     else if (event.key.toLowerCase() === 'n') toggleNotes();
     else if (event.key.toLowerCase() === 'f') fullscreen();

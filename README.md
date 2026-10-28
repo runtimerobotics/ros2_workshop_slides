@@ -4,6 +4,7 @@ A browser-based slide deck for the three-day **Hands-on Training on ROS 2 Middle
 
 The deck follows the supplied programme and covers:
 
+- Prerequisites: essential Linux terminal commands and Python basics, with self-checks
 - Installing ROS 2 Jazzy and setting up the environment
 - What ROS 2 is, the history of ROS and ROS 2, and ROS 1 vs ROS 2
 - ROS 2 architecture, DDS and its implementations, and QoS
@@ -28,6 +29,7 @@ Open <http://localhost:8000>.
 | --- | --- |
 | Space / Right | Reveal the next teaching step or advance |
 | Left | Hide the previous step or return to the previous slide |
+| G | Choose a slide from the list (or use the menu at the top right) |
 | O | Slide overview |
 | N | Speaker notes |
 | F | Fullscreen |
