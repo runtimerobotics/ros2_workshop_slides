@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
@@ -387,6 +387,26 @@ sudo apt install ros-jazzy-ros-gz ros-jazzy-urdf-tutorial \
       <aside class="notes">Next slide verifies the install with talker and listener. Do not source two distributions in the same terminal.</aside>
     </section>
 
+    <section class="slide" data-section="Welcome" data-title="Configure the ROS environment">
+      <div class="slide-head"><p class="eyebrow">Docs · Configuring environment</p><h2>Configure the ROS environment</h2></div>
+      <div class="split code-wide">
+        <pre><code>printenv | grep -i ROS
+<span class="comment"># ROS_VERSION=2  ROS_DISTRO=jazzy  …</span>
+
+<span class="comment"># Keep this pair's robots apart (0-101 is safe)</span>
+export ROS_DOMAIN_ID=7
+
+<span class="comment"># How far automatic discovery reaches</span>
+export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
+<span class="comment"># SUBNET (default) · LOCALHOST · OFF · SYSTEM_DEFAULT</span>
+
+<span class="comment"># Reach one machine without multicast</span>
+export ROS_STATIC_PEERS=192.168.1.20</code></pre>
+        <div><h3>In a classroom</h3><ul class="arrow-list"><li>Give each pair its own <code>ROS_DOMAIN_ID</code></li><li><code>LOCALHOST</code> keeps experiments on your own laptop</li><li>Add the exports to <code>~/.bashrc</code> to keep them</li><li>Every terminal in one system needs the same values</li></ul><p class="callout warning"><code>ROS_LOCALHOST_ONLY</code> is deprecated in Jazzy. Use <code>ROS_AUTOMATIC_DISCOVERY_RANGE</code>.</p></div>
+      </div>
+      <aside class="notes">Assign domain IDs on the whiteboard before the first lab; 25 laptops on one Wi-Fi in the same domain will all see each other's turtles. Domain IDs above 101 can collide with operating-system ports on Linux.</aside>
+    </section>
+
     <section class="slide" data-section="Welcome" data-title="Lab baseline">
       <div class="slide-head"><p class="eyebrow">Before the first lab</p><h2>Lab baseline</h2></div>
       <div class="split">
@@ -406,6 +426,23 @@ ros2 topic echo /chatter</code></pre>
       </div>
       <p class="callout">Expected result: the second terminal receives a stream of “Hello World” messages.</p>
       <aside class="notes">Pair participants before troubleshooting. Confirm the ROS distribution and network domain before debugging application code.</aside>
+    </section>
+
+    <section class="slide" data-section="Welcome" data-title="Check your setup with ros2 doctor">
+      <div class="slide-head"><p class="eyebrow">Docs · Using ros2doctor</p><h2>Check your setup with ros2 doctor</h2></div>
+      <div class="split">
+        <pre><code>ros2 doctor
+<span class="comment"># All 5 checks passed  (or a list of warnings)</span>
+
+ros2 doctor --report
+<span class="comment">#  PLATFORM INFORMATION</span>
+<span class="comment">#  RMW MIDDLEWARE</span>
+<span class="comment">#  ROS 2 INFORMATION</span>
+<span class="comment">#  NETWORK CONFIGURATION</span>
+<span class="comment">#  TOPIC LIST</span></code></pre>
+        <div><h3>What it checks</h3><ul class="arrow-list"><li>Distribution and platform support</li><li>Network interfaces and multicast</li><li>Middleware and environment variables</li><li>Publishers with no subscribers, and the reverse</li></ul><p class="callout">When asking for help, paste the <code>--report</code> output with your question.</p></div>
+      </div>
+      <aside class="notes">Run ros2 doctor with turtlesim running and without a teleop node: it warns that /turtle1/cmd_vel has a subscriber but no publisher. That warning is information, not an error.</aside>
     </section>
 
     <section class="slide section-break" data-section="Day 1 · Architecture" data-title="ROS 2 architecture">
@@ -437,6 +474,25 @@ ros2 topic echo /chatter</code></pre>
       </div>
       <div class="definition-row"><p><strong>Node</strong> runs one focused part of the system.</p><p><strong>Graph</strong> is the live network of ROS entities.</p><p><strong>Interface</strong> defines the data contract.</p></div>
       <aside class="notes">Stress that a node is a runtime participant, not necessarily one executable or one process. Composition can place multiple nodes in one process.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Architecture" data-title="Understanding nodes">
+      <div class="slide-head"><p class="eyebrow">Docs · Understanding nodes</p><h2>Understanding nodes</h2></div>
+      <div class="split code-wide">
+        <pre><code><span class="comment"># Terminal 1 and terminal 2</span>
+ros2 run turtlesim turtlesim_node
+ros2 run turtlesim turtle_teleop_key
+
+ros2 node list
+<span class="comment"># /teleop_turtle  /turtlesim</span>
+ros2 node info /turtlesim
+
+<span class="comment"># Start a second turtlesim with a new name</span>
+ros2 run turtlesim turtlesim_node \
+  --ros-args --remap __node:=my_turtle</code></pre>
+        <div><h3>Read the output</h3><ul class="arrow-list"><li><code>ros2 run &lt;package&gt; &lt;executable&gt;</code> starts a node</li><li><code>node list</code> shows every node in the graph</li><li><code>node info</code> lists its publishers, subscribers, services, and actions</li><li>Remapping renames a node without changing code</li></ul><p class="callout">Open <code>rqt</code> → Plugins → Services → Service Caller to call a service from a GUI.</p></div>
+      </div>
+      <aside class="notes">Drive the turtle with the arrow keys in the teleop terminal. Ask participants to find, in ros2 node info /turtlesim, which topic the teleop node publishes to.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Architecture" data-title="Discovery and transport">
@@ -663,6 +719,24 @@ entry_points={'console_scripts': [
       <aside class="notes">entry_points turn a Python function into a ros2 run executable. Add exec_depend entries in package.xml for every imported ROS package.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Topics" data-title="Install dependencies with rosdep">
+      <div class="slide-head"><p class="eyebrow">Docs · Managing dependencies with rosdep</p><h2>Install dependencies with rosdep</h2></div>
+      <div class="split">
+        <pre><code><span class="comment"># Once per machine</span>
+sudo rosdep init
+rosdep update
+
+<span class="comment"># From the workspace root, before building</span>
+cd ~/ros2_ws
+rosdep install --from-paths src -y --ignore-src
+colcon build --symlink-install</code></pre>
+        <div><h3>rosdep reads <code>package.xml</code></h3><pre class="nested-code"><code>&lt;depend&gt;rclpy&lt;/depend&gt;
+&lt;exec_depend&gt;turtlesim&lt;/exec_depend&gt;
+&lt;test_depend&gt;python3-pytest&lt;/test_depend&gt;</code></pre><ul class="arrow-list"><li>Each key maps to an apt package for your OS</li><li>Declare every package you import</li><li>A cloned workspace then installs in one command</li></ul></div>
+      </div>
+      <aside class="notes">If sudo rosdep init reports that the sources list already exists, it was already initialised; continue with rosdep update. Never run rosdep update with sudo.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Topics" data-title="Your first publisher">
       <div class="slide-head"><p class="eyebrow">rclpy · talker.py</p><h2>Your first publisher</h2></div>
       <div class="split">
@@ -719,6 +793,34 @@ ros2 run workshop_runtime talker
 ros2 run workshop_runtime listener</code></pre><p class="callout">Type, topic name, and QoS must match the publisher.</p></div>
       </div>
       <aside class="notes">The callback runs only while the node spins. Ask what happens if the listener uses the topic name "/chatter2".</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Topics" data-title="Create custom msg and srv files">
+      <div class="slide-head"><p class="eyebrow">Docs · Creating custom msg and srv files</p><h2>Create custom msg and srv files</h2></div>
+      <div class="split">
+        <pre><code>ros2 pkg create --build-type ament_cmake \
+  --license Apache-2.0 tutorial_interfaces
+
+<span class="comment"># msg/Num.msg</span>
+int64 num
+
+<span class="comment"># srv/AddThreeInts.srv  (request --- response)</span>
+int64 a
+int64 b
+int64 c
+---
+int64 sum</code></pre>
+        <div><h3>Generate the code</h3><pre class="nested-code"><code><span class="comment"># CMakeLists.txt</span>
+find_package(rosidl_default_generators REQUIRED)
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Num.msg" "srv/AddThreeInts.srv")
+
+<span class="comment"># package.xml</span>
+&lt;buildtool_depend&gt;rosidl_default_generators&lt;/buildtool_depend&gt;
+&lt;exec_depend&gt;rosidl_default_runtime&lt;/exec_depend&gt;
+&lt;member_of_group&gt;rosidl_interface_packages&lt;/member_of_group&gt;</code></pre><p class="callout">Check it: <code>ros2 interface show tutorial_interfaces/msg/Num</code>, then <code>from tutorial_interfaces.msg import Num</code> in Python.</p></div>
+      </div>
+      <aside class="notes">Interfaces must live in an ament_cmake package even when every node is Python. Keep interfaces in their own package so other packages can depend on them without pulling in node code.</aside>
     </section>
 
     <section class="slide lab-slide" data-section="Day 1 · Topics" data-title="Lab: command the turtle">
@@ -786,6 +888,64 @@ ros2 service call /spawn turtlesim/srv/Spawn \
       <aside class="notes">Each call blocks the terminal until the single response arrives. The pen draws the teleport because turtle1's pen is down; ask how participants would turn it off (hint: the /turtle1/set_pen service).</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Services and actions" data-title="Write a service server">
+      <div class="slide-head"><p class="eyebrow">Docs · Writing a simple service and client (Python)</p><h2>Write a service server</h2></div>
+      <div class="split code-wide">
+        <pre><code>from example_interfaces.srv import AddTwoInts
+import rclpy
+from rclpy.node import Node
+
+class MinimalService(Node):
+    def __init__(self):
+        super().__init__('minimal_service')
+        self.srv = self.create_service(
+            AddTwoInts, 'add_two_ints', self.add)
+
+    def add(self, request, response):
+        response.sum = request.a + request.b
+        self.get_logger().info(
+            f'a: {request.a} b: {request.b}')
+        return response
+
+def main():
+    rclpy.init()
+    rclpy.spin(MinimalService())
+    rclpy.shutdown()</code></pre>
+        <div><h3>The server callback</h3><ul class="arrow-list"><li><code>create_service</code> takes type, name, and callback</li><li>The callback fills in <code>response</code> and returns it</li><li>One request in, one response out</li></ul><pre class="nested-code"><code>ros2 service call /add_two_ints \
+  example_interfaces/srv/AddTwoInts \
+  "{a: 2, b: 3}"
+<span class="comment"># response: sum=5</span></code></pre></div>
+      </div>
+      <aside class="notes">Test the server from the CLI before writing a client. Point out that the callback must return the response object.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Services and actions" data-title="Write a service client">
+      <div class="slide-head"><p class="eyebrow">Docs · Writing a simple service and client (Python)</p><h2>Write a service client</h2></div>
+      <div class="split code-wide">
+        <pre><code>class MinimalClientAsync(Node):
+    def __init__(self):
+        super().__init__('minimal_client_async')
+        self.cli = self.create_client(AddTwoInts, 'add_two_ints')
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('waiting for service...')
+
+    def send_request(self, a, b):
+        req = AddTwoInts.Request(a=a, b=b)
+        return self.cli.call_async(req)
+
+def main():
+    rclpy.init()
+    client = MinimalClientAsync()
+    future = client.send_request(2, 3)
+    rclpy.spin_until_future_complete(client, future)
+    client.get_logger().info(f'sum: {future.result().sum}')
+    client.destroy_node()
+    rclpy.shutdown()</code></pre>
+        <div><h3>Asynchronous by design</h3><ul class="arrow-list"><li>Wait until the server exists</li><li><code>call_async</code> returns a future immediately</li><li>Spin until the future completes, then read the result</li></ul><p class="callout warning">Never block on a service call inside another callback: in a single-threaded executor the response can never be processed.</p></div>
+      </div>
+      <aside class="notes">The future pattern is the same idea as the action client on the next slides. Run server and client in two terminals and show what happens when the client starts first.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Services and actions" data-title="Action lifecycle">
       <div class="slide-head"><p class="eyebrow">Long-running goals</p><h2>Action lifecycle</h2></div>
       <svg class="ros-anim" viewBox="0 0 900 350" role="img" aria-label="An action client sends a goal through the goal service, requests the result, receives feedback on a topic while a progress bar fills, and finally receives the result">
@@ -805,6 +965,85 @@ ros2 action send_goal --feedback /turtle1/rotate_absolute \
       </svg>
       <div class="anim-legend"><span><i class="req"></i>goal / result request</span><span><i class="res"></i>accepted / result</span><span><i class="fb"></i>feedback</span></div>
       <aside class="notes">Turtlesim rotates at a fixed speed, so the feedback counts down. Press Ctrl+C during a second goal to show cancellation; the turtle stops where it is.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Services and actions" data-title="Create an action interface">
+      <div class="slide-head"><p class="eyebrow">Docs · Creating an action</p><h2>Create an action interface</h2></div>
+      <div class="split">
+        <pre><code>ros2 pkg create --build-type ament_cmake \
+  --license Apache-2.0 custom_action_interfaces
+
+<span class="comment"># action/Fibonacci.action</span>
+int32 order                 <span class="comment"># goal</span>
+---
+int32[] sequence            <span class="comment"># result</span>
+---
+int32[] partial_sequence    <span class="comment"># feedback</span></code></pre>
+        <div><h3>Three parts, one file</h3><ul class="arrow-list"><li><strong>Goal</strong>: what the client asks for</li><li><strong>Result</strong>: sent once when the goal ends</li><li><strong>Feedback</strong>: sent while the goal runs</li></ul><pre class="nested-code"><code><span class="comment"># CMakeLists.txt</span>
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "action/Fibonacci.action")</code></pre><p class="callout">Same package.xml entries as custom msg files. Check with <code>ros2 interface show custom_action_interfaces/action/Fibonacci</code>.</p></div>
+      </div>
+      <aside class="notes">Map each section to the action animation: goal service, result service, feedback topic. The three dashes separate the sections, exactly like the request and response of a .srv file.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Services and actions" data-title="Write an action server">
+      <div class="slide-head"><p class="eyebrow">Docs · Writing an action server and client (Python)</p><h2>Write an action server</h2></div>
+      <div class="split code-wide">
+        <pre><code>import time
+from rclpy.action import ActionServer
+from custom_action_interfaces.action import Fibonacci
+
+class FibonacciActionServer(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_server')
+        self._server = ActionServer(
+            self, Fibonacci, 'fibonacci', self.execute)
+
+    def execute(self, goal_handle):
+        fb = Fibonacci.Feedback(partial_sequence=[0, 1])
+        for i in range(1, goal_handle.request.order):
+            fb.partial_sequence.append(
+                fb.partial_sequence[i] + fb.partial_sequence[i - 1])
+            goal_handle.publish_feedback(fb)
+            time.sleep(1)
+        goal_handle.succeed()
+        return Fibonacci.Result(sequence=fb.partial_sequence)</code></pre>
+        <div><h3>Long work, with progress</h3><ul class="arrow-list"><li><code>execute</code> runs once per accepted goal</li><li><code>publish_feedback</code> streams progress</li><li><code>succeed()</code> then return the result</li></ul><pre class="nested-code"><code>ros2 action send_goal --feedback \
+  fibonacci \
+  custom_action_interfaces/action/Fibonacci \
+  "{order: 5}"</code></pre></div>
+      </div>
+      <aside class="notes">time.sleep stands in for real work such as moving an arm. Without goal_handle.succeed() the goal ends as aborted, which the CLI reports.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Services and actions" data-title="Write an action client">
+      <div class="slide-head"><p class="eyebrow">Docs · Writing an action server and client (Python)</p><h2>Write an action client</h2></div>
+      <div class="split code-wide">
+        <pre><code>from rclpy.action import ActionClient
+class FibonacciActionClient(Node):
+    def __init__(self):
+        super().__init__('fibonacci_action_client')
+        self._client = ActionClient(self, Fibonacci, 'fibonacci')
+
+    def send_goal(self, order):
+        self._client.wait_for_server()
+        future = self._client.send_goal_async(
+            Fibonacci.Goal(order=order),
+            feedback_callback=self.on_feedback)
+        future.add_done_callback(self.on_goal_response)
+
+    def on_feedback(self, msg):
+        self.get_logger().info(f'{msg.feedback.partial_sequence}')
+
+    def on_goal_response(self, future):
+        handle = future.result()
+        if handle.accepted:
+            handle.get_result_async().add_done_callback(
+                lambda f: self.get_logger().info(
+                    f'result: {f.result().result.sequence}'))</code></pre>
+        <div><h3>Callbacks at each step</h3><ul class="arrow-list"><li>Wait for the server</li><li>Send the goal with a feedback callback</li><li>Check that the goal was accepted</li><li>Ask for the result and log it when it arrives</li></ul><p class="callout"><code>main()</code> calls <code>send_goal(10)</code> and then <code>rclpy.spin(client)</code> so the callbacks can run.</p></div>
+      </div>
+      <aside class="notes">Every arrow in the action animation is one of these calls. Cancellation uses handle.cancel_goal_async(); try it as an extension.</aside>
     </section>
 
     <section class="slide lab-slide" data-section="Day 1 · Services and actions" data-title="Lab: request and goal">
@@ -848,6 +1087,36 @@ ros2 param dump /turtlesim</code></pre></div>
       <aside class="notes">Run ros2 service list while turtlesim runs to show the parameter services. A node can reject a value in its parameter callback, and the CLI then prints the reason.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Use parameters in a node">
+      <div class="slide-head"><p class="eyebrow">Docs · Using parameters in a class (Python)</p><h2>Use parameters in a node</h2></div>
+      <div class="split code-wide">
+        <pre><code>from rcl_interfaces.msg import SetParametersResult
+
+class MinimalParam(Node):
+    def __init__(self):
+        super().__init__('minimal_param_node')
+        self.declare_parameter('my_parameter', 'world')
+        self.add_on_set_parameters_callback(self.on_set)
+        self.timer = self.create_timer(1.0, self.tick)
+
+    def tick(self):
+        name = self.get_parameter('my_parameter').value
+        self.get_logger().info(f'Hello {name}!')
+
+    def on_set(self, params):
+        for p in params:
+            if p.name == 'my_parameter' and not p.value:
+                return SetParametersResult(
+                    successful=False, reason='name is empty')
+        return SetParametersResult(successful=True)</code></pre>
+        <div><h3>Declare, read, validate</h3><ul class="arrow-list"><li>Declare every parameter with a default</li><li>Read the current value when you need it</li><li>Reject bad values in the set callback</li></ul><pre class="nested-code"><code>ros2 run python_parameters minimal_param_node \
+  --ros-args -p my_parameter:=earth
+ros2 param set /minimal_param_node my_parameter ""
+<span class="comment"># Setting parameter failed: name is empty</span></code></pre></div>
+      </div>
+      <aside class="notes">Undeclared parameters are rejected by default, which catches typos. Load many values at once with --ros-args --params-file params.yaml.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Timers schedule callbacks">
       <div class="slide-head"><p class="eyebrow">Periodic work</p><h2>Timers schedule callbacks</h2></div>
       <div class="split"><pre><code>class Heartbeat(Node):
@@ -859,6 +1128,25 @@ ros2 param dump /turtlesim</code></pre></div>
     def on_timer(self):
         self.get_logger().info('alive')</code></pre><div><h3>Executor rule</h3><p>A timer marks a callback ready. An executor decides when a thread runs it.</p><div class="timeline"><span>ready</span><i></i><span>queued</span><i></i><span>running</span></div><p class="callout warning">A long callback delays other work in a single-threaded executor.</p></div></div>
       <aside class="notes">A timer does not create a dedicated real-time thread. Use this distinction to explain jitter and callback groups later.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Logging and rqt_console">
+      <div class="slide-head"><p class="eyebrow">Docs · Using rqt_console to view logs</p><h2>Logging and rqt_console</h2></div>
+      <div class="split code-wide">
+        <pre><code>log = self.get_logger()
+log.debug('raw scan received')
+log.info('robot ready')
+log.warn('battery below 20%')
+log.error('lidar timeout')
+log.fatal('motor driver lost')
+log.info('tick', throttle_duration_sec=1.0)
+
+<span class="comment"># Show only warnings and worse</span>
+ros2 run turtlesim turtlesim_node \
+  --ros-args --log-level WARN</code></pre>
+        <div><h3>Severity levels</h3><ul class="arrow-list"><li><strong>DEBUG</strong> &lt; <strong>INFO</strong> &lt; <strong>WARN</strong> &lt; <strong>ERROR</strong> &lt; <strong>FATAL</strong></li><li>The default level is INFO; DEBUG is hidden</li><li>Throttle messages inside fast loops</li><li>Logs are also saved under <code>~/.ros/log</code></li></ul><p class="callout"><code>ros2 run rqt_console rqt_console</code> collects, filters, and highlights logs from every node.</p></div>
+      </div>
+      <aside class="notes">Drive the turtle into a wall with teleop: rqt_console shows the 'Oh no! I hit the wall!' warning from turtlesim. Then restart turtlesim with --log-level WARN and show which messages disappear.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Launch describes a system">

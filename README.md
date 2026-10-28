@@ -2,14 +2,14 @@
 
 A browser-based slide deck for the three-day **Hands-on Training on ROS 2 Middleware - Phase I**, scheduled for 2-4 November 2026.
 
-The deck follows the supplied programme and covers:
+The deck follows the supplied programme and, within each block, the order of the official ROS 2 Jazzy tutorials. It covers:
 
 - Prerequisites: essential Linux terminal commands and Python basics, with self-checks
-- Installing ROS 2 Jazzy and setting up the environment
+- Installing ROS 2 Jazzy, configuring the environment (domain ID, discovery range), and ros2 doctor
 - What ROS 2 is, the history of ROS and ROS 2, and ROS 1 vs ROS 2
 - ROS 2 architecture, client libraries (rclcpp, rclpy, rcl), DDS and its implementations, and QoS
-- Topics, messages, first rclpy publisher and subscriber, ros2 bag, and rqt
-- Services, actions, parameters, package anatomy, timers, and launch
+- Nodes and remapping, topics, messages, rosdep, custom msg and srv files, first rclpy publisher and subscriber
+- Services and actions with Python servers and clients, custom action interfaces, parameters in a node, package anatomy, timers, logging and rqt_console, launch, and ros2 bag
 - TF2, URDF, robot_state_publisher, RViz2, Gazebo Harmonic, and sensor simulation
 - Manipulator fundamentals, forward and inverse kinematics, ros2_control, MoveIt 2, motion planning, Cartesian motion, and grasping
 
