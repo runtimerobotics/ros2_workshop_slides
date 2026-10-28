@@ -395,3 +395,12 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 .ros-anim .burst { fill: none; stroke: var(--pink); stroke-width: 2.5; }
 .scan-explainer:has(.ros-anim) { grid-template-columns: 1.5fr 1fr; gap: 2rem; }.scan-explainer .ros-anim { max-height: 48vh; }
 .lifecycle-split { grid-template-columns: 1.1fr 1fr!important; align-items: center; }.lifecycle-split .ros-anim { max-height: 52vh; }.lifecycle-split pre { font-size: .7rem; overflow-x: auto; }
+/* Cover: a live 3D scene instead of the orbit diagram */
+.hero3d { position: absolute; z-index: 1; right: 0; top: 3.65rem; bottom: 0; width: 52vw; display: block; }
+.hero3d .scene-view { height: 100%; border: 0; border-radius: 0; background: transparent; -webkit-mask-image: radial-gradient(ellipse 70% 75% at 55% 50%, #000 60%, transparent 100%); mask-image: radial-gradient(ellipse 70% 75% at 55% 50%, #000 60%, transparent 100%); }
+.hero3d .scene-panel { display: none; }
+.hero3d .scene-view.loading::after { content: ""; }
+.slide.active .hero3d .scene-view:not(.loading):not(:has(canvas))::after { content: none; }
+@media (max-width: 900px) { .hero3d { width: 100vw; opacity: .45; pointer-events: none; } }
+@media print { .hero3d .scene-view::after { content: none!important; } }
+@media (min-width: 901px) { .slide-cover .cover-copy { max-width: 48vw; } .slide-cover h1 { font-size: clamp(2.6rem, 4.7vw, 5.6rem); } .hero3d { right: -3vw; } }

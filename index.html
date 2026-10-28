@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=31">
+  <link rel="stylesheet" href="styles.css?v=32">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
@@ -31,13 +31,8 @@
           <span>ROS 2 Jazzy · Ubuntu 24.04</span>
         </div>
       </div>
-      <div class="orbit" aria-hidden="true">
-        <span class="orbit-core">ROS 2</span>
-        <span class="orbit-node node-a">sense</span>
-        <span class="orbit-node node-b">plan</span>
-        <span class="orbit-node node-c">act</span>
-      </div>
-      <aside class="notes">Welcome participants. Frame the workshop around one outcome: by the end, every participant can explain, inspect, model, simulate, and plan for a small robot system.</aside>
+      <div class="scene3d hero3d" data-scene="hero" aria-hidden="true"><div class="scene-view"><img class="scene-snap" alt=""></div><div class="scene-panel"></div></div>
+      <aside class="notes">Welcome participants. Frame the workshop around one outcome: by the end, every participant can explain, inspect, model, simulate, and plan for a small robot system. The scene on the right previews the whole course: a TurtleBot3 (Day 2) brings a cube to a Panda arm (Day 3), and each handoff is a message between them (Day 1). Drag to look around.</aside>
     </section>
 
     <section class="slide" data-section="Welcome" data-title="Workshop outcomes">
@@ -2279,6 +2274,6 @@ ros2 run demo_nodes_py listener \
   <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>Space</kbd> <kbd>→</kbd> Reveal next step or advance</p><p><kbd>←</kbd> Hide previous step or go back</p><p><kbd>G</kbd> Choose a slide from the list</p><p><kbd>K</kbd> Pause or resume an animation</p><p><kbd>R</kbd> Restart an animation</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
   <script src="script.js?v=10"></script>
   <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/examples/jsm/": "./vendor/three/jsm/" } }</script>
-  <script type="module" src="scenes3d.js?v=9"></script>
+  <script type="module" src="scenes3d.js?v=10"></script>
 </body>
 </html>

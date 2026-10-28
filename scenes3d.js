@@ -1830,10 +1830,90 @@ SCENES['why-ros2'] = async (panel) => {
   } };
 };
 
+// ---------- Cover: a TurtleBot3 brings a cube, the Panda hands it on, and back ----------
+SCENES['hero'] = async () => {
+  const s = base3d({ cam: [2.2, 1.45, 1.75], target: [.3, .2, -.42], grid: 0 });
+  s.scene.background = null;
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(1.9, 64), new THREE.MeshBasicMaterial({ color: C.cyan, transparent: true, opacity: .05 }));
+  s.world.add(floor);
+  const grid = new THREE.PolarGridHelper(1.9, 12, 6, 64, C.cyan, 0x24304f); grid.material.transparent = true; grid.material.opacity = .25; grid.rotation.x = Math.PI / 2; s.world.add(grid);
+  const r = await panda(), bot = await turtlebot(), K = await ik();
+  const pedestal = box(.22, .22, .02, 0x2a3350); pedestal.position.z = -.01; s.world.add(r, pedestal);
+  const table = box(.3, .3, .2, 0x2a3350); table.position.set(.45, -.32, .1); s.world.add(table);
+  const pad = box(.08, .08, .003, C.green, .7); pad.position.set(.45, -.32, .201); s.world.add(pad);
+  s.world.add(bot);
+  const cubeMat = new THREE.MeshStandardMaterial({ color: C.orange, emissive: 0x3a2200 }), cube = new THREE.Mesh(new THREE.BoxGeometry(.05, .05, .05), cubeMat);
+  // the robot's loop: a circle that touches the dock beside the arm
+  const DOCK = [.55, .3], RAD = .45, CEN = [DOCK[0], DOCK[1] + RAD];
+  const onLoop = u => { const a = -Math.PI / 2 + u * 2 * Math.PI; return [CEN[0] + RAD * Math.cos(a), CEN[1] + RAD * Math.sin(a), a + Math.PI / 2]; };
+  const TOP = .215, TCP = .105;   // cube centre on top of the lidar; hand frame to fingertip centre
+  const ON_BOT = [DOCK[0], DOCK[1], TOP], ON_TABLE = [.45, -.32, .226];
+  const above = (p, dz) => K.down([p[0], p[1], p[2] + TCP + dz]);
+  const seq = (from, to) => { let q = HOME; const poses = [above(from, .12), above(from, 0), above(from, .14), above(to, .14), above(to, 0), above(to, .12)]; return poses.map(P => (q = K.solveIK(P, q, { iters: 200 }).q)); };
+  const OPEN = .04, SHUT = .025;
+  const arm = (from, to) => { const [a, g, l, b, p, rt] = seq(from, to); return [[HOME, OPEN, .8], [a, OPEN, 1.2], [g, OPEN, .9], [g, SHUT, .5, 'grab'], [l, SHUT, .8], [b, SHUT, 1.4], [p, SHUT, .9], [p, OPEN, .5, 'drop'], [rt, OPEN, .8], [HOME, OPEN, 1.1]]; };
+  const PICK = arm(ON_BOT, ON_TABLE), GIVE = arm(ON_TABLE, ON_BOT), armT = a => a.reduce((x, k) => x + k[2], 0);
+  const DRIVE = 8;   // one loop at about 0.35 m/s, a little quicker than a real Burger
+  const PHASES = [['drive', DRIVE], ['arm', armT(PICK), PICK], ['drive', DRIVE], ['arm', armT(GIVE), GIVE]];
+  const CYCLE = PHASES.reduce((x, p) => x + p[1], 0);
+  // lidar pings and the message between the two robots
+  const ping = new THREE.Mesh(new THREE.RingGeometry(.1, .112, 48), new THREE.MeshBasicMaterial({ color: C.pink, transparent: true, side: THREE.DoubleSide }));
+  s.world.add(ping);
+  const msg = new THREE.Mesh(new THREE.SphereGeometry(.018, 16, 12), new THREE.MeshBasicMaterial({ color: C.cyan }));
+  const link = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]), new THREE.LineDashedMaterial({ color: C.cyan, dashSize: .03, gapSize: .025, transparent: true, opacity: .6 }));
+  link.frustumCulled = false; s.world.add(msg, link);
+  const place = (obj, p) => { if (obj.parent !== s.world) s.world.attach(obj); obj.position.set(...p); obj.rotation.set(0, 0, 0); };
+  let holder = '';
+  const hold = who => {
+    if (holder === who) return; holder = who;
+    s.scene.updateMatrixWorld(true);
+    if (who === 'hand') r.links.panda_hand.attach(cube);
+    else if (who === 'bot') { place(cube, ON_BOT); bot.attach(cube); }
+    else place(cube, ON_TABLE);
+  };
+  const hand = new THREE.Vector3(), botTop = new THREE.Vector3();
+  return { ...s, autoRotate: .55, reset() { holder = ''; }, update(t) {
+    let tc = t % CYCLE, i = 0; while (tc > PHASES[i][1]) tc -= PHASES[i++][1];
+    const [kind, dur, steps] = PHASES[i];
+    // the robot
+    const u = kind === 'drive' ? smooth(tc / dur) : 0, pose = onLoop(u);
+    bot.position.set(pose[0], pose[1], 0); bot.rotation.set(0, 0, pose[2]);
+    const roll = (Math.floor(t / CYCLE) * 2 + (i >= 2 ? 1 : 0) + u) * 2 * Math.PI * RAD / .033;
+    bot.joints.wheel_left_joint.setJointValue(roll); bot.joints.wheel_right_joint.setJointValue(roll);
+    // who holds the cube: on the robot while it drives in phase 0, on the table while it drives in phase 2
+    if (kind === 'drive') hold(i === 0 ? 'bot' : 'table');
+    // the arm
+    let q = HOME, f = 0, grip = OPEN;
+    if (kind === 'arm') {
+      let k = 0, x = tc; while (k < steps.length - 1 && x > steps[k][2]) x -= steps[k++][2];
+      const prev = k ? steps[k - 1] : steps[steps.length - 1]; f = smooth(clamp(x / steps[k][2], 0, 1));
+      q = prev[0].map((v, j) => lerp(v, steps[k][0][j], f)); grip = lerp(prev[1], steps[k][1], f);
+      const grabbed = steps.slice(0, k + 1).some(st => st[3] === 'grab') && !(steps[k][3] === 'grab' && f < .8);
+      const dropped = steps.slice(0, k + 1).some(st => st[3] === 'drop') && !(steps[k][3] === 'drop' && f < .5);
+      setArm(r, q, grip);
+      hold(dropped ? (steps === PICK ? 'table' : 'bot') : grabbed ? 'hand' : (steps === PICK ? 'bot' : 'table'));
+    } else setArm(r, HOME, OPEN);
+    // lidar ping every 0.2 s while driving
+    const pp = (t % .2) / .2; ping.visible = kind === 'drive'; ping.position.set(pose[0], pose[1], .19); ping.scale.setScalar(1 + pp * 2); ping.material.opacity = .7 * (1 - pp);
+    // a message from robot to arm on arrival, and back when the arm is done
+    s.scene.updateMatrixWorld(true); bot.links.base_scan.getWorldPosition(botTop); s.world.worldToLocal(botTop);
+    hand.set(0, 0, .35);
+    const arriving = kind === 'arm' && tc < .8, leaving = kind === 'arm' && tc > dur - .9;
+    link.visible = msg.visible = arriving || leaving;
+    if (link.visible) {
+      const a = arriving ? botTop : hand, b = arriving ? hand : botTop, m = arriving ? tc / .8 : (tc - (dur - .9)) / .9;
+      msg.position.lerpVectors(a, b, smooth(clamp(m, 0, 1))); msg.position.z += Math.sin(Math.PI * clamp(m, 0, 1)) * .12;
+      link.geometry.setFromPoints([a, b]); link.computeLineDistances();
+    }
+    cubeMat.emissive.setHex(holder === 'hand' ? 0x664000 : 0x3a2200);
+  } };
+};
+
 // ======================================================================
 // Engine: one renderer, mounted on the active slide's .scene3d.
 // ======================================================================
-const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setClearColor(0x000000, 0);   // scenes without a background (the cover) show the slide behind them
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const labels = new CSS2DRenderer(); labels.domElement.className = 'label-layer';
 const built = new Map();
@@ -1876,6 +1956,7 @@ async function mount(slide) {
     view.prepend(renderer.domElement, labels.domElement);
     me.controls = new OrbitControls(inst.camera, renderer.domElement);
     me.controls.target.copy(inst.target); me.controls.enableDamping = true;
+    if (inst.autoRotate) Object.assign(me.controls, { autoRotate: true, autoRotateSpeed: inst.autoRotate, enableZoom: false, enablePan: false });
   }
   clock = 0; inst.reset?.();
   last = performance.now(); tick(last);   // draw immediately so the previous scene never shows
@@ -1890,6 +1971,7 @@ function tick(now) {
     if (renderer.domElement.width !== Math.round(w * renderer.getPixelRatio()) || renderer.domElement.height !== Math.round(h * renderer.getPixelRatio())) {
       renderer.setSize(w, h, false); labels.setSize(w, h); inst.camera.aspect = w / h; inst.camera.updateProjectionMatrix();
     }
+    if (inst.autoRotate) cur.controls.autoRotate = !isPaused();
     cur.controls.update();
     renderer.render(inst.scene, inst.camera); labels.render(inst.scene, inst.camera);
   }
