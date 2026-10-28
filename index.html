@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <header class="deck-chrome" aria-label="Presentation controls">
@@ -445,6 +445,15 @@ ros2 doctor --report
       <aside class="notes">Run ros2 doctor with turtlesim running and without a teleop node: it warns that /turtle1/cmd_vel has a subscriber but no publisher. That warning is information, not an error.</aside>
     </section>
 
+    <section class="slide" data-section="Welcome" data-title="Common setup problems">
+      <div class="slide-head"><p class="eyebrow">Before the first lab</p><h2>Common setup problems</h2></div>
+      <div class="pattern-table" role="table" aria-label="Common ROS 2 setup problems">
+        <div class="table-row header"><span>Symptom</span><span>Likely cause</span><span>Fix</span></div><div class="table-row"><strong>ros2: command not found</strong><span>This terminal is not sourced</span><span><code>source /opt/ros/jazzy/setup.bash</code></span></div><div class="table-row"><strong>Package 'my_pkg' not found</strong><span>Overlay not sourced after building</span><span><code>source install/setup.bash</code></span></div><div class="table-row"><strong>No module named 'em' while building</strong><span>A conda or venv Python is active</span><span><code>conda deactivate</code>, delete <code>build/</code>, rebuild</span></div><div class="table-row"><strong>Nodes cannot see each other</strong><span>Different domain, discovery range, or firewall</span><span><code>printenv | grep ROS</code> in both terminals</span></div><div class="table-row"><strong>Permission denied in build/</strong><span>An earlier <code>sudo colcon build</code></span><span>Delete <code>build install log</code>, rebuild without sudo</span></div>
+      </div>
+      <p class="takeaway">Most first-day problems are the environment, not the code. Check the terminal before the program.</p>
+      <aside class="notes">The 'em' error is real: colcon picks up whichever python3 comes first on PATH, and conda's Python lacks the empy module ROS needs to generate interfaces.</aside>
+    </section>
+
     <section class="slide section-break" data-section="Day 1 · Architecture" data-title="ROS 2 architecture">
       <p class="chapter-number">01</p><p class="eyebrow">Day 1 · 09:30-11:00</p><h2>Fundamentals of ROS 2 architecture</h2><p class="chapter-prompt">How do independent programs discover and exchange data?</p>
       <aside class="notes">Begin the first 90-minute block. Use 35 minutes for concepts, 20 minutes for the graph demo, and 35 minutes for the hands-on task.</aside>
@@ -795,6 +804,76 @@ ros2 run workshop_runtime listener</code></pre><p class="callout">Type, topic na
       <aside class="notes">The callback runs only while the node spins. Ask what happens if the listener uses the topic name "/chatter2".</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Topics" data-title="Your first publisher in C++">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · Writing a simple publisher and subscriber (C++)</p><h2>Your first publisher in C++</h2></div>
+      <div class="split code-wide">
+        <pre><code>#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
+using namespace std::chrono_literals;
+class Talker : public rclcpp::Node {
+public:
+  Talker() : Node("talker") {
+    pub_ = create_publisher&lt;std_msgs::msg::String&gt;("chatter", 10);
+    timer_ = create_wall_timer(500ms, [this]() {
+      std_msgs::msg::String msg;
+      msg.data = "Hello " + std::to_string(count_++);
+      pub_-&gt;publish(msg);
+    });
+  }
+private:
+  rclcpp::Publisher&lt;std_msgs::msg::String&gt;::SharedPtr pub_;
+  rclcpp::TimerBase::SharedPtr timer_;
+  size_t count_ = 0;
+};
+int main(int argc, char * argv[]) {
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared&lt;Talker&gt;());
+  rclcpp::shutdown();
+}</code></pre>
+        <div><h3>Same idea, compiled</h3><ul class="arrow-list"><li>Same node, topic, QoS, and timer as the Python version</li><li>Shared pointers own publishers and timers</li></ul><pre class="nested-code"><code><span class="comment"># CMakeLists.txt</span>
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+add_executable(talker src/talker.cpp)
+ament_target_dependencies(talker rclcpp std_msgs)
+install(TARGETS talker
+  DESTINATION lib/${PROJECT_NAME})</code></pre></div>
+      </div>
+      <aside class="notes">Create the package with: ros2 pkg create --build-type ament_cmake --license Apache-2.0 cpp_pubsub --dependencies rclcpp std_msgs. Compare line by line with the Python talker.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Topics" data-title="Your first subscriber in C++">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · Writing a simple publisher and subscriber (C++)</p><h2>Your first subscriber in C++</h2></div>
+      <div class="split code-wide">
+        <pre><code>#include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/string.hpp"
+
+class Listener : public rclcpp::Node {
+public:
+  Listener() : Node("listener") {
+    sub_ = create_subscription&lt;std_msgs::msg::String&gt;(
+      "chatter", 10,
+      [this](const std_msgs::msg::String &amp; msg) {
+        RCLCPP_INFO(get_logger(), "I heard: '%s'", msg.data.c_str());
+      });
+  }
+private:
+  rclcpp::Subscription&lt;std_msgs::msg::String&gt;::SharedPtr sub_;
+};
+
+int main(int argc, char * argv[]) {
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared&lt;Listener&gt;());
+  rclcpp::shutdown();
+}</code></pre>
+        <div><h3>Mix languages freely</h3><ul class="arrow-list"><li>A C++ listener hears a Python talker</li><li>Both go through the same rcl and rmw layers</li><li>Pick the language per node, not per system</li></ul><pre class="nested-code"><code>colcon build --packages-select cpp_pubsub
+source install/setup.bash
+ros2 run cpp_pubsub listener
+<span class="comment"># second terminal: the Python talker</span>
+ros2 run workshop_runtime talker</code></pre></div>
+      </div>
+      <aside class="notes">Run the Python talker with the C++ listener to prove the client library slide: same message, any language.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Topics" data-title="Create custom msg and srv files">
       <div class="slide-head"><p class="eyebrow">Docs · Creating custom msg and srv files</p><h2>Create custom msg and srv files</h2></div>
       <div class="split">
@@ -1130,6 +1209,34 @@ ros2 param set /minimal_param_node my_parameter ""
       <aside class="notes">A timer does not create a dedicated real-time thread. Use this distinction to explain jitter and callback groups later.</aside>
     </section>
 
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Executors and callback groups">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · Concepts: Executors</p><h2>Executors and callback groups</h2></div>
+      <div class="split code-wide">
+        <pre><code>from rclpy.executors import MultiThreadedExecutor
+from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
+class Robot(Node):
+    def __init__(self):
+        super().__init__('robot')
+        self.create_timer(2.0, self.plan,
+            callback_group=MutuallyExclusiveCallbackGroup())
+        self.create_timer(0.5, self.control,
+            callback_group=MutuallyExclusiveCallbackGroup())
+
+    def plan(self):
+        time.sleep(1.5)                  <span class="comment"># slow work</span>
+        self.get_logger().info('plan ready')
+
+    def control(self):
+        self.get_logger().info('control tick')
+rclpy.init()
+executor = MultiThreadedExecutor()
+executor.add_node(Robot())
+executor.spin()</code></pre>
+        <div><h3>Who runs your callbacks</h3><ul class="arrow-list"><li><code>rclpy.spin</code> uses one thread: callbacks run one at a time</li><li>A multi-threaded executor runs callbacks in parallel</li><li><strong>Mutually exclusive</strong> group: never overlap inside the group</li><li><strong>Reentrant</strong> group: may overlap, even with itself</li></ul><p class="callout warning">With <code>rclpy.spin</code>, the 1.5 s plan freezes every control tick.</p></div>
+      </div>
+      <aside class="notes">Run it twice: with rclpy.spin(Robot()) the control ticks stop during plan; with the multi-threaded executor they keep coming. Each timer gets its own group, so they can run at the same time.</aside>
+    </section>
+
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Logging and rqt_console">
       <div class="slide-head"><p class="eyebrow">Docs · Using rqt_console to view logs</p><h2>Logging and rqt_console</h2></div>
       <div class="split code-wide">
@@ -1173,6 +1280,86 @@ def generate_launch_description():
       </svg>
       <div class="anim-legend"><span><i class="req"></i>cmd_vel</span><span><i class="fb"></i>pose</span></div>
       <aside class="notes">This is the official 'Creating a launch file' tutorial. One launch file starts three nodes, namespaces keep the turtles apart, and remappings wire mimic between them without code changes.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Launch arguments and substitutions">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · Launch: using substitutions</p><h2>Launch arguments and substitutions</h2></div>
+      <div class="split code-wide">
+        <pre><code>from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
+
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument('ns', default_value='turtlesim1'),
+        DeclareLaunchArgument('background_r', default_value='69'),
+        Node(
+            package='turtlesim', executable='turtlesim_node',
+            namespace=LaunchConfiguration('ns'),
+            parameters=[{
+                'background_r': LaunchConfiguration('background_r')}]),
+    ])</code></pre>
+        <div><h3>Values decided at launch time</h3><ul class="arrow-list"><li><code>DeclareLaunchArgument</code> names an input with a default</li><li><code>LaunchConfiguration</code> reads it inside the file</li><li>Also: <code>PathJoinSubstitution</code>, <code>FindPackageShare</code>, <code>EnvironmentVariable</code></li></ul><pre class="nested-code"><code>ros2 launch my_pkg turtles.launch.py --show-args
+ros2 launch my_pkg turtles.launch.py \
+  ns:=robot1 background_r:=200</code></pre></div>
+      </div>
+      <aside class="notes">One launch file now starts any number of differently configured robots. --show-args prints every argument with its default, which documents the file for free.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Launch event handlers">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · Launch: using event handlers</p><h2>Launch event handlers</h2></div>
+      <div class="split code-wide">
+        <pre><code>from launch.actions import (EmitEvent, ExecuteProcess, LogInfo,
+                            RegisterEventHandler)
+from launch.event_handlers import OnProcessExit, OnProcessStart
+from launch.events import Shutdown
+
+def generate_launch_description():
+    sim = Node(package='turtlesim', executable='turtlesim_node')
+    spawn = ExecuteProcess(cmd=[
+        'ros2', 'service', 'call', '/spawn', 'turtlesim/srv/Spawn',
+        "{x: 2.0, y: 2.0, name: 'turtle2'}"])
+    return LaunchDescription([
+        sim,
+        RegisterEventHandler(OnProcessStart(
+            target_action=sim, on_start=[spawn])),
+        RegisterEventHandler(OnProcessExit(
+            target_action=sim,
+            on_exit=[LogInfo(msg='turtlesim closed'),
+                     EmitEvent(event=Shutdown())])),
+    ])</code></pre>
+        <div><h3>React to what happens</h3><ul class="arrow-list"><li><code>OnProcessStart</code>: do something once a node is up</li><li><code>OnProcessExit</code>: clean up or shut down when one stops</li><li>Also <code>OnExecutionComplete</code> and <code>OnShutdown</code></li></ul><p class="callout">Close the turtlesim window and the whole launch shuts down instead of leaving orphan nodes.</p></div>
+      </div>
+      <aside class="notes">Event handlers turn a launch file from a list into a startup sequence. ros2 service call waits for /spawn to exist, so the spawn succeeds even if turtlesim takes a moment to start.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Launch files in XML and YAML">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · Launch: integrating launch files</p><h2>Launch files in XML and YAML</h2></div>
+      <div class="split">
+        <pre><code>&lt;launch&gt;
+  &lt;arg name="ns" default="turtlesim1"/&gt;
+  &lt;node pkg="turtlesim" exec="turtlesim_node"
+        namespace="$(var ns)"&gt;
+    &lt;param name="background_r" value="200"/&gt;
+  &lt;/node&gt;
+&lt;/launch&gt;</code></pre>
+        <pre><code>launch:
+- arg:
+    name: ns
+    default: turtlesim1
+- node:
+    pkg: turtlesim
+    exec: turtlesim_node
+    namespace: $(var ns)
+    param:
+    - name: background_r
+      value: 200
+
+<span class="comment"># ros2 launch turtles.launch.yaml ns:=robot1</span></code></pre>
+      </div>
+      <p class="callout">Python, XML, and YAML launch files can include each other. Use Python when you need logic; XML or YAML for simple, readable setups.</p>
+      <aside class="notes">These two files start exactly the same node as the Python launch file with arguments on the previous slide.</aside>
     </section>
 
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Record, replay, and visualize">
@@ -1269,6 +1456,92 @@ ros2 topic echo /tf_static \
       </div>
       <p class="callout warning">A child frame must have one authoritative parent publisher.</p>
       <aside class="notes">Duplicate publishers can produce jumps that look like sensor or localization noise. Use tf2_monitor and node introspection to find ownership.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 2 · TF2" data-title="Publish a static transform">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · tf2: writing a static broadcaster</p><h2>Publish a static transform</h2></div>
+      <div class="split code-wide">
+        <pre><code><span class="comment"># From the command line</span>
+ros2 run tf2_ros static_transform_publisher \
+  --x 0.1 --y 0.0 --z 0.2 \
+  --roll 0 --pitch 0 --yaw 0 \
+  --frame-id base_link --child-frame-id lidar_link
+
+ros2 run tf2_ros tf2_echo base_link lidar_link</code></pre>
+        <div><h3>Or from a node</h3><pre class="nested-code"><code>from tf2_ros.static_transform_broadcaster import (
+    StaticTransformBroadcaster)
+from geometry_msgs.msg import TransformStamped
+
+t = TransformStamped()
+t.header.stamp = self.get_clock().now().to_msg()
+t.header.frame_id = 'base_link'
+t.child_frame_id = 'lidar_link'
+t.transform.translation.x = 0.1
+t.transform.translation.z = 0.2
+t.transform.rotation.w = 1.0
+self.tf_static = StaticTransformBroadcaster(self)
+self.tf_static.sendTransform(t)</code></pre></div>
+      </div>
+      <aside class="notes">Static transforms are published once on /tf_static with transient-local durability, so late subscribers still receive them. Rotation w = 1.0 means no rotation. On a real robot, robot_state_publisher sends these from the URDF fixed joints.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 2 · TF2" data-title="Write a tf2 broadcaster">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · tf2: writing a broadcaster (Python)</p><h2>Write a tf2 broadcaster</h2></div>
+      <div class="split code-wide">
+        <pre><code>import math
+from geometry_msgs.msg import TransformStamped
+from tf2_ros import TransformBroadcaster
+from turtlesim.msg import Pose
+
+class FramePublisher(Node):
+    def __init__(self):
+        super().__init__('turtle_tf2_frame_publisher')
+        self.br = TransformBroadcaster(self)
+        self.create_subscription(Pose, '/turtle1/pose', self.on_pose, 1)
+
+    def on_pose(self, msg):
+        t = TransformStamped()
+        t.header.stamp = self.get_clock().now().to_msg()
+        t.header.frame_id = 'world'
+        t.child_frame_id = 'turtle1'
+        t.transform.translation.x = msg.x
+        t.transform.translation.y = msg.y
+        t.transform.rotation.z = math.sin(msg.theta / 2)
+        t.transform.rotation.w = math.cos(msg.theta / 2)
+        self.br.sendTransform(t)</code></pre>
+        <div><h3>Pose in, transform out</h3><ul class="arrow-list"><li>Every pose message becomes a <code>world → turtle1</code> transform</li><li>Each transform is stamped with the current time</li><li>A yaw angle θ is the quaternion <code>z = sin(θ/2), w = cos(θ/2)</code></li></ul><pre class="nested-code"><code>ros2 run turtlesim turtlesim_node
+ros2 run turtlesim turtle_teleop_key
+ros2 run tf2_ros tf2_echo world turtle1</code></pre></div>
+      </div>
+      <aside class="notes">Drive the turtle with teleop and watch tf2_echo update. The same pattern turns odometry into odom → base_link on a real robot.</aside>
+    </section>
+
+    <section class="slide" data-section="Day 2 · TF2" data-title="Write a tf2 listener">
+      <div class="slide-head"><p class="eyebrow">Optional · Docs · tf2: writing a listener (Python)</p><h2>Write a tf2 listener</h2></div>
+      <div class="split code-wide">
+        <pre><code>from rclpy.time import Time
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
+class FrameListener(Node):
+    def __init__(self):
+        super().__init__('frame_listener')
+        self.buffer = Buffer()
+        self.listener = TransformListener(self.buffer, self)
+        self.create_timer(1.0, self.on_timer)
+
+    def on_timer(self):
+        try:
+            t = self.buffer.lookup_transform('world', 'turtle1', Time())
+        except TransformException as ex:
+            self.get_logger().info(f'not yet: {ex}')
+            return
+        p = t.transform.translation
+        self.get_logger().info(f'turtle1 at x={p.x:.2f} y={p.y:.2f}')</code></pre>
+        <div><h3>Ask, do not track</h3><ul class="arrow-list"><li>The listener fills a buffer with recent transforms (10 s by default)</li><li><code>lookup_transform(target, source, time)</code> chains every link for you</li><li><code>Time()</code> means the latest available transform</li></ul><p class="callout warning">The first lookups fail until the buffer has data: always catch <code>TransformException</code>.</p></div>
+      </div>
+      <aside class="notes">Run the broadcaster, teleop, and this listener together. Then stop the broadcaster and show the exception message, which names the missing frame.</aside>
     </section>
 
     <section class="slide lab-slide" data-section="Day 2 · TF2" data-title="Lab: debug the frame tree">
@@ -1732,6 +2005,86 @@ ros2 action list -t
       <div class="debug-order"><div><span>01</span><strong>Process</strong><small>Did the expected node start?</small></div><div><span>02</span><strong>Graph</strong><small>Names, types, endpoints, QoS</small></div><div><span>03</span><strong>Data</strong><small>Values, rate, timestamp</small></div><div><span>04</span><strong>Frames</strong><small>Connected, current, correct</small></div><div><span>05</span><strong>State</strong><small>Lifecycle and controller claims</small></div><div><span>06</span><strong>Model</strong><small>Limits, collision, inertia</small></div></div>
       <p class="takeaway">Move down the stack only when the previous layer has evidence.</p>
       <aside class="notes">This checklist is the workshop's main operational habit. It prevents random configuration changes.</aside>
+    </section>
+
+    <section class="slide section-break" data-section="Going further" data-title="Going further">
+      <p class="chapter-number">+</p><p class="eyebrow">Optional · after the workshop</p><h2>Going further</h2><p class="chapter-prompt">Production features from the official intermediate tutorials.</p>
+      <aside class="notes">Pick the slides that fit your audience and time. Each one stands alone and points to the matching tutorial on docs.ros.org.</aside>
+    </section>
+
+    <section class="slide" data-section="Going further" data-title="Composition: many nodes, one process">
+      <div class="slide-head"><p class="eyebrow">Docs · Composing multiple nodes in a single process</p><h2>Composition: many nodes, one process</h2></div>
+      <div class="split code-wide">
+        <pre><code><span class="comment"># Terminal 1: an empty container process</span>
+ros2 run rclcpp_components component_container
+
+<span class="comment"># Terminal 2: load nodes into it at runtime</span>
+ros2 component types
+ros2 component load /ComponentManager \
+  composition composition::Talker
+ros2 component load /ComponentManager \
+  composition composition::Listener
+ros2 component list</code></pre>
+        <div><h3>Why compose</h3><ul class="arrow-list"><li>Still separate nodes in the graph</li><li>One process: lower memory and startup cost</li><li>Intra-process messages can skip serialization entirely</li><li>In C++: <code>RCLCPP_COMPONENTS_REGISTER_NODE(my_pkg::Talker)</code></li></ul><p class="callout">In launch files, use <code>ComposableNodeContainer</code> with <code>ComposableNode</code> entries.</p></div>
+      </div>
+      <aside class="notes">Show ros2 node list: /talker and /listener appear as normal nodes although ps shows one process. Components are a C++ feature in rclcpp.</aside>
+    </section>
+
+    <section class="slide" data-section="Going further" data-title="Managed lifecycle nodes">
+      <div class="slide-head"><p class="eyebrow">Docs · Managing node lifecycles</p><h2>Managed lifecycle nodes</h2></div>
+      <div class="split code-wide">
+        <pre><code>ros2 run lifecycle lifecycle_talker
+ros2 run lifecycle lifecycle_listener
+
+ros2 lifecycle nodes
+ros2 lifecycle get /lc_talker         <span class="comment"># unconfigured [1]</span>
+ros2 lifecycle set /lc_talker configure
+ros2 lifecycle set /lc_talker activate  <span class="comment"># starts publishing</span>
+ros2 lifecycle set /lc_talker deactivate
+ros2 lifecycle list /lc_talker</code></pre>
+        <div><h3>A node with a startup contract</h3><ul class="arrow-list"><li><strong>unconfigured</strong> → configure → <strong>inactive</strong></li><li><strong>inactive</strong> → activate → <strong>active</strong></li><li>deactivate, cleanup, and shutdown go back down</li><li>Bring drivers up in order; restart one without restarting all</li></ul><p class="callout">Nav2 and ros2_control controllers are lifecycle nodes, which is why Day 3 showed <code>--set-state active</code>.</p></div>
+      </div>
+      <aside class="notes">The lifecycle_talker only publishes while active. Run the listener alongside to make the state changes visible.</aside>
+    </section>
+
+    <section class="slide" data-section="Going further" data-title="Test your packages">
+      <div class="slide-head"><p class="eyebrow">Docs · Testing</p><h2>Test your packages</h2></div>
+      <div class="split code-wide">
+        <pre><code><span class="comment"># test/test_clamp.py in an ament_python package</span>
+from workshop_runtime.util import clamp
+
+
+def test_clamp_limits():
+    assert clamp(5, 0, 1) == 1
+    assert clamp(-1, 0, 1) == 0
+    assert clamp(0.5, 0, 1) == 0.5
+
+<span class="comment"># From the workspace root</span>
+colcon test --packages-select workshop_runtime
+colcon test-result --verbose</code></pre>
+        <div><h3>What runs</h3><ul class="arrow-list"><li>Your pytest files in <code>test/</code></li><li>Style checks that <code>ros2 pkg create</code> adds: flake8, pep257, copyright</li><li><code>launch_testing</code> for tests that start real nodes</li><li>The same commands run in continuous integration</li></ul><p class="callout">Keep logic in plain functions so it can be tested without starting ROS.</p></div>
+      </div>
+      <aside class="notes">colcon test does not stop on failure; colcon test-result shows which tests failed and why. Fix the style warnings early, they pile up quickly.</aside>
+    </section>
+
+    <section class="slide" data-section="Going further" data-title="ROS 2 security with SROS2">
+      <div class="slide-head"><p class="eyebrow">Docs · Security: setting up security</p><h2>ROS 2 security with SROS2</h2></div>
+      <div class="split code-wide">
+        <pre><code>ros2 security create_keystore demo_keystore
+ros2 security create_enclave demo_keystore /talker_listener/talker
+ros2 security create_enclave demo_keystore /talker_listener/listener
+
+export ROS_SECURITY_KEYSTORE=$PWD/demo_keystore
+export ROS_SECURITY_ENABLE=true
+export ROS_SECURITY_STRATEGY=Enforce
+
+ros2 run demo_nodes_cpp talker \
+  --ros-args --enclave /talker_listener/talker
+ros2 run demo_nodes_py listener \
+  --ros-args --enclave /talker_listener/listener</code></pre>
+        <div><h3>DDS-Security, switched on</h3><ul class="arrow-list"><li><strong>Authentication</strong>: every participant proves who it is</li><li><strong>Encryption</strong>: traffic cannot be read on the network</li><li><strong>Access control</strong>: who may publish or subscribe to what</li></ul><p class="callout warning">With <code>Enforce</code>, a node without valid keys cannot join the graph at all.</p></div>
+      </div>
+      <aside class="notes">Show tcpdump or Wireshark before and after: with security on, the payload is unreadable. Each enclave is a folder of certificates; keep the keystore's private keys out of version control.</aside>
     </section>
 
     <section class="slide" data-section="Resources" data-title="Official references">

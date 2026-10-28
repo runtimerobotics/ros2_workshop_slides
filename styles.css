@@ -273,3 +273,4 @@ aside.notes { display: none; }
 .ros-anim.tall { max-width: 68rem; max-height: 56vh; }
 @media (max-height: 760px) and (min-width: 901px) { .ros-anim.tall { max-height: 50vh; } }
 @media (min-width: 901px) { .split.code-wide { grid-template-columns: 1.6fr 1fr; gap: clamp(1.2rem, 3vw, 3rem); } }
+@media (max-height: 760px) and (min-width: 901px) { .split.code-wide pre { font-size: .76rem; } }
