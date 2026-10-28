@@ -1488,6 +1488,159 @@ for j, (txt, t0) in enumerate(LOG):
 b.append(move(rover(30, 120, .9), [(0, 0)] + [(k * 18, 0) for k in range(1, 9)] + [(144, 0)], "0;" + ";".join(f"{(.06 + k * .08):.2f}" for k in range(8)) + ";1", d, False))
 svgs["Self-check: Python"] = svg(160, "A battery gauge drains from 100 percent in steps of 10 as a rover drives forward; each change prints through the callback, battery 90 percent down to battery 20 percent. At 20 percent the robot refuses to drive and prints battery low twice.", "".join(b), vb_w=460,
                                 trace=[(0, "14-16"), (.05, "7-8"), (.07, "11-12"), (.68, "8-10")])
+# ---------- ROS 2 overview divider: one master becomes a peer-to-peer graph ----------
+d = "9s"
+STAR = [(120, 60), (240, 50), (90, 150), (260, 160)]
+b = ['<text class="k" x="180" y="16">ROS 1 · 2007</text>', '<text class="k" x="700" y="16">ROS 2 · 2017</text>', '<circle class="joint" cx="175" cy="105" r="12"/><text class="k" x="175" y="134">master</text>']
+for x, y in STAR: b += [f'<line class="divider" x1="175" y1="105" x2="{x}" y2="{y}"/>', f'<circle class="deco-node" cx="{x}" cy="{y}" r="9"/>']
+for k, (x, y) in enumerate(STAR): b.append(packet("res", f"M{x},{y} L175,105", round(.04 + k * .1, 2), round(.1 + k * .1, 2), d))
+b += [burst(175, 105, .5, d, "bad", 30), at('<line class="xmark" x1="163" y1="93" x2="187" y2="117"/><line class="xmark" x1="187" y1="93" x2="163" y2="117"/><text class="code hot" x="120" y="194">single point of failure</text>', .5, 1, d),
+      wire("M330,105 L560,105"), '<path d="M552,99 L562,105 L552,111" fill="var(--blue)"/>']
+MESH = [(640, 60), (760, 50), (620, 150), (780, 160), (700, 105)]
+for i, p_ in enumerate(MESH):
+    for q in MESH[i + 1:]: b.append(f'<line class="divider" x1="{p_[0]}" y1="{p_[1]}" x2="{q[0]}" y2="{q[1]}"/>')
+for x, y in MESH: b.append(f'<circle class="deco-node" cx="{x}" cy="{y}" r="9"/>')
+for k in range(6):
+    a_, c_ = MESH[k % 5], MESH[(k * 2 + 1) % 5]; t0 = round(.55 + k * .07, 2)
+    b.append(packet("req", f"M{a_[0]},{a_[1]} L{c_[0]},{c_[1]}", t0, round(t0 + .06, 2), d))
+b.append(cap("peers find each other: nothing in the middle to fail", .55, 1, d, 700, 194))
+svgs["ROS 2 overview"] = svg(200, "Left, ROS 1: four nodes talk through one central master, which then fails, marked single point of failure. Right, ROS 2: five nodes form a mesh and messages pass directly between peers.", "".join(b))
+
+# ---------- ROS 1 vs ROS 2: every row acts out its difference ----------
+d = "16s"
+ROWS = [("Discovery", "Central ROS master", "Distributed, through DDS"), ("Transport", "TCPROS / UDPROS", "DDS / RTPS, plus Zenoh"), ("QoS", "Not available", "Reliability, durability, history, deadline"),
+        ("Real-time", "Not designed for it", "Supported with a suitable OS and executor"), ("Security", "None built in", "SROS2: authentication and encryption"), ("Platforms", "Mainly Ubuntu", "Ubuntu, Windows, macOS, RTOS"),
+        ("Build", "catkin, rosbuild", "colcon with ament"), ("Launch", "XML only", "Python, XML, or YAML")]
+RH, Y0 = 40, 34
+b = ['<text class="k left" x="10" y="20">feature</text><text class="k left" x="160" y="20">ROS 1</text><text class="k left" x="530" y="20">ROS 2</text>']
+for i, (f_, r1, r2) in enumerate(ROWS):
+    y = Y0 + i * RH; s0 = round(i / 8, 3); e0 = round((i + 1) / 8, 3)
+    b += [f'<line class="divider" x1="0" y1="{y + RH}" x2="900" y2="{y + RH}"/>', f'<rect x="0" y="{y + 2}" width="900" height="{RH - 4}" rx="4" fill="rgba(88,224,210,.08)" opacity="0">{vis(s0 or .001, e0, d)}</rect>',
+          f'<text class="s left" x="10" y="{y + RH / 2}">{f_}</text>', f'<text class="code left" x="250" y="{y + RH / 2 + 4}">{r1}</text>', f'<text class="code ok left" x="620" y="{y + RH / 2 + 4}">{r2}</text>']
+    m = y + RH / 2; A, B = 160, 530   # mini animation slots, 80 px wide
+    if f_ == "Discovery":
+        b += [f'<circle class="joint" cx="{A + 40}" cy="{m}" r="5"/>'] + [f'<line class="divider" x1="{A + 40}" y1="{m}" x2="{A + 40 + dx}" y2="{m + dy}"/><circle class="pulse" cx="{A + 40 + dx}" cy="{m + dy}" r="3"/>' for dx, dy in ((-30, -10), (30, -10), (0, 14))]
+        b += [f'<line class="divider" x1="{B + 10}" y1="{m - 8}" x2="{B + 70}" y2="{m - 8}"/><line class="divider" x1="{B + 10}" y1="{m - 8}" x2="{B + 40}" y2="{m + 12}"/><line class="divider" x1="{B + 70}" y1="{m - 8}" x2="{B + 40}" y2="{m + 12}"/>'] + [f'<circle class="pulse" cx="{B + x_}" cy="{m + y_}" r="3"/>' for x_, y_ in ((10, -8), (70, -8), (40, 12))]
+        b += [ring(B + 40, m, s0 + .01, s0 + .05, d, 4, 34), ring(A + 40, m, s0 + .03, s0 + .07, d, 4, 34)]
+    elif f_ == "Transport":
+        b += [f'<line class="divider" x1="{A}" y1="{m}" x2="{A + 80}" y2="{m}"/>', packet("res", f"M{A},{m} L{A + 80},{m}", s0 + .01, s0 + .06, d), f'<line class="divider" x1="{B}" y1="{m}" x2="{B + 80}" y2="{m}"/>', packet("req", f"M{B},{m} L{B + 80},{m}", s0 + .03, s0 + .08, d)]
+    elif f_ == "QoS":
+        b += [packet("res", f"M{A},{m} L{A + 40},{m}", s0 + .01, s0 + .04, d), burst(A + 40, m, s0 + .04, d, "bad", 14), packet("req", f"M{B},{m} L{B + 40},{m}", s0 + .01, s0 + .04, d), burst(B + 40, m, s0 + .04, d, "bad", 14), packet("req", f"M{B},{m} L{B + 80},{m}", s0 + .07, s0 + .11, d)]
+    elif f_ == "Real-time":
+        for k, dx in enumerate((0, 9, 30, 36, 62, 80)): b.append(at(f'<line stroke="var(--orange)" stroke-width="2" x1="{A + dx}" y1="{m - 9}" x2="{A + dx}" y2="{m + 9}"/>', round(s0 + k * .015, 3) or .001, 1, d))
+        for k in range(6): b.append(at(f'<line stroke="var(--cyan)" stroke-width="2" x1="{B + k * 16}" y1="{m - 9}" x2="{B + k * 16}" y2="{m + 9}"/>', round(s0 + k * .015, 3) or .001, 1, d))
+    elif f_ == "Security":
+        b += [f'<line class="divider" x1="{A}" y1="{m}" x2="{A + 80}" y2="{m}"/>', move(f'<text class="code hot" x="0" y="{m - 4}">x=1.2</text>', [(A, 0), (A, 0), (A + 40, 0), (A + 40, 0)], f"0;{s0 + .001:.3f};{s0 + .08:.3f};1", d),
+              f'<line class="divider" x1="{B}" y1="{m}" x2="{B + 80}" y2="{m}"/>', move(f'<text class="code ok" x="0" y="{m - 4}">🔒9f2c</text>', [(B, 0), (B, 0), (B + 30, 0), (B + 30, 0)], f"0;{s0 + .001:.3f};{s0 + .08:.3f};1", d)]
+    elif f_ == "Platforms":
+        b += [f'<rect class="block" x="{A + 25}" y="{m - 10}" width="30" height="20" rx="3"/>'] + [at(f'<rect class="block app" x="{B + k * 20}" y="{m - 10}" width="16" height="20" rx="3"/>', round(s0 + k * .02, 3), 1, d) for k in range(4)]
+    elif f_ == "Build":
+        for x0, cls, t1 in ((A, "res", .1), (B, "req", .06)):
+            b.append(f'<rect x="{x0}" y="{m - 4}" width="80" height="8" rx="4" fill="var(--line)"/><rect class="{cls}" x="{x0}" y="{m - 4}" height="8" rx="4" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;0;80;80" keyTimes="0;{s0};{s0 + t1:.3f};1"/></rect>')
+    else:
+        b += [f'<text class="code dim" x="{A + 10}" y="{m + 4}">.xml</text>'] + [at(f'<text class="code ok" x="{B + k * 28}" y="{m + 4}">{e}</text>', round(s0 + k * .02, 3), 1, d) for k, e in enumerate((".py", ".xml", ".yaml"))]
+svgs["ROS 1 vs ROS 2 comparison"] = svg(Y0 + 8 * RH + 6, "A comparison table where each row acts out its difference: a central master against peers pinging each other; two transports; a lost message never resent against one that is resent; jittery against evenly spaced ticks; readable against encrypted messages; one platform against four; two build bars; one launch format against three.", "".join(b), " tall")
+
+# ---------- Setup divider ----------
+d = "9s"
+b = ['<rect x="60" y="40" width="300" height="14" rx="7" fill="var(--line)"/>', f'<rect x="60" y="40" height="14" rx="7" class="req" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;300;300" keyTimes="0;.35;1"/></rect>',
+     '<text class="code" x="60" y="80">sudo apt install ros-jazzy-desktop</text>', at('<text class="code ok" x="60" y="110">ros2 doctor: All 5 checks passed ✓</text>', .38, 1, d),
+     pill(560, 80, "talker", 120), pill(800, 80, "listener", 120), '<path class="trail" d="M620,80 L740,80"/>']
+for k in range(4): t0 = round(.5 + k * .1, 2); b += [packet("req", "M620,80 L740,80", t0, round(t0 + .07, 2), d), flash(740, 60, 120, 40, round(t0 + .07, 2), d, 20)]
+b.append(cap("installed · checked · talking", .5, 1, d, 680, 140))
+svgs["Setup"] = svg(160, "An install bar fills for ros-jazzy-desktop, ros2 doctor reports all 5 checks passed, and a talker sends messages to a listener.", "".join(b))
+
+# ---------- Install ROS 2 Jazzy ----------
+d = "16s"
+STEPS = [("UTF-8 locale", .02, .14), ("universe repository", .14, .24), ("ROS 2 apt source", .24, .5), ("ros-jazzy-desktop", .5, .84), ("source setup.bash", .84, 1)]
+b = []
+for i, (n, s0, e0) in enumerate(STEPS):
+    y = 8 + i * 42
+    b += [f'<rect class="block" x="5" y="{y}" width="450" height="34" rx="5"/><text class="code" x="44" y="{y + 22}">{n}</text>',
+          f'<circle cx="24" cy="{y + 17}" r="8" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="12 40" opacity="0"><animateTransform attributeName="transform" type="rotate" dur="1s" repeatCount="indefinite" values="0 24 {y + 17};360 24 {y + 17}"/>{vis(s0, e0, d)}</circle>',
+          at(f'<text class="code ok" x="17" y="{y + 22}">✓</text>', e0 if e0 < 1 else .97, 1, d)]
+b += [at('<text class="code dim" x="240" y="114">← GitHub release .deb</text>', .3, .5, d), at('<text class="code ok" x="240" y="136">ros2-apt-source.deb installed</text>', .42, .5, d),
+      '<rect x="240" y="146" width="200" height="8" rx="4" fill="var(--line)"/>', f'<rect class="req" x="240" y="146" height="8" rx="4" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;0;200;200" keyTimes="0;.52;.82;1"/></rect>',
+      swap([(.52, .6, "unpacking rviz2…"), (.6, .68, "unpacking rclpy…"), (.68, .76, "unpacking demo_nodes…"), (.76, .84, "setting up 600+ packages")], 240, 176, d, "code dim"),
+      at('<text class="code ok" x="240" y="218">$ ros2 --help  ✓</text>', .88, 1, d)]
+svgs["Install ROS 2 Jazzy"] = svg(228, "Five install stages tick off in turn: UTF-8 locale, universe repository, the ROS 2 apt source downloaded from github.com/ros-infrastructure, ros-jazzy-desktop unpacking hundreds of packages, and sourcing setup.bash, after which ros2 --help works.", "".join(b), vb_w=460,
+                                 trace=[(0, "2-4"), (.14, 5), (.24, 8), (.32, 9), (.42, 10), (.5, 13), (.6, 14), (.84, 0)])
+
+# ---------- Set up the environment: what source changes ----------
+d = "14s"
+b = [term(5, 5, 450, 120, "terminal"), tl(18, 44, 19, [("type", "$ ros2 topic list", .02), ("hot", "ros2: command not found", .08, .3), ("type", "$ source /opt/ros/jazzy/setup.bash", .16, .3)], d),
+     tl(18, 44, 19, [("type", "$ ros2 topic list", .32), ("ok", "/parameter_events", .37), ("ok", "/rosout", .37)], d),
+     chip(5, 135, 220, 76, "", "after source"), at('<text class="code ok" x="13" y="170">PATH += /opt/ros/jazzy/bin</text><text class="code ok" x="13" y="190">ROS_DISTRO=jazzy</text><text class="code ok" x="13" y="208">PYTHONPATH += …</text>', .2, 1, d),
+     chip(235, 135, 220, 76, "", "~/.bashrc"), at('<text class="code" x="243" y="170">source …/setup.bash</text><text class="code ok" x="243" y="195">every new terminal ✓</text>', .5, 1, d)]
+PK = ["ros_gz", "urdf_tutorial", "ros2_control", "ros2_controllers", "gz_ros2_control", "moveit"]
+for k, n in enumerate(PK):
+    t0 = round(.62 + k * .05, 2); x = 5 + (k % 3) * 152; y = 222 + (k // 3) * 26
+    b.append(at(f'<rect class="block app" x="{x}" y="{y}" width="146" height="22" rx="4"/><text class="code" x="{x + 6}" y="{y + 16}">{n}</text>', t0, 1, d))
+svgs["Set up the environment"] = svg(276, "Before sourcing, ros2 topic list fails with command not found. After sourcing /opt/ros/jazzy/setup.bash it lists /parameter_events and /rosout, because PATH, ROS_DISTRO and PYTHONPATH now point at ROS. The source line goes into ~/.bashrc for every new terminal, then six packages for the Day 2 and Day 3 labs install.", "".join(b), vb_w=460,
+                                    trace=[(0, 0), (.16, 2), (.46, 5), (.62, "8-10")])
+
+# ---------- Configure the ROS environment: a classroom of laptops ----------
+d = "16s"
+LAP = [(70, 50, "A1"), (190, 50, "A2"), (300, 50, "B1"), (410, 50, "B2")]
+b = []
+for x, y, n in LAP: b += [f'<rect class="block" x="{x - 40}" y="{y - 22}" width="80" height="44" rx="5"/><text class="code" x="{x - 12}" y="{y + 5}">{n}</text>']
+PAIRS = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]
+for i, j in PAIRS:
+    (x1, y1, _), (x2, y2, _) = LAP[i], LAP[j]; same = (i, j) in ((0, 1), (2, 3)); bend = 30 + abs(i - j) * 20
+    path = f"M{x1},{y1 + 22} C{x1},{y1 + 22 + bend} {x2},{y2 + 22 + bend} {x2},{y2 + 22}"
+    b.append(f'<path d="{path}" fill="none" stroke="{"var(--cyan)" if same else "var(--pink)"}" stroke-width="2" opacity="0">{vis(.02, .28 if not same else .52, d)}</path>')
+b += [swap([(0, .28, "ROS_DOMAIN_ID=0 everywhere: every turtle in the room"), (.28, .52, "ROS_DOMAIN_ID=7 for pair A, 8 for pair B"), (.52, .76, "AUTOMATIC_DISCOVERY_RANGE=LOCALHOST: own laptop only"), (.76, 1, "STATIC_PEERS=192.168.1.20: one known machine")], 230, 180, d, "cap", "middle")]
+for x, y, n in LAP: b.append(ring(x, y, .54, .6, d, 20, 46))
+b += [at('<rect class="block app" x="330" y="120" width="120" height="34" rx="5"/><text class="code" x="338" y="142">192.168.1.20</text><path d="M70,72 C70,140 250,140 330,137" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="6 5"/>', .78, 1, d),
+      packet("req", "M70,72 C70,140 250,140 330,137", .82, .9, d), at('<text class="code" x="10" y="210">pairs: A1 A2 → 7 · B1 B2 → 8</text>', .3, .52, d)]
+svgs["Configure the ROS environment"] = svg(220, "Four laptops in a classroom. With the default domain every laptop discovers every other, shown as pink links. Giving pair A domain 7 and pair B domain 8 leaves only links within each pair. LOCALHOST keeps discovery on each laptop. A static peer adds one direct link to the machine at 192.168.1.20.", "".join(b), vb_w=460,
+                                           trace=[(0, 1), (.28, 5), (.52, 8), (.76, 12)])
+
+# ---------- Lab baseline: two terminals prove the install ----------
+d = "14s"
+b = [term(5, 5, 225, 200, "terminal 1"), term(235, 5, 225, 200, "terminal 2"),
+     tl(15, 44, 19, [("type", "$ echo $ROS_DISTRO", .02), ("ok", "jazzy", .08), ("type", "$ ros2 doctor --report", .14), ("ok", "All 5 checks passed", .24), ("type", "$ ros2 run … talker", .32)], d)]
+for k in range(4):
+    t0 = round(.42 + k * .13, 2)
+    b += [shown(15, 140 + k * 17, f"Publishing: Hello World: {k + 1}", t0, d), packet("req", f"M220,{136 + k * 17} L245,{64 + k * 19}", t0, round(t0 + .04, 2), d)]
+b += [typed(245, 44, "$ ros2 topic echo /chatter", .36, d, .04)] + [shown(245, 68 + k * 19, f"data: Hello World: {k + 1}", round(.46 + k * .13, 2), d, 1, "code ok") for k in range(4)]
+svgs["Lab baseline"] = svg(210, "Terminal 1 prints jazzy for ROS_DISTRO, ros2 doctor reports all checks passed, and the C++ talker starts publishing Hello World messages. Terminal 2 echoes /chatter and receives each one.", "".join(b), vb_w=465,
+                          trace=[(0, 2), (.14, 5), (.32, 6), (.36, 9)])
+
+# ---------- Check your setup with ros2 doctor ----------
+d = "14s"
+CH = ["platform", "network", "topic", "package", "QoS compatibility"]
+b = [term(5, 5, 450, 250, "ros2 doctor")]
+for k, n in enumerate(CH):
+    t0 = round(.04 + k * .07, 2); y = 46 + k * 20
+    b += [shown(18, y, f"checking {n}…", t0, d, round(t0 + .07, 2), "code dim"), shown(18, y, f"✓ {n}", round(t0 + .07, 2), d, .5)]
+b += [shown(18, 150, "All 5 checks passed", .42, d, .5, "code ok"),
+      at('<text class="code hot" x="18" y="178">warning: /turtle1/cmd_vel has 1 subscriber</text><text class="code hot" x="18" y="196">and no publisher (information, not an error)</text>', .3, .5, d)]
+REP = ["PLATFORM INFORMATION", "RMW MIDDLEWARE", "ROS 2 INFORMATION", "NETWORK CONFIGURATION", "TOPIC LIST"]
+b.append(typed(18, 46, "$ ros2 doctor --report", .52, d, .04))
+for k, n in enumerate(REP):
+    t0 = round(.58 + k * .07, 2)
+    b.append(shown(18, 76 + k * 34, n, t0, d, 1, "code ok"))
+    b.append(shown(40, 94 + k * 34, ["system: Linux · Ubuntu 24.04", "middleware name: rmw_fastrtps_cpp", "distribution name: jazzy", "inet: 192.168.1.14 · multicast", "publisher count / subscriber count"][k], round(t0 + .02, 2), d, 1, "code dim"))
+b = b[:1] + [at("".join(b[1:13]), 0, .5, d)] + b[13:]
+svgs["Check your setup with ros2 doctor"] = svg(262, "ros2 doctor runs five checks, platform, network, topic, package and QoS compatibility, each ticking off, then reports all 5 passed with a topic warning that is information, not an error. ros2 doctor --report then prints its five sections: platform, middleware, ROS 2 information, network configuration and topic list.", "".join(b), vb_w=460,
+                                               trace=[(0, 1), (.5, 4), (.58, "5-9")])
+
+# ---------- Common setup problems: error, cause, fix, success ----------
+d = "20s"
+PROB = [("ros2: command not found", "terminal not sourced", "source /opt/ros/jazzy/setup.bash", "ros2 --help works"),
+        ("Package 'my_pkg' not found", "overlay not sourced after building", "source install/setup.bash", "ros2 run my_pkg … starts"),
+        ("No module named 'em'", "a conda or venv Python is active", "conda deactivate; rm -rf build; colcon build", "build finishes"),
+        ("nodes cannot see each other", "different domain, range, or firewall", "printenv | grep ROS   (in both terminals)", "same ROS_DOMAIN_ID → connected"),
+        ("Permission denied in build/", "an earlier sudo colcon build", "rm -rf build install log; colcon build", "builds without sudo")]
+b = [term(330, 10, 560, 230, "terminal")]
+for k, (sym, cause, fix, ok) in enumerate(PROB):
+    s0, e0 = round(k / 5, 3), round((k + 1) / 5, 3); y = 12 + k * 46
+    b += [f'<rect class="block" x="5" y="{y}" width="310" height="40" rx="5"/><text class="code" x="14" y="{y + 25}">{sym}</text>',
+          f'<rect x="5" y="{y}" width="310" height="40" rx="5" fill="rgba(255,114,159,.14)" stroke="var(--pink)" opacity="0">{vis(s0 or .001, e0, d)}</rect>',
+          shown(344, 56, sym, s0 + .005, d, e0, "code hot"), shown(344, 92, f"cause: {cause}", s0 + .05, d, e0, "code dim"),
+          typed(344, 130, f"$ {fix}", s0 + .09, d, .04, e0), shown(344, 170, f"✓ {ok}", s0 + .15, d, e0, "code ok")]
+svgs["Common setup problems"] = svg(250, "Five common setup problems in turn. Each symptom lights up on the left while the terminal shows the error, its likely cause, the fix being typed, and the success that follows: sourcing ROS, sourcing the overlay, leaving conda, matching ROS_DOMAIN_ID, and rebuilding without sudo.", "".join(b), " tall")
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
