@@ -90,8 +90,8 @@ def node(x, y, w, h, kind, name, cls="node"):
 def wire(d):
     return f'<path class="wire" d="{d}"/>'
 
-def svg(vb_h, label, body, extra_cls=""):
-    return (f'      <svg class="ros-anim{extra_cls}" viewBox="0 0 900 {vb_h}" role="img" aria-label="{label}">\n        '
+def svg(vb_h, label, body, extra_cls="", vb_w=900):
+    return (f'      <svg class="ros-anim{extra_cls}" viewBox="0 0 {vb_w} {vb_h}" role="img" aria-label="{label}">\n        '
             + body + '\n      </svg>\n')
 
 def slide(section, title, eyebrow, head, inner, notes, extra=""):
@@ -745,6 +745,158 @@ b += [wire("M270,72 L360,72"), wire("M540,72 L630,72"), '<path class="trail" d="
       packet("fb", "M540,72 L630,72", .34, .52, d), flash(630, 40, 180, 64, .52, d, 32),
       packet("res", "M720,104 C720,190 180,190 180,104", .6, .95, d), flash(90, 40, 180, 64, .95, d, 32)]
 svgs["Inside a robot"] = svg(210, "A loop of three stages: sense, where sensors measure; think, where a computer decides; act, where motors move. A packet travels from sense to think to act, then around a return path labelled the world changes, back to sense.", "".join(b))
+
+# ======================================================================
+# Concept diagrams (Day 1). Each replaces a static diagram on a hand-written slide.
+# ======================================================================
+def at(inner, s0, e0, dur):
+    return f'<g opacity="0">{inner}{vis(s0, e0, dur)}</g>'
+
+def burst(x, y, t, dur, cls="bad", r1=26):
+    t = max(t, .002); a = min(t + .07, .998)
+    return (f'<circle class="burst {cls}" cx="{x}" cy="{y}" r="4" opacity="0"><animate attributeName="r" dur="{dur}" repeatCount="indefinite" values="4;4;{r1};{r1}" keyTimes="0;{t};{a};1"/>'
+            f'<animate attributeName="opacity" dur="{dur}" repeatCount="indefinite" values="0;0;1;0;0" keyTimes="0;{t};{min(t + .005, .997)};{a};1"/></circle>')
+
+def box(x, y, w, h, title, sub="", cls="node", rx=6):
+    return (f'<rect class="{cls}" x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}"/>'
+            + (f'<text class="s" x="{x + w / 2}" y="{y + h / 2 - (8 if sub else 0)}">{title}</text>' if title else '')
+            + (f'<text class="k" x="{x + w / 2}" y="{y + h / 2 + 11}">{sub}</text>' if sub else ''))
+
+# ---------- What is DDS?: a message down one stack, across the wire, up the other ----------
+d = "7s"
+LAY = [("rclpy / rclcpp", "your code"), ("rcl + rmw", "ROS middleware API"), ("DDS", "discovery · QoS"), ("RTPS", "UDP / shared memory")]
+b = []
+for col, (x, who) in enumerate(((20, "publisher process"), (270, "subscriber process"))):
+    b.append(f'<text class="k" x="{x + 85}" y="16">{who}</text>')
+    for i, (n, sub) in enumerate(LAY):
+        y = 30 + i * 66
+        b.append(box(x, y, 170, 52, n, sub, "block app" if i == 0 else "block"))
+        t = (.06 + i * .09) if col == 0 else (.62 - i * .09)
+        b.append(flash(x, y, 170, 52, round(t, 3), d))
+b += [wire("M105,82 L105,96"), wire("M105,148 L105,162"), wire("M105,214 L105,228"), wire("M355,82 L355,96"), wire("M355,148 L355,162"), wire("M355,214 L355,228"),
+      '<path class="wire" d="M105,282 L105,300 L355,300 L355,282"/>', '<text class="k" x="230" y="318">network · UDP</text>',
+      '<path class="trail" d="M190,186 C230,170 230,170 270,186"/>',
+      packet("req", "M105,56 L105,256 L105,300 L355,300 L355,256 L355,56", .04, .66, d),
+      cap("serialize · hand to DDS · send over RTPS", .04, .36, d, 230, 345), cap("deliver · deserialize · run the callback", .36, .7, d, 230, 345),
+      cap("discovery found the subscriber first: no broker", .7, 1, d, 230, 345)]
+for t0 in (.72, .82, .92):
+    b.append(packet("fb", "M190,186 C230,170 230,170 270,186", t0, round(t0 + .06, 3), d))
+svgs["What is DDS?"] = svg(355, "Two stacks of layers, rclpy, rcl and rmw, DDS, and RTPS, for a publisher and a subscriber. A message travels down the publisher stack, across the network over UDP, and up the subscriber stack; then discovery messages pass between the two DDS layers.", "".join(b), " tall", vb_w=460)
+
+# ---------- Names, namespaces, and domains ----------
+d = "9s"
+b = [box(20, 20, 560, 200, "", cls="node", rx=14), '<text class="k" x="300" y="40">ROS_DOMAIN_ID=7 · one graph</text>',
+     box(620, 20, 260, 200, "", cls="node", rx=14), '<text class="k" x="750" y="40">ROS_DOMAIN_ID=12 · separate graph</text>']
+CAMS = [(60, 80, "/robot_1/camera"), (60, 150, "/robot_2/camera")]
+for x, y, n in CAMS: b.append(box(x, y, 190, 44, n, "", "pill"))
+b.append(box(380, 112, 160, 44, "rviz2", "", "pill topic"))
+b.append(box(655, 112, 190, 44, "/robot_1/camera", "", "pill"))
+b += [ring(155, 102, .02, .12, d, 20, 200), ring(750, 134, .02, .12, d, 20, 120),
+      '<path class="trail" d="M250,102 L380,128"/><path class="trail" d="M250,172 L380,140"/>']
+for k in range(5):
+    t0 = round(.16 + k * .15, 3)
+    b += [packet("req", "M250,102 L380,128", t0, round(t0 + .07, 3), d), packet("fb", "M250,172 L380,140", round(t0 + .04, 3), round(t0 + .11, 3), d)]
+b += [packet("req", "M845,134 L870,134 L870,250 L460,250 L460,156", .3, .45, d), burst(600, 250, .38, d)]
+b += [cap("discovery stays inside a domain", 0, .16, d, 450, 262), cap("namespaces keep two cameras apart in one graph", .16, .3, d, 450, 262),
+      cap("same name in domain 12: invisible to domain 7", .3, .6, d, 450, 262), cap("namespace organizes names · domain separates graphs", .6, 1, d, 450, 262)]
+svgs["Names, namespaces, and domains"] = svg(272, "Domain 7 holds /robot_1/camera and /robot_2/camera publishing to rviz2. Domain 12 holds another /robot_1/camera; its messages stop at the domain boundary, so rviz2 never sees them.", "".join(b), " tall")
+
+# ---------- Quality of Service: four policies, four small stories ----------
+d = "10s"
+b = []
+P = [(10, "Reliability"), (232, "History · keep last 3"), (454, "Durability"), (676, "Deadline · 1 s")]
+for x, n in P: b += [box(x, 10, 214, 250, "", cls="node", rx=10), f'<text class="s" x="{x + 107}" y="34">{n}</text>']
+# reliability: best effort loses #3; reliable resends it
+x = 10
+for row, (lbl, y, cls) in enumerate((("best effort", 90, "req"), ("reliable", 170, "res"))):
+    b += [f'<text class="k" x="{x + 107}" y="{y - 26}">{lbl}</text>', f'<circle class="joint" cx="{x + 24}" cy="{y}" r="7"/>', f'<circle class="joint" cx="{x + 190}" cy="{y}" r="7"/>', f'<path class="trail" d="M{x + 32},{y} L{x + 182},{y}"/>']
+    for k in range(6):
+        t0 = round(.05 + k * .14, 3)
+        if k == 2:
+            b += [packet(cls, f"M{x + 32},{y} L{x + 107},{y}", t0, round(t0 + .05, 3), d), burst(x + 107, y, round(t0 + .05, 3), d)]
+            if row: b += [packet(cls, f"M{x + 32},{y} L{x + 182},{y}", round(t0 + .12, 3), round(t0 + .22, 3), d), at(f'<text class="cap" x="{x + 107}" y="{y + 26}">resent</text>', round(t0 + .12, 3), round(t0 + .25, 3), d)]
+        else: b.append(packet(cls, f"M{x + 32},{y} L{x + 182},{y}", t0, round(t0 + .1, 3), d))
+b.append(f'<text class="k" x="{x + 107}" y="236">fresh vs complete</text>')
+# history: three slots, oldest falls out
+x = 232
+for i in range(3): b.append(f'<rect class="block" x="{x + 22 + i * 60}" y="110" width="50" height="40" rx="5"/>')
+for k in range(7):
+    s0, e0 = round(.05 + k * .13, 3), round(.05 + (k + 1) * .13, 3) if k < 6 else 1
+    vals = [v for v in range(k - 2, k + 1) if v >= 0]
+    inner = "".join(f'<text class="code" x="{x + 33 + i * 60}" y="131">#{v}</text>' for i, v in enumerate(vals))
+    if k >= 3: inner += f'<text class="code hot" x="{x + 30}" y="186">#{k - 3} dropped</text>'
+    b.append(at(inner, s0, e0, d))
+b += [f'<text class="k" x="{x + 107}" y="86">queue depth 3</text>', f'<text class="k" x="{x + 107}" y="236">newest N kept</text>']
+# durability: a late subscriber
+x = 454
+b += [f'<circle class="joint" cx="{x + 30}" cy="140" r="8"/>', f'<text class="k" x="{x + 30}" y="166">/map</text>',
+      f'<text class="k" x="{x + 150}" y="70">volatile</text>', f'<text class="k" x="{x + 150}" y="196">transient local</text>',
+      packet("res", f"M{x + 38},140 L{x + 100},140", .06, .14, d), at(f'<text class="cap" x="{x + 110}" y="124">published once</text>', .06, .3, d),
+      at(f'<circle class="joint" cx="{x + 180}" cy="96" r="7"/><circle class="joint" cx="{x + 180}" cy="170" r="7"/><text class="k" x="{x + 180}" y="120">late sub</text>', .4, 1, d),
+      at(f'<text class="code hot" x="{x + 120}" y="100">nothing</text>', .5, 1, d),
+      packet("res", f"M{x + 38},140 L{x + 172},170", .5, .62, d), at(f'<text class="code ok" x="{x + 120}" y="228">gets the map</text>', .62, 1, d)]
+# deadline: messages every second, one is late
+x = 676
+b += [f'<line class="divider" x1="{x + 16}" y1="140" x2="{x + 198}" y2="140"/>']
+for k in range(7):
+    t0 = round(.08 + k * .12, 3)
+    px = x + 22 + k * 28
+    b.append(f'<line class="divider" x1="{px}" y1="120" x2="{px}" y2="160"/>')
+    if k != 4: b.append(at(f'<circle class="pulse" cx="{px}" cy="140" r="6"/>', t0, 1, d))
+    else: b += [burst(px, 140, round(t0 + .02, 3), d), at(f'<text class="code hot" x="{x + 40}" y="196">deadline missed</text>', round(t0 + .02, 3), 1, d)]
+b += [f'<text class="k" x="{x + 107}" y="96">expected every 1 s</text>', f'<text class="k" x="{x + 107}" y="236">event callback fires</text>']
+svgs["Quality of Service"] = svg(268, "Four panels. Reliability: best effort loses message 2 while reliable resends it. History keep last 3: a three-slot queue keeps the newest messages and drops the oldest. Durability: a late subscriber gets nothing with volatile but receives the stored map with transient local. Deadline: one message misses its 1 second period and an event fires.", "".join(b), " tall")
+
+# ---------- QoS compatibility: mismatch, then the fix ----------
+d = "10s"
+b = [box(30, 40, 220, 70, "/lidar_driver", "offers best effort", "node"), at(box(650, 40, 220, 70, "/my_listener", "requests reliable", "node"), 0, .5, d),
+     at(box(650, 40, 220, 70, "/my_listener", "requests best effort", "node"), .5, 1, d), '<path class="trail" d="M250,75 L650,75"/>', '<text class="k" x="450" y="60">/scan</text>']
+for k in range(4):
+    t0 = round(.04 + k * .1, 3)
+    b += [packet("req", "M250,75 L560,75", t0, round(t0 + .06, 3), d), burst(570, 75, round(t0 + .06, 3), d)]
+b.append(at('<line class="xmark" x1="595" y1="60" x2="625" y2="90"/><line class="xmark" x1="625" y1="60" x2="595" y2="90"/>', .04, .5, d))
+for k in range(4):
+    t0 = round(.56 + k * .1, 3)
+    b += [packet("req", "M250,75 L650,75", t0, round(t0 + .07, 3), d), flash(650, 40, 220, 70, round(t0 + .07, 3), d)]
+b += [term(30, 130, 840, 74, "terminal"),
+      typed(46, 168, "[WARN] New publisher discovered on topic '/scan', offering incompatible QoS. No messages will be received from it.", .1, d, .1, .5, "code hot"),
+      typed(46, 190, "Last incompatible policy: RELIABILITY", .22, d, .04, .5, "code hot"),
+      typed(46, 168, "$ ros2 topic echo /scan --qos-reliability best_effort", .52, d, .06, 1, "code"),
+      at('<text class="code ok" x="46" y="190">header: stamp: … ranges: [1.02, 1.03, 1.01, …]</text>', .62, 1, d),
+      cap("best effort offered, reliable requested: no match, no data", 0, .5, d, 450, 228), cap("fix: request best effort (or offer reliable)", .5, 1, d, 450, 228)]
+svgs["QoS compatibility"] = svg(238, "A lidar driver offers best effort on /scan. A listener requesting reliable receives nothing; each message stops before it and the terminal shows the incompatible QoS warning. The listener then requests best effort and every message arrives.", "".join(b))
+
+# ---------- Workspaces and overlays: who answers a package lookup ----------
+d = "12s"
+L3 = [(30, "Overlay", "~/ros2_ws/install", "workshop_runtime · demo_nodes_py"), (100, "Underlay", "/opt/ros/jazzy", "turtlesim · demo_nodes_py · rclpy"), (170, "Operating system", "Ubuntu 24.04", "Python · libraries")]
+b = []
+for y, k, n, pk in L3:
+    b += [f'<rect class="block{" app" if k == "Overlay" else ""}" x="300" y="{y}" width="580" height="56" rx="6"/>', f'<text class="k left" x="316" y="{y + 18}">{k}</text>', f'<text class="s left" x="316" y="{y + 40}">{n}</text>', f'<text class="code left" x="560" y="{y + 34}">{pk}</text>']
+Q = [("ros2 run workshop_runtime …", 0, .03, "found in the overlay"), ("ros2 run turtlesim …", 1, .36, "not in the overlay, found in the underlay"), ("ros2 run demo_nodes_py …", 0, .69, "in both: the overlay wins (shadows)")]
+for text, layer, t0, msg in Q:
+    y = (58 if layer == 0 else 128)
+    b += [typed(20, 60, text.replace("…", ""), t0, d, .04, round(t0 + .31, 3), "code"),
+          packet("req", f"M200,52 L290,52 L290,{y}", round(t0 + .05, 3), round(t0 + .12 + layer * .06, 3), d),
+          flash(300, 30 + layer * 70, 580, 56, round(t0 + .12 + layer * .06, 3), d), cap(msg, round(t0 + .12, 3), round(t0 + .32, 3), d, 450, 245)]
+    if layer: b.append(at('<text class="code hot left" x="20" y="118">overlay: no</text>', round(t0 + .08, 3), round(t0 + .31, 3), d))
+svgs["Workspaces and overlays"] = svg(255, "Three layers: the overlay ~/ros2_ws/install, the underlay /opt/ros/jazzy, and the operating system. A lookup for workshop_runtime is answered by the overlay, turtlesim falls through to the underlay, and demo_nodes_py, in both, is answered by the overlay, which shadows the underlay.", "".join(b))
+
+# ---------- Timers schedule callbacks: one long callback delays the next ----------
+d = "8s"
+b = ['<text class="k left" x="10" y="40">timer</text>', '<text class="k left" x="10" y="110">thread</text>', '<line class="divider" x1="70" y1="60" x2="450" y2="60"/>', '<line class="divider" x1="70" y1="130" x2="450" y2="130"/>']
+X = lambda sec: 70 + sec * 120   # 0..3.1 s
+RUNS = [(0, .12), (.5, .62), (1.0, 1.75), (1.75, 1.87), (2.0, 2.12), (2.5, 2.62), (3.0, 3.1)]
+for k, (st, en) in enumerate(RUNS):
+    due = k * .5 if k < 7 else st
+    tf = round(.03 + due / 3.2 * .9, 3); ts = round(.03 + st / 3.2 * .9, 3)
+    b.append(at(f'<line class="xmark" style="stroke:var(--cyan);stroke-width:3" x1="{X(due)}" y1="48" x2="{X(due)}" y2="72"/>', tf, 1, d))
+    cls = "bad" if en - st > .3 else "req"
+    b.append(at(f'<rect class="{cls}" x="{X(st)}" y="116" width="{max((en - st) * 120, 6)}" height="28" rx="3"/>', ts, 1, d))
+    if k == 3: b.append(at(f'<path class="trail" d="M{X(1.5)},72 L{X(1.75)},116"/><text class="code hot" x="{X(1.4)}" y="96">0.25 s late</text>', ts, 1, d))
+b += [at(f'<text class="code hot" x="{X(1.38)}" y="164">long callback</text>', .32, 1, d),
+      f'<line stroke="var(--orange)" stroke-width="2" x1="70" y1="30" x2="70" y2="150"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="70;70;450;450" keyTimes="0;.03;.93;1"/><animate attributeName="x2" dur="{d}" repeatCount="indefinite" values="70;70;450;450" keyTimes="0;.03;.93;1"/></line>',
+      cap("ready every 0.5 s · run when the thread is free", 0, 1, d, 260, 190)]
+svgs["Timers schedule callbacks"] = svg(200, "A timer fires every 0.5 seconds and a single executor thread runs each short callback. The third callback runs long, so the fourth starts a quarter of a second late.", "".join(b), vb_w=460)
 
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",

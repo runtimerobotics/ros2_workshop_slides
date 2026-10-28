@@ -392,3 +392,4 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 @keyframes buzz { 50% { transform: translateX(2px); } }
 @media (max-width: 680px) { .section-break .ros-anim.deco { opacity: .25; width: 90vw; right: -20vw; } }
 @media print { .flow-item.flow-on { background: none; box-shadow: none; }.flow-item::after, pre::after { display: none; } pre > code { animation: none!important; clip-path: none!important; } .section-break .ros-anim.deco .packet { display: none; } }
+.ros-anim .burst { fill: none; stroke: var(--pink); stroke-width: 2.5; }
