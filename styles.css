@@ -359,19 +359,10 @@ body.anim-paused::after { content: "Animation paused · K resumes · R restarts"
 @media (max-width: 680px) { .sort-bins { grid-template-columns: 1fr; }.section-break .ros-anim { max-height: none; } }
 @media print { .sort-card small, .quiz-why { display: block; }.scene-dom .scene-view { overflow: visible; } }
 
-/* Spotlight (script.js): one card, row, or step at a time, with a 2 s progress bar */
-.flow-item { position: relative; transition: background-color .35s ease, box-shadow .35s ease, transform .35s ease; }
-.flow-item.flow-on { background-color: rgba(88,224,210,.09); box-shadow: inset 0 0 0 1px rgba(88,224,210,.45), 0 0 28px rgba(88,224,210,.12); }
-.flow-item.flow-on::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--cyan); transform-origin: left; animation: flow-bar 2s linear both; pointer-events: none; }
-.flow-item.flow-on > code:first-child { display: inline-block; animation: type-in calc(var(--n, 20) * 28ms) steps(var(--n, 20)) both; }
-.steps > li.flow-item.flow-on::before { color: var(--cyan); }
-.table-row.flow-item.flow-on > strong { color: var(--cyan); }
-@keyframes flow-bar { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-@keyframes type-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 /* code tracing (script.js): a bar follows the line an animation is acting out */
 pre:has(.trace-bar) { position: relative; }
 .trace-bar { position: absolute; left: 0; right: 0; top: 0; height: 1.5em; background: rgba(88,224,210,.13); border-left: 3px solid var(--cyan); pointer-events: none; opacity: 0; transition: transform .3s cubic-bezier(.45,0,.2,1), height .3s, opacity .3s; }
-body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active .sensor-icon { animation-play-state: paused; }
+body.anim-paused .slide.active .sensor-icon { animation-play-state: paused; }
 /* chapter dividers: drifting graph behind the title, title rises in */
 .section-break .ros-anim.deco { position: absolute; right: -6vw; top: 50%; width: min(44vw, 40rem); max-width: none; max-height: none; height: auto; margin: 0; transform: translateY(-50%); opacity: .5; pointer-events: none; z-index: 0; }
 .section-break > *:not(.deco) { position: relative; z-index: 1; }
@@ -388,7 +379,7 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 @keyframes wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
 @keyframes buzz { 50% { transform: translateX(2px); } }
 @media (max-width: 680px) { .section-break .ros-anim.deco { opacity: .25; width: 90vw; right: -20vw; } }
-@media print { .flow-item.flow-on { background: none; box-shadow: none; }.flow-item::after, .trace-bar { display: none; } .section-break .ros-anim.deco .packet { display: none; } }
+@media print { .trace-bar { display: none; } .section-break .ros-anim.deco .packet { display: none; } }
 .ros-anim .burst { fill: none; stroke: var(--pink); stroke-width: 2.5; }
 .scan-explainer:has(.ros-anim) { grid-template-columns: 1.5fr 1fr; gap: 2rem; }.scan-explainer .ros-anim { max-height: 48vh; }
 .lifecycle-split { grid-template-columns: 1.1fr 1fr!important; align-items: center; }.lifecycle-split .ros-anim { max-height: 52vh; }.lifecycle-split pre { font-size: .7rem; overflow-x: auto; }
@@ -407,3 +398,9 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 .split > div > .nested-code + svg.ros-anim { max-height: 24vh; }
 .split > div > .check-list + svg.ros-anim { max-height: 34vh; }
 [data-title="Lab: spawn and drive"] .lab-layout svg.ros-anim { max-height: 19vh; }
+.slide-close .hero3d { z-index: 1; }
+.resource-list + .ros-anim { flex-shrink: 0; height: 8vh; margin: 1vh 0 0; }
+.slide-close > div.hero3d.scene3d { position: absolute; z-index: 1; }
+.slide-close > div:not(.cover-grid):not(.hero3d) { max-width: 48vw; }
+.slide:has(.resource-list + .ros-anim) .resource-list a { padding: .75rem 0; }
+@media (min-width: 901px) { .slide-close h2 { font-size: clamp(3.4rem, 6.4vw, 7rem); } }

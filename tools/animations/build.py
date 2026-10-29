@@ -2628,6 +2628,140 @@ for k, (n, code) in enumerate(F4):
         b += [f'<rect x="{x + 20}" y="168" width="170" height="10" rx="5" fill="var(--line)"/>', f'<rect x="{x + 20}" y="168" height="10" rx="5" fill="var(--orange)" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;0;170;170" keyTimes="0;{s0};{s0 + .2:.3f};1"/></rect>']
     else: b += [f'<polyline points="{x + 20},150 {x + 80},120 {x + 140},100 {x + 190},90" fill="none" stroke="var(--cyan)" stroke-dasharray="5 4" stroke-width="2"/>', f'<polyline points="{x + 20},150 {x + 80},128 {x + 120},140 {x + 150},160" fill="none" stroke="var(--orange)" stroke-width="2"/>', f'<text class="code dim" x="{x + 20}" y="80">plan vs state</text>']
 svgs["Planning failures are evidence"] = svg(238, "Four failure cases light up in turn with their MoveIt error codes: a target beyond reach gives NO_IK_SOLUTION; an arm starting inside the table gives START_STATE_IN_COLLISION; a search that runs out of time gives TIMED_OUT; and a measured motion that diverges from the plan gives CONTROL_FAILED.", "".join(b), " tall")
+# ---------- Lab: plan around an obstacle ----------
+d = "16s"
+L1, L2, BX, BY = 70, 60, 70, 160
+qa, qb = ik2(110, 20, L1, L2), ik2(-60, 60, L1, L2)
+b = ['<rect class="term" x="5" y="5" width="220" height="170" rx="6"/><text class="k" x="115" y="20">RViz2 · MotionPlanning</text>', f'<rect x="{BX - 25}" y="{BY}" width="50" height="10" class="robot-part"/>',
+     arm2(BX, BY, L1, L2, [qa[0], qa[0], qb[0], qb[0], qa[0]], [qa[1], qa[1], qb[1], qb[1], qa[1]], "0;.1;.3;.8;1", d, spline=True, w=(9, 7)),
+     f'<path d="M{BX + 110},{BY - 20} L{BX - 60},{BY - 60}" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="5 4" opacity="0">{vis(.04, .3, d)}</path>',
+     at(f'<rect x="{BX + 10}" y="{BY - 80}" width="26" height="70" fill="rgba(255,177,90,.4)" stroke="var(--orange)"/><text class="code hot" x="{BX + 40}" y="{BY - 84}">box added</text>', .34, 1, d),
+     f'<path d="M{BX + 110},{BY - 20} C{BX + 80},{BY - 140} {BX - 30},{BY - 140} {BX - 60},{BY - 60}" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="5 4" opacity="0">{vis(.4, .8, d)}</path>',
+     term(235, 5, 220, 170, "terminal"), tl(245, 44, 18, [("show", "world: table", .04), ("ok", "plan: 12 waypoints", .1), ("show", "world: table, box", .36), ("ok", "replan: 21 waypoints", .42), ("hot", "goal x=2.0: PLANNING_FAILED", .84)], d)]
+svgs["Lab: plan around an obstacle"] = svg(182, "With only the table in the scene, the arm plans a short path. A collision box is added; the replanned path arcs over it with more waypoints. A goal far out of reach fails to plan.", "".join(b), vb_w=460,
+                                      trace=[(0, 2), (.1, 3), (.4, "5-6"), (.84, 0)])
+
+# ---------- Cartesian motion and grasping divider ----------
+d = "9s"
+b = ['<rect x="300" y="160" width="300" height="10" fill="#3a4566"/><rect x="433" y="126" width="34" height="34" rx="3" class="res"/>',
+     '<line x1="450" y1="20" x2="450" y2="120" stroke="rgba(255,255,255,.3)" stroke-dasharray="5 4"/>',
+     f'<g><g transform="rotate(90)">{grip_open(16)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};{EASE};0 0 1 1;{EASE};0 0 1 1" values="450 30;450 30;450 112;450 112;450 40;450 40" keyTimes="0;.15;.45;.55;.8;1"/></g>',
+     cap("straight-line approach · close · lift", .15, 1, d, 450, 196)]
+svgs["Cartesian motion and grasping"] = svg(200, "A gripper comes straight down a dashed line onto a box, closes and lifts it.", "".join(b))
+
+# ---------- Lab: pick and place ----------
+d = "16s"
+b = term(5, 5, 450, 175, "evidence") + tl(15, 42, 19, [("show", "planning scene: + box", .04), ("ok", "pre-grasp plan: SUCCEEDED", .14), ("ok", "Cartesian approach: fraction 1.00", .26), ("show", "gripper closed · attach box → hand", .38), ("ok", "lift, move: SUCCEEDED", .52), ("show", "detach box · scene: box at place pose", .68), ("ok", "retreat: SUCCEEDED ✓", .82)], d)
+svgs["Lab: pick and place"] = svg(186, "An evidence log fills as the task runs: the box enters the planning scene, the pre-grasp plan succeeds, the Cartesian approach reaches fraction 1.00, the box is attached on closing, lift and move succeed, the box is detached at its place pose, and the retreat succeeds.", b, vb_w=460,
+                             trace=[(0, "2-4"), (.24, 6), (.36, 8), (.66, 8), (.8, 7)])
+
+# ---------- Capstone: evidence gathered into one submission ----------
+d = "16s"
+ST4 = ["Launch robot and world with one command", "Verify graph, frames, controllers, sensors", "Add a collision object and a target pose", "Plan, execute, and report the evidence"]
+EVID = ["frame diagram", "controller state", "sensor rate", "planned path", "execution result"]
+b = []
+for k, n in enumerate(ST4):
+    y = 10 + k * 52; t0 = round(.02 + k * .2, 2)
+    b += [f'<rect class="block" x="10" y="{y}" width="430" height="44" rx="6"/><text class="code" x="24" y="{y + 27}">{k + 1}  {n}</text>', at(f'<rect x="10" y="{y}" width="430" height="44" rx="6" fill="rgba(255,177,90,.12)" stroke="var(--orange)"/>', t0, 1, d)]
+b += ['<rect class="bag" x="620" y="30" width="260" height="190" rx="10"/><text class="k" x="750" y="50">submission</text>']
+for j, n in enumerate(EVID):
+    t0 = round(.2 + j * .15, 2); y = 70 + j * 30
+    b += [packet("req", f"M440,{40 + min(j, 3) * 52} L630,{y}", t0, round(t0 + .06, 2), d), at(f'<text class="code ok" x="640" y="{y + 5}">✓ {n}</text>', round(t0 + .06, 2), 1, d)]
+svgs["Capstone challenge"] = svg(232, "The four capstone steps light up in turn while five pieces of evidence fly into a submission folder: the frame diagram, controller state, sensor rate, planned path and execution result.", "".join(b), " tall")
+
+# ---------- The complete ROS 2 workflow ----------
+d = "15s"
+b = []
+DAYS = [(10, "Day 1", "Communicate"), (305, "Day 2", "Represent"), (600, "Day 3", "Move")]
+for i, (x, dn, n) in enumerate(DAYS):
+    s0 = round(.02 + i * .26, 2)
+    b += [f'<rect class="node" x="{x}" y="10" width="290" height="160" rx="8"/><text class="k" x="{x + 145}" y="30">{dn}</text><text class="s" x="{x + 145}" y="50">{n}</text>', f'<rect x="{x}" y="10" width="290" height="160" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0, 1, d)}</rect>']
+b += [at(ellipse_node(70, 110, "/camera", 48, 16) + ellipse_node(230, 110, "/planner", 52, 16) + '<path class="trail" d="M118,110 L178,110"/>', .02, 1, d)]
+for k in range(3): t0 = round(.06 + k * .06, 2); b.append(packet("req", "M118,110 L178,110", t0, round(t0 + .04, 2), d))
+b += [at(robot_top(400, 110, 0, 1.1) + axes2d(400, 110, 0, 36) + '<rect x="510" y="70" width="12" height="80" fill="#3a4566"/>', .28, 1, d),
+      at(f'<g transform="translate(700 150)"><rect class="robot-part" x="-25" y="0" width="50" height="8"/>' + arm2(0, 0, 60, 50, [120, 60, 120], [-80, -10, -80], "0;.5;1", "3s", spline=True, w=(9, 7)) + '</g><rect x="790" y="120" width="26" height="26" rx="3" class="res"/>', .54, 1, d),
+      at('<rect x="200" y="186" width="500" height="44" rx="22" fill="rgba(88,224,210,.12)" stroke="var(--cyan)"/><text class="s" x="450" y="208">robot task: observable · repeatable · explainable ✓</text>', .82, 1, d)]
+svgs["The complete ROS 2 workflow"] = svg(236, "Three days build on each other: Day 1, nodes communicating; Day 2, a robot represented with frames in a simulated world; Day 3, an arm moving to pick a box. Together they give a robot task that is observable, repeatable and explainable.", "".join(b), " tall")
+
+# ---------- A practical debugging order: walk down until the evidence breaks ----------
+d = "18s"
+LAY6 = [("Process", "ros2 node list", "/arm_controller_spawner …", True), ("Graph", "ros2 topic info /cmd -v", "1 publisher · 1 subscriber", True), ("Data", "ros2 topic hz /joint_states", "average rate: 100.0", True),
+        ("Frames", "tf2_echo base_link tool0", "transform OK · age 0.01 s", True), ("State", "ros2 control list_controllers", "arm_controller  inactive ✗", False), ("Model", "check_urdf", "(not reached)", None)]
+b = ['<g>' + robot_top(800, 60, 0, 1.4) + f'<animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;{EASE};0 0 1 1" values="0 0;0 0;60 0;60 0" keyTimes="0;.8;.9;1"/></g>',
+     at('<text class="code hot" x="740" y="110">robot does not move</text>', 0, .8, d), at('<text class="code ok" x="740" y="110">robot moves ✓</text>', .86, 1, d)]
+for k, (n, cmd, ev, ok) in enumerate(LAY6):
+    y = 8 + k * 40; t0 = round(.04 + k * .12, 2)
+    b += [f'<rect class="block" x="10" y="{y}" width="160" height="34" rx="5"/><text class="s left" x="24" y="{y + 18}">{k + 1:02d} {n}</text>']
+    if ok is None: continue
+    b += [at(f'<text class="code" x="185" y="{y + 22}">$ {cmd}</text>', t0, 1, d), at(f'<text class="code {"ok" if ok else "hot"}" x="470" y="{y + 22}">{ev}</text>', round(t0 + .05, 2), 1, d)]
+    if not ok: b += [at(f'<rect x="10" y="{y}" width="700" height="34" rx="5" fill="rgba(255,114,159,.12)" stroke="var(--pink)"/>', round(t0 + .05, 2), 1, d), at(f'<text class="code ok" x="185" y="{y + 64}">$ ros2 control switch_controllers --activate arm_controller</text>', .74, 1, d)]
+svgs["A practical debugging order"] = svg(250, "A robot does not move. Six layers are checked from the top, each with a command and its evidence: the process runs, the graph is connected, data flows at 100 Hz, frames are current, and then the state check finds arm_controller inactive. Activating it makes the robot move; the model layer never needed checking.", "".join(b), " tall")
+
+# ---------- Going further divider ----------
+d = "12s"
+ICONS = [("composition", "many nodes, one process"), ("lifecycle", "a startup contract"), ("testing", "colcon test"), ("security", "SROS2")]
+b = []
+for k, (n, sub) in enumerate(ICONS):
+    x = 40 + k * 215; s0 = round(k / 4, 3); e0 = round((k + 1) / 4, 3)
+    b += [f'<rect class="node" x="{x}" y="30" width="190" height="110" rx="10"/><text class="s" x="{x + 95}" y="70">{n}</text><text class="k" x="{x + 95}" y="96">{sub}</text>', f'<rect x="{x}" y="30" width="190" height="110" rx="10" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0 or .001, e0, d)}</rect>']
+svgs["Going further"] = svg(160, "Four production topics light up in turn: composition, lifecycle nodes, testing and security.", "".join(b))
+
+# ---------- Composition: many nodes, one process ----------
+d = "14s"
+b = [at('<rect class="block" x="5" y="10" width="215" height="90" rx="8"/><text class="k" x="112" y="28">process A · 38 MB</text>' + ellipse_node(112, 64, "/talker", 60, 17) +
+        '<rect class="block" x="240" y="10" width="215" height="90" rx="8"/><text class="k" x="347" y="28">process B · 37 MB</text>' + ellipse_node(347, 64, "/listener", 64, 17), 0, .42, d)]
+for k in range(3): t0 = round(.08 + k * .1, 2); b += [packet("req", "M172,64 L190,64 L190,120 L300,120 L300,82", t0, round(t0 + .08, 2), d)]
+b += [at('<text class="code dim" x="140" y="140">serialize → network → deserialize</text>', .08, .42, d),
+      at('<rect class="hub" x="5" y="10" width="450" height="110" rx="8"/><text class="k" x="230" y="28">component_container · 1 process · 41 MB</text>' + ellipse_node(112, 70, "/talker", 60, 17) + ellipse_node(347, 70, "/listener", 64, 17), .46, 1, d)]
+for k in range(4): t0 = round(.54 + k * .1, 2); b.append(packet("res", "M172,70 L283,70", t0, round(t0 + .02, 2), d))
+b += [at('<text class="code ok" x="140" y="140">intra-process: pointer, no copy</text>', .54, 1, d), term(5, 156, 450, 60, "ros2 node list"), at('<text class="code ok" x="15" y="200">/listener  /talker   (still two nodes)</text>', .6, 1, d)]
+svgs["Composition: many nodes, one process"] = svg(222, "Two separate processes each hold one node and messages go through serialization and the network. Then both nodes are loaded into one component container, using less memory, and messages pass within the process as pointers. ros2 node list still shows two nodes.", "".join(b), vb_w=460,
+                                                trace=[(0, 2), (.46, 5), (.5, "6-7"), (.56, "8-9"), (.6, 10)])
+
+# ---------- Managed lifecycle nodes ----------
+d = "16s"
+STATES = [("unconfigured", 60), ("inactive", 200), ("active", 340)]
+b = [f'<line class="divider" x1="60" y1="40" x2="340" y2="40"/>']
+for n, x in STATES: b.append(pill(x, 40, n, 120, "pill topic" if n == "active" else "pill", 32))
+b += ['<text class="code dim" x="100" y="78">configure →</text><text class="code dim" x="240" y="78">activate →</text>',
+      move('<circle r="10" fill="var(--orange)"/>', [(60, 40), (60, 40), (200, 40), (200, 40), (340, 40), (340, 40), (200, 40), (200, 40)], "0;.2;.28;.4;.48;.76;.84;1", d),
+      ellipse_node(70, 130, "/lc_talker", 60, 17), ellipse_node(380, 130, "/listener", 60, 17), '<path class="trail" d="M130,130 L320,130"/>']
+for k in range(5): t0 = round(.5 + k * .05, 3); b.append(packet("req", "M130,130 L320,130", t0, round(t0 + .04, 3), d))
+b += [term(5, 160, 450, 60, "ros2 lifecycle get /lc_talker"), swap([(0, .28, "unconfigured [1]"), (.28, .48, "inactive [2]"), (.48, .84, "active [3] · publishing"), (.84, 1, "inactive [2] · silent")], 15, 204, d, "code ok")]
+svgs["Managed lifecycle nodes"] = svg(226, "A lifecycle talker starts unconfigured, is configured to inactive, then activated, and only then do its messages reach the listener. Deactivating it returns it to inactive and it goes silent.", "".join(b), vb_w=460,
+                                   trace=[(0, "1-2"), (.1, "4-5"), (.2, 6), (.4, 7), (.76, 8), (.9, 9)])
+
+# ---------- Test your packages ----------
+d = "14s"
+b = [term(5, 5, 450, 210, "colcon test --packages-select workshop_runtime")]
+RUN = [("test_clamp.py::test_clamp_limits", .06, "PASSED"), ("test_flake8.py::test_flake8", .2, "PASSED"), ("test_pep257.py::test_pep257", .32, "PASSED"), ("test_copyright.py::test_copyright", .44, "PASSED")]
+for j, (n, t0, r) in enumerate(RUN):
+    b += [shown(15, 44 + j * 20, n, t0, d), shown(370, 44 + j * 20, r, round(t0 + .06, 2), d, 1, "code ok")]
+b += [at('<text class="code dim" x="15" y="138">clamp(5, 0, 1) == 1 ✓  clamp(-1, 0, 1) == 0 ✓</text>', .1, 1, d),
+      typed(15, 172, "$ colcon test-result --verbose", .6, d, .05), at('<text class="code ok" x="15" y="196">Summary: 4 tests, 0 errors, 0 failures, 0 skipped</text>', .72, 1, d)]
+svgs["Test your packages"] = svg(222, "colcon test runs the clamp unit test and the flake8, pep257 and copyright checks, each passing; colcon test-result then reports 4 tests, 0 errors, 0 failures.", "".join(b), vb_w=460,
+                              trace=[(0, "6-9"), (.06, 7), (.09, 8), (.12, 9), (.2, 12), (.6, 13)])
+
+# ---------- ROS 2 security with SROS2 ----------
+d = "16s"
+b = [at('<rect class="bag" x="160" y="5" width="140" height="40" rx="6"/><text class="code" x="172" y="30">demo_keystore</text>', .02, 1, d),
+     ellipse_node(70, 90, "talker", 55, 17), ellipse_node(390, 90, "listener", 60, 17), packet("res", "M200,45 L90,72", .12, .18, d), packet("res", "M260,45 L370,72", .16, .22, d),
+     at('<text class="code ok" x="20" y="64">🔑 enclave</text><text class="code ok" x="360" y="64">🔑 enclave</text>', .2, 1, d), '<path class="trail" d="M125,90 L330,90"/>']
+for k in range(4): t0 = round(.36 + k * .08, 2); b += [packet("req", "M125,90 L330,90", t0, round(t0 + .05, 2), d)]
+b += [at('<text class="code hot" x="150" y="122">sniffer: 9f 2c e1 07 … (unreadable)</text>', .4, 1, d),
+      at(ellipse_node(230, 175, "intruder (no keys)", 92, 17), .64, 1, d), at('<line class="xmark" x1="140" y1="160" x2="320" y2="190"/><text class="code hot" x="120" y="214">Enforce: cannot join the graph</text>', .72, 1, d)]
+svgs["ROS 2 security with SROS2"] = svg(222, "A keystore is created and an enclave key is handed to the talker and the listener. Their traffic is encrypted, so a network sniffer sees only unreadable bytes. A node without keys tries to join and, with the Enforce strategy, is refused.", "".join(b), vb_w=460,
+                                     trace=[(0, 1), (.12, "2-3"), (.26, "5-7"), (.34, "9-12"), (.64, 0)])
+
+# ---------- Official references: where to go when ----------
+d = "15s"
+STORY = [("an error you do not understand", "Robotics Stack Exchange", "someone hit it before"), ("need a package for Jazzy", "index.ros.org", "check Jazzy support"), ("how does it work, exactly?", "docs.ros.org/en/jazzy", "concepts and tutorials")]
+b = []
+for k, (q, where, res) in enumerate(STORY):
+    s0, e0 = round(k / 3, 3), round((k + 1) / 3, 3)
+    b += [at(f'<rect class="block" x="10" y="10" width="260" height="40" rx="20"/><text class="code" x="26" y="35">{q}</text>', s0 or .001, e0, d), packet("req", "M270,30 L420,30", s0 + .06, s0 + .12, d),
+          at(f'<rect class="block app" x="420" y="10" width="240" height="40" rx="6"/><text class="code" x="432" y="35">{where}</text>', s0 + .12, e0, d), at(f'<text class="code ok" x="680" y="35">✓ {res}</text>', s0 + .18, e0, d)]
+svgs["Official references"] = svg(60, "Three short journeys: an error you do not understand leads to Robotics Stack Exchange; a package need leads to the ROS package index to check Jazzy support; a how-it-works question leads to the Jazzy documentation.", "".join(b))
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}

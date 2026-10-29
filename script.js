@@ -44,7 +44,7 @@
   const freeze = svg => { svg.setCurrentTime(cycleOf(svg) * .9); svg.pauseAnimations(); };
   const restart = svg => { svg.setCurrentTime(0); svg.unpauseAnimations(); };
   const activeAnims = () => [...slides[index].querySelectorAll('svg.ros-anim')];
-  const hasAnimation = () => activeAnims().length || slides[index].querySelector('.scene3d') || flowItems.length;
+  const hasAnimation = () => activeAnims().length || slides[index].querySelector('.scene3d');
 
   function clamp(value) { return Math.max(0, Math.min(value, slides.length - 1)); }
 
@@ -173,30 +173,9 @@
     touchStart = null;
   }, { passive: true });
 
-  // Spotlight: on slides without a diagram animation, walk through cards, rows, and steps one at a time.
-  // Command cards retype their command; code blocks reveal line by line on arrival.
-  const FLOW = '.outcome-path > article, .agenda-days li, .learning-loop > div, .build-order > div, .startup-checks > div, .pipeline > div, .grasp-sequence > div, .debug-order > div, .validation-ladder > div, .capstone > div, .scene-layers > div, .constraint-rings > div, .vocabulary > div, .decision-path > div, .sensor-contract > div, .filter-funnel > div, .stack-flow > div, .control-loop > div, .concept-map > div, .concept-result, .object-states > div, .moveit-map > div, .message-journey > div, .fault-pairs > p, .scan-fields > p, .pattern-table > .table-row:not(.header), .command-map > div, .steps > li, .compare > article, .sensor-list > article, .evidence-strip > span, .example-strip > span, .overlay-stack > div, .scope-example > div, .layers > div, .geometry-roles > article, .qos-spectrum > .qos-end, .definition-row > p';
-  let flowItems = [], flowAt = 0, flowTimer = 0;
-  const visibleStep = el => { const st = el.closest('[data-step]'); return !st || st.classList.contains('step-visible'); };
-  function flowStep() {
-    if (document.body.classList.contains('anim-paused')) return;
-    flowItems.forEach(el => el.classList.remove('flow-on'));
-    const live = flowItems.filter(visibleStep);
-    if (!live.length) return;
-    const el = live[flowAt++ % live.length];
-    el.classList.remove('flow-on'); void el.offsetWidth; el.classList.add('flow-on');
-    const code = el.querySelector(':scope > code');
-    if (code) code.style.setProperty('--n', Math.min(code.textContent.length, 60));
-  }
-  function startFlow() {
-    clearInterval(flowTimer); flowItems.forEach(el => el.classList.remove('flow-on', 'flow-item'));
-    const slide = slides[index];
-    flowItems = reduceMotion.matches || slide.querySelector('.ros-anim:not(.deco), .scene3d') ? [] : [...slide.querySelectorAll(FLOW)];
-    flowItems.forEach(el => el.classList.add('flow-item'));
-    flowAt = 0;
-    if (flowItems.length) { flowStep(); flowTimer = setInterval(flowStep, 2000); }
-    startTrace();
-  }
+  function startFlow() { startTrace(); }
+  document.addEventListener('deck:slide', startFlow);
+  document.addEventListener('deck:restart', startFlow);
 
   // Code tracing: a diagram names the lines it is acting out, data-trace="0:1-3;.25:6;.5:0" (cycle fraction : lines, 0 = none),
   // and a bar follows along in the real code block. data-trace-pre picks the block (default: the first pre on the slide).
@@ -210,13 +189,35 @@
       if (!pre) return;
       const spec = svg.dataset.trace.split(';').map(e => { const [f, l] = e.split(':'); const [a, b = a] = l.split('-').map(Number); return [+f, a, b]; });
       const bar = document.createElement('div'); bar.className = 'trace-bar'; bar.setAttribute('aria-hidden', 'true'); pre.append(bar);
-      const lines = pre.textContent.replace(/\n$/, '').split('\n').length;
+      // Where each source line really starts on screen, so wrapped lines do not throw the bar off.
+      const starts = []; let line = 0;
+      const walk = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
+      starts.push(null);
+      for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+        if (starts.length === line + 1 && !starts[line]) starts[line] = [n, 0];
+        for (let i = 0; i < n.data.length; i++) if (n.data[i] === '\n') { line++; starts[line] = i + 1 < n.data.length ? [n, i + 1] : null; }
+      }
+      const range = document.createRange();
+      const topOf = k => {
+        let st = starts[k - 1]; if (!st) return null;
+        range.setStart(st[0], st[1]); range.setEnd(st[0], Math.min(st[1] + 1, st[0].data.length));
+        return range.getBoundingClientRect().top - pre.getBoundingClientRect().top + pre.scrollTop;
+      };
+      const bottomOf = k => {
+        const nxt = k < starts.length ? topOf(k + 1) : null;
+        return nxt ?? pre.scrollHeight - parseFloat(getComputedStyle(pre).paddingBottom);
+      };
+      let shown = '';
       const tick = () => {
         const dur = cycleOf(svg), fr = dur ? (svg.getCurrentTime() % dur) / dur : 1;
         let cur = null; for (const e of spec) if (fr >= e[0]) cur = e;
-        const cs = getComputedStyle(pre), top = parseFloat(cs.paddingTop), lh = (pre.scrollHeight - top - parseFloat(cs.paddingBottom)) / lines;
-        if (cur && cur[1] > 0) { bar.style.opacity = 1; bar.style.transform = `translateY(${top + (cur[1] - 1) * lh - pre.scrollTop}px)`; bar.style.height = `${(cur[2] - cur[1] + 1) * lh}px`; }
-        else bar.style.opacity = 0;
+        const key = cur && cur[1] > 0 ? `${cur[1]}-${cur[2]}-${pre.clientWidth}` : '';
+        if (key !== shown) {
+          shown = key;
+          const t = key && topOf(cur[1]);
+          if (t != null && key) { bar.style.opacity = 1; bar.style.transform = `translateY(${t - 2}px)`; bar.style.height = `${bottomOf(cur[2]) - t + 2}px`; }
+          else bar.style.opacity = 0;
+        }
         traceRaf = requestAnimationFrame(tick);
       };
       tick();
@@ -225,8 +226,7 @@
   document.addEventListener('deck:slide', startFlow);
   document.addEventListener('deck:restart', startFlow);
 
-  window.addEventListener('beforeprint', () => { clearInterval(flowTimer); flowItems.forEach(el => el.classList.remove('flow-on')); });
-  window.addEventListener('beforeprint', () => document.querySelectorAll('svg.ros-anim').forEach(freeze));
+    window.addEventListener('beforeprint', () => document.querySelectorAll('svg.ros-anim').forEach(freeze));
   window.addEventListener('afterprint', () => { document.querySelectorAll('svg.ros-anim').forEach(svg => svg.unpauseAnimations()); show(index, false); });
 
   window.addEventListener('hashchange', () => show(requestedIndex(), false));
