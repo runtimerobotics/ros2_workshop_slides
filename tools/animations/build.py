@@ -2189,6 +2189,118 @@ for k in range(4): t0 = round(.42 + k * .065, 3); b.append(packet("req", "M160,1
 for k in range(12): t0 = round(.7 + k * .022, 3); b.append(packet("req", "M160,140 L296,140", t0, round(t0 + .02, 3), d))
 svgs["Lab: one-command startup"] = svg(205, "The package is created and built, then one ros2 launch command starts a talker and a listener together. The talker publishes at rate 1.0; changing the rate in params.yaml to 4.0 makes the messages four times as frequent.", "".join(b), vb_w=460,
                                       trace=[(0, "3-4"), (.12, "6-8"), (.28, 9), (.66, 0)])
+def robot_top(x, y, rot=0, s=1):
+    return (f'<g transform="translate({x} {y}) rotate({rot}) scale({s})"><rect class="robot-body" x="-26" y="-18" width="52" height="36" rx="10"/>'
+            '<rect class="wheel" x="-14" y="-24" width="28" height="7" rx="3"/><rect class="wheel" x="-14" y="17" width="28" height="7" rx="3"/><circle class="lens" cx="14" cy="0" r="6"/></g>')
+
+# ---------- Day 2 divider: frames on a robot, then a simulated world ----------
+d = "10s"
+b = ['<rect x="420" y="20" width="460" height="160" rx="10" fill="rgba(106,168,255,.06)" stroke="var(--line)"/><text class="k" x="650" y="38">simulation</text>',
+     '<rect x="560" y="70" width="40" height="80" fill="#3a4566"/><rect x="760" y="50" width="60" height="40" fill="#3a4566"/>',
+     robot_top(180, 110, 0, 1.6), at(axes2d(180, 110, 0, 50, "base_link"), .05, 1, d), at(axes2d(203, 110, 0, 30), .15, 1, d), at('<text class="code" x="210" y="76">lidar_link</text>', .15, 1, d),
+     move(robot_top(0, 0, 0, 1), [(470, 140), (470, 140), (700, 140), (700, 140)], "0;.3;.8;1", d)]
+for k in range(8): b.append(at(f'<line x1="{470 + k * 30}" y1="140" x2="{560 if k < 3 else 820}" y2="{110 if k < 3 else 70}" stroke="var(--pink)" stroke-width="1.5" opacity=".6"/>', round(.3 + k * .06, 2), round(.36 + k * .06, 2), d))
+b.append(cap("frames make geometry explicit · simulation makes behaviour observable", .3, 1, d, 450, 196))
+svgs["Day 2: model and simulation"] = svg(200, "A robot gains frames, base_link and lidar_link; then the same robot drives through a simulated room while its lidar rays hit the obstacles.", "".join(b))
+
+# ---------- TF2 divider: where was it, and when? ----------
+d = "10s"
+b = ['<rect x="30" y="20" width="840" height="150" rx="10" fill="rgba(255,255,255,.02)" stroke="var(--line)"/>', axes2d(70, 150, 0, 40, "map"),
+     move(robot_top(0, 0, 0, 1.1), [(200, 120), (200, 120), (520, 90), (520, 90)], "0;.1;.7;1", d),
+     '<circle cx="640" cy="60" r="12" fill="var(--orange)"/>', at('<line x1="360" y1="105" x2="640" y2="60" stroke="var(--cyan)" stroke-dasharray="5 4" stroke-width="2"/><text class="code" x="420" y="60">seen at t = 12.40 s</text>', .4, 1, d),
+     at('<text class="code ok" x="600" y="110">cup in map: (8.2, 3.1) @ 12.40 s</text>', .6, 1, d), cap("where is an observation, and when was it true?", .2, 1, d, 450, 192)]
+svgs["TF2 and coordinate systems"] = svg(200, "A robot moves across a map. At 12.40 seconds its camera sees a cup; transforming that observation with the robot's pose at that same moment places the cup in the map frame.", "".join(b))
+
+# ---------- Transform a stamped observation ----------
+d = "14s"
+b = ['<rect x="5" y="5" width="450" height="190" rx="8" fill="rgba(255,255,255,.02)" stroke="var(--line)"/>', axes2d(30, 180, 0, 30, "base"),
+     move(robot_top(0, 0, 0, 1), [(90, 150), (90, 150), (230, 130), (230, 130)], "0;.04;.6;1", d), '<circle cx="380" cy="50" r="11" fill="var(--orange)"/>',
+     at('<line x1="160" y1="140" x2="380" y2="50" stroke="var(--cyan)" stroke-dasharray="5 4" stroke-width="2"/><text class="code" x="250" y="74">camera sees it</text><text class="code ok" x="250" y="92">stamp t = 10.00</text>', .18, 1, d),
+     chip(5, 205, 220, 70, "", "lookup_transform"), tl(13, 244, 18, [("show", "target: base_link", .3), ("show", "source: camera_link", .33)], d),
+     chip(235, 205, 220, 70, "", "at time"), swap([(.36, .66, "t = 10.00 ✓"), (.66, 1, "t = 3.00 ✗")], 243, 244, d, "code"),
+     at('<text class="code ok" x="243" y="264">point in base: (1.4, 0.3)</text>', .44, .66, d), at('<text class="code hot" x="243" y="264">too old: not in the buffer</text>', .7, 1, d)]
+svgs["Transform a stamped observation"] = svg(282, "A moving robot's camera sees an orange cup, stamped at t = 10.00. lookup_transform needs a target frame, base_link, a source frame, camera_link, and the time: at 10.00 it returns the point in base, at 3.00 it fails because that time is no longer in the buffer.", "".join(b), vb_w=460,
+                                         trace=[(0, "1-2"), (.4, 4), (.6, "6-7"), (.8, "1-2")])
+
+# ---------- Publish a static transform ----------
+d = "12s"
+b = ['<line class="divider" x1="10" y1="150" x2="450" y2="150"/>', '<rect class="robot-body" x="60" y="100" width="120" height="44" rx="8"/><circle class="wheel" cx="85" cy="146" r="10"/><circle class="wheel" cx="155" cy="146" r="10"/>',
+     axes2d(100, 120, 0, 36, "base_link"), at('<rect class="block app" x="130" y="64" width="30" height="16" rx="4"/>' + axes2d(145, 72, 0, 30), .1, 1, d), at('<text class="code" x="120" y="34">lidar_link</text>', .1, 1, d),
+     at('<path class="trail" d="M100,120 L145,120 L145,72"/><text class="code ok" x="150" y="104">z 0.2</text><text class="code ok" x="104" y="138">x 0.1</text>', .14, 1, d),
+     term(250, 5, 205, 90, "tf2_echo"), at('<text class="code" x="258" y="44">Translation: [0.100,</text><text class="code" x="258" y="62">  0.000, 0.200]</text><text class="code" x="258" y="80">Rotation: [0,0,0,1]</text>', .5, 1, d)]
+svgs["Publish a static transform"] = svg(170, "A robot with base_link axes; static_transform_publisher places lidar_link 0.1 m forward and 0.2 m up with no rotation, and tf2_echo prints translation 0.1, 0, 0.2 and rotation 0, 0, 0, 1.", "".join(b), vb_w=460,
+                                    trace=[(0, "2-5"), (.12, 3), (.2, 5), (.45, 7)])
+
+# ---------- Write a tf2 broadcaster: pose in, transform out ----------
+d = "14s"
+POS = [(60, 140, 0), (110, 120, -30), (150, 85, -60), (165, 50, -90)]
+b = ['<rect class="win" x="5" y="25" width="180" height="150" fill="#4556ff"/><rect class="termbar" x="5" y="5" width="180" height="22" rx="5"/><text class="k" x="95" y="16">TurtleSim · world</text>',
+     axes2d(20, 168, 0, 26)]
+kt = "0;.25;.5;.75;1"
+b.append(f'<g>{TURTLE}<animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="{";".join(f"{x} {y}" for x, y, _ in POS)};{POS[-1][0]} {POS[-1][1]}" keyTimes="{kt}"/></g>')
+b += [chip(200, 5, 255, 60, "", "Pose → TransformStamped"), term(200, 75, 255, 100, "tf2_echo world turtle1")]
+for k, (x, y, th) in enumerate(POS):
+    s0, e0 = round(k / 4, 3), round((k + 1) / 4, 3); thr = math.radians(-th)
+    wx, wy = (x - 20) / 15, (168 - y) / 15
+    b += [swap([(s0 or .001, e0, f"x {wx:.2f} y {wy:.2f} θ {thr:.2f}")], 208, 52, d, "code"), packet("req", "M330,65 L330,75", round(s0 + .05, 3), round(s0 + .08, 3), d),
+          swap([(round(s0 + .08, 3), e0, f"Translation: [{wx:.2f}, {wy:.2f}, 0]")], 210, 114, d, "code"),
+          swap([(round(s0 + .08, 3), e0, f"q: z {math.sin(thr / 2):.2f}  w {math.cos(thr / 2):.2f}")], 210, 138, d, "code ok")]
+svgs["Write a tf2 broadcaster"] = svg(182, "As the turtle moves, each pose message, x, y and theta, becomes a world to turtle1 transform; tf2_echo shows the translation and the quaternion with z = sin(θ/2) and w = cos(θ/2).", "".join(b), vb_w=460,
+                                  trace=[(0, 10)] + [x for k in range(4) for x in ((round(k / 4 + .01, 3), "13-16"), (round(k / 4 + .04, 3), "17-18"), (round(k / 4 + .06, 3), "19-20"), (round(k / 4 + .08, 3), 21))])
+
+# ---------- Write a tf2 listener: the buffer and the lookup ----------
+d = "14s"
+b = [chip(5, 5, 450, 60, "", "Buffer · last 10 s of transforms"), '<rect x="12" y="34" width="436" height="22" rx="4" fill="var(--line)"/>']
+for k in range(22): t0 = round(.12 + k * .035, 3); b.append(at(f'<rect x="{14 + k * 19.5}" y="36" width="15" height="18" rx="2" fill="var(--cyan)"/>', t0, 1, d))
+b += [term(5, 80, 450, 120, "frame_listener log")]
+LOG = [(.08, "not yet: \"world\" passed to lookupTransform", "hot"), (.3, "turtle1 at x=5.54 y=5.54", "ok"), (.5, "turtle1 at x=6.10 y=5.80", "ok"), (.7, "turtle1 at x=6.71 y=6.32", "ok"), (.9, "turtle1 at x=7.02 y=7.01", "ok")]
+for j, (t0, t, cls) in enumerate(LOG): b.append(shown(15, 118 + j * 18, t, t0, d, 1, f"code {cls}" if cls != "ok" else "code ok"))
+b += [at('<circle cx="430" cy="100" r="10" fill="none" stroke="var(--orange)" stroke-width="2"/><text class="code" x="372" y="104">1 s</text>', .05, 1, d)]
+svgs["Write a tf2 listener"] = svg(206, "The listener's buffer starts empty, so the first lookup fails with not yet. As transforms arrive the buffer fills, and every second lookup_transform for world to turtle1 succeeds and logs the turtle's position.", "".join(b), vb_w=460,
+                               trace=[(0, "9-11"), (.06, 15), (.08, "16-18"), (.28, 15), (.3, "19-20"), (.48, 15), (.5, "19-20"), (.7, "19-20"), (.9, "19-20")])
+
+# ---------- Lab: debug the frame tree ----------
+d = "16s"
+b = ['<rect class="win" x="5" y="25" width="140" height="140" fill="#4556ff"/><rect class="termbar" x="5" y="5" width="140" height="22" rx="5"/><text class="k" x="75" y="16">turtle_tf2 demo</text>',
+     f'<g>{TURTLE}<animateMotion dur="{d}" repeatCount="indefinite" path="M40,120 C60,50 110,40 120,100"/></g>',
+     f'<g><g transform="scale(.9)">{TURTLE}</g><animateMotion dur="{d}" repeatCount="indefinite" path="M30,150 C40,90 80,60 105,80" /></g>',
+     at(ellipse_node(220, 40, "world", 46, 15) + ellipse_node(185, 110, "turtle1", 50, 15) + ellipse_node(275, 110, "turtle2", 50, 15) + '<line class="divider" x1="210" y1="55" x2="190" y2="95"/><line class="divider" x1="230" y1="55" x2="270" y2="95"/>', .1, 1, d),
+     term(330, 5, 125, 100, "tf2_echo"), swap([(.3, .55, "t 1.21 0.40"), (.55, .62, "t 0.84 0.31")], 338, 50, d, "code ok"), at('<text class="code hot" x="338" y="50">turtle3 does</text><text class="code hot" x="338" y="68">not exist</text>', .62, .82, d),
+     at('<text class="code" x="160" y="160">tf2_monitor: delay 0.003 s · 62 Hz</text>', .84, 1, d)]
+svgs["Lab: debug the frame tree"] = svg(170, "In the turtle_tf2 demo turtle2 chases turtle1. view_frames shows world with children turtle1 and turtle2; tf2_echo prints the changing transform between them; a wrong name, turtle3, fails with does not exist; tf2_monitor reports the delay and rate.", "".join(b), vb_w=460,
+                                   trace=[(0, 1), (.1, 3), (.3, 4), (.62, 0), (.84, 6)])
+
+# ---------- URDF divider: links and joints assemble ----------
+d = "9s"
+b = ['<rect class="robot-part" x="380" y="170" width="140" height="14" rx="3"/>']
+LINKS = [(442, 110, 16, 60, .05), (442, 74, 100, 14, .15), (528, 80, 12, 60, .25)]
+for x, y, w, h, t0 in LINKS: b.append(at(f'<rect class="arm" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>', t0, 1, d))
+for (x, y, t0) in ((450, 170, .08), (450, 82, .18), (534, 82, .28)): b += [at(f'<circle class="joint" cx="{x}" cy="{y}" r="7"/>', t0, 1, d), at(f'<line class="ax-x" x1="{x}" y1="{y}" x2="{x + 26}" y2="{y}"/><line class="ax-y" x1="{x}" y1="{y}" x2="{x}" y2="{y - 26}"/>', t0 + .04, 1, d)]
+b += [at('<text class="code" x="180" y="80">&lt;link name="base"/&gt;</text><text class="code" x="180" y="104">&lt;joint type="revolute"&gt;</text><text class="code" x="180" y="128">&lt;link name="arm"/&gt;</text>', .05, 1, d),
+      cap("shape · motion · frames, in one description", .4, 1, d, 450, 196)]
+svgs["URDF robot modeling"] = svg(200, "Link by link a small arm assembles from its URDF lines; a joint dot and coordinate axes appear at each connection.", "".join(b))
+
+# ---------- Xacro removes repetition ----------
+d = "14s"
+b = [chip(5, 5, 170, 60, "wheel(name, y)", "xacro:macro"), '<rect class="robot-body" x="250" y="40" width="120" height="70" rx="10"/><text class="code" x="270" y="80">base_link</text>',
+     packet("req", "M175,25 L260,30", .14, .2, d), at('<rect class="wheel" x="270" y="22" width="80" height="16" rx="5"/><text class="code ok" x="380" y="34">left y 0.1</text>', .2, 1, d),
+     packet("req", "M175,45 L260,120", .26, .32, d), at('<rect class="wheel" x="270" y="112" width="80" height="16" rx="5"/><text class="code ok" x="380" y="124">right y -0.1</text>', .32, 1, d),
+     term(5, 145, 450, 60, "check_urdf /tmp/robot.urdf"), at('<text class="code ok" x="15" y="190">root Link: base_link has 2 child(ren)</text>', .5, 1, d),
+     at(ellipse_node(70, 230, "base_link", 62, 15) + ellipse_node(230, 230, "left_wheel", 62, 15) + ellipse_node(390, 230, "right_wheel", 62, 15) + '<line class="divider" x1="132" y1="230" x2="168" y2="230"/><path class="trail" d="M70,245 C70,262 390,262 390,245"/>', .66, 1, d)]
+svgs["URDF and Xacro"] = svg(262, "One wheel macro is called twice, creating left and right wheels at y 0.1 and y -0.1 on base_link. xacro expands the file, check_urdf reports base_link with 2 children, and urdf_to_graphiz draws the tree.", "".join(b), vb_w=460,
+                          trace=[(0, 1), (.08, 2), (.12, "3-7"), (.48, 0)])
+
+# ---------- RViz2 tour: each display adds a layer ----------
+d = "14s"
+DISP = [("RobotModel", .05), ("TF", .25), ("LaserScan", .45), ("Image", .65)]
+b = ['<rect class="term" x="5" y="5" width="890" height="190" rx="8"/><rect class="termbar" x="5" y="5" width="890" height="22" rx="6"/><text class="k" x="450" y="17">RViz2 · Fixed Frame: base_link</text>', '<rect x="5" y="27" width="190" height="168" fill="#0f1527"/>']
+for k, (n, t0) in enumerate(DISP):
+    b += [f'<rect x="15" y="{40 + k * 36}" width="14" height="14" rx="3" fill="none" stroke="var(--muted)"/><text class="code" x="38" y="{52 + k * 36}">{n}</text>', at(f'<path d="M17,{47 + k * 36} L22,{52 + k * 36} L28,{42 + k * 36}" stroke="var(--cyan)" stroke-width="2.5" fill="none"/>', t0, 1, d)]
+b += [at(robot_top(480, 110, 0, 1.8), .05, 1, d), at(axes2d(480, 110, 0, 50) + axes2d(520, 110, 0, 26), .25, 1, d)]
+pts = "".join(f'<circle class="pulse" cx="{480 + 160 * math.cos(a):.0f}" cy="{110 + 70 * math.sin(a):.0f}" r="2.6"/>' for a in [i * .11 for i in range(57)] if not (1.2 < a < 2.2))
+b += [at(pts, .45, 1, d), at('<rect x="700" y="40" width="180" height="120" rx="4" fill="#222b44" stroke="var(--line)"/><circle cx="790" cy="100" r="26" fill="var(--orange)" opacity=".8"/><text class="k" x="790" y="152">/camera/image</text>', .65, 1, d),
+      cap("RViz only draws what is published", .82, 1, d, 450, 188)]
+svgs["RViz2 tour"] = svg(200, "An RViz2 window where four displays are ticked in turn: RobotModel draws the robot, TF adds its frame axes, LaserScan adds a ring of scan points, and Image shows a camera view.", "".join(b))
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
