@@ -997,7 +997,7 @@ svgs["One link, three models"] = svg(240, "Three views of the same link. Visual:
 
 # ---------- From URDF to TF ----------
 d = "10s"
-b = [term(10, 20, 200, 120, "arm.urdf.xacro"), shown(22, 60, "&lt;link name=\"link1\"/&gt;", 0, d), shown(22, 82, "&lt;joint type=\"revolute\"&gt;", 0, d), shown(22, 104, "&lt;xacro:arm .../&gt;", 0, d),
+b = [term(10, 20, 200, 120, "demo_arm.urdf.xacro"), shown(22, 60, "&lt;link name=\"link1\"/&gt;", 0, d), shown(22, 82, "&lt;joint type=\"revolute\"&gt;", 0, d), shown(22, 104, "&lt;xacro:arm .../&gt;", 0, d),
      pill(320, 80, "robot_description", 170, "pill topic"), pill(530, 80, "robot_state_publisher", 200), pill(530, 200, "/joint_states", 160, "pill topic"),
      pill(760, 80, "/tf · /tf_static", 160, "pill topic"),
      box(30, 170, 170, 70, "", cls="block", rx=6), '<text class="k" x="115" y="186">joint_state_publisher_gui</text>', '<line x1="50" y1="214" x2="180" y2="214" stroke="var(--line)" stroke-width="4"/>',
@@ -1594,7 +1594,7 @@ for k, n in enumerate(PK):
     t0 = round(.62 + k * .05, 2); x = 5 + (k % 3) * 152; y = 222 + (k // 3) * 26
     b.append(at(f'<rect class="block app" x="{x}" y="{y}" width="146" height="22" rx="4"/><text class="code" x="{x + 6}" y="{y + 16}">{n}</text>', t0, 1, d))
 svgs["Set up the environment"] = svg(276, "Before sourcing, ros2 topic list fails with command not found. After sourcing /opt/ros/jazzy/setup.bash it lists /parameter_events and /rosout, because PATH, ROS_DISTRO and PYTHONPATH now point at ROS. The source line goes into ~/.bashrc for every new terminal, then six packages for the Day 2 and Day 3 labs install.", "".join(b), vb_w=460,
-                                    trace=[(0, 0), (.16, 2), (.46, 5), (.62, "8-11")])
+                                    trace=[(0, 0), (.16, 2), (.46, 5), (.62, "8-12")])
 
 # ---------- Configure the ROS environment: a classroom of laptops ----------
 d = "16s"
@@ -1841,7 +1841,7 @@ b = [chip(10, 10, 210, 30, "launch/demo.launch.py"), chip(10, 50, 210, 30, "demo
      packet("bad", "M220,105 L290,105", .55, .65, d), burst(295, 105, .65, d), at('<text class="code hot" x="460" y="114">not in data_files → not installed</text>', .65, 1, d),
      at('<text class="code hot" x="460" y="134">ros2 launch … extra.launch.py: file not found</text>', .75, 1, d)]
 svgs["Package anatomy"] = svg(145, "colcon build reads setup.py: demo.launch.py, listed in data_files, is copied into install/share, and talker.py becomes an executable in install/lib through entry_points. extra.launch.py is not listed, so it stops at the build and ros2 launch cannot find it.", "".join(b),
-                             trace=[(0, "2-5"), (.28, "7-9"), (.55, 0)], trace_pre=1)
+                             trace=[(0, "1-4"), (.28, "5-8"), (.55, 0)], trace_pre=1)
 
 # ---------- Workshop packages: three ros2 pkg create commands ----------
 d = "14s"
@@ -1855,8 +1855,9 @@ for k, (x, n, bt, items) in enumerate(PK):
     b.append(at(inner, t0, 1, d))
     for j, it in enumerate(items):
         if it: b.append(at(f'<rect class="block" x="{x + 14}" y="{86 + j * 28}" width="252" height="22" rx="4"/><text class="code" x="{x + 22}" y="{101 + j * 28}">{it}</text>', round(t0 + .06 + j * .03, 2), 1, d))
-b += [at('<path class="edge" d="M290,110 L310,110" marker-end="url(#mm-arrow)"/>', .7, 1, d), at('<text class="code ok" x="10" y="204">demo_py imports the interfaces from demo_interfaces</text>', .7, 1, d)]
-svgs["Workshop packages"] = svg(214, "Three ros2 pkg create commands make three packages in ~/ros2_ws/src: demo_py, ament_python, filling with nodes, launch files and tests; demo_interfaces, ament_cmake, with Num.msg, AddThreeInts.srv and Fibonacci.action; and the optional demo_cpp with a C++ talker and listener. Then an arrow shows demo_py depending on demo_interfaces.", "".join(b), " tall",
+b += [at('<path class="edge" d="M290,110 L310,110" marker-end="url(#mm-arrow)"/>', .7, 1, d), at('<text class="code ok" x="10" y="204">demo_py imports the interfaces from demo_interfaces</text>', .7, 1, d),
+      at('<text class="code dim" x="10" y="224">the full set: github.com/runtimerobotics/ros2_workshop_code · + demo_turtlesim, demo_launch, demo_tf2, demo_arm_*</text>', .78, 1, d)]
+svgs["Workshop packages"] = svg(232, "Three ros2 pkg create commands make three packages in ~/ros2_ws/src: demo_py, ament_python, filling with nodes, launch files and tests; demo_interfaces, ament_cmake, with Num.msg, AddThreeInts.srv and Fibonacci.action; and the optional demo_cpp with a C++ talker and listener. Then an arrow shows demo_py depending on demo_interfaces.", "".join(b), " tall",
                                trace=[(0, 1), (.05, 2), (.25, 3), (.45, 4), (.7, 0)])
 
 # ---------- Install dependencies with rosdep ----------
@@ -1884,7 +1885,7 @@ for k in range(4):
           at(f'<text class="code hot" x="150" y="89">String(data=\'Hello {k}\')</text>', t0, round(t0 + .1, 3), d),
           packet("req", "M150,40 L270,40", round(t0 + .04, 3), round(t0 + .08, 3), d), shown(172, 140 + k * 20, f"data: Hello {k}", round(t0 + .09, 3), d, 1, "code ok")]
 svgs["Your first publisher"] = svg(228, "Running talker.py: the /talker node appears, then its publisher on /chatter with type String and depth 10, then a 0.5 second timer. Each time the timer fires, tick builds String Hello 0, Hello 1 and so on, publishes it, and ros2 topic echo prints it.", "".join(b), vb_w=460,
-                              trace=[(0, 19), (.04, 20), (.08, 7), (.14, "8-9"), (.22, 10), (.3, 11)] + [x for k in range(4) for x in ((round(.36 + k * .15, 3), 14), (round(.4 + k * .15, 3), 15), (round(.45 + k * .15, 3), 16))])
+                              trace=[(0, 19), (.04, "20-21"), (.08, 7), (.14, "8-9"), (.22, 10), (.3, 11)] + [x for k in range(4) for x in ((round(.36 + k * .15, 3), 14), (round(.4 + k * .15, 3), 15), (round(.45 + k * .15, 3), 16))])
 
 # ---------- Your first subscriber ----------
 d = "14s"
@@ -1898,7 +1899,7 @@ for k in range(4):
 b += [at('<text class="code hot" x="15" y="140">topic \'chatter2\': nothing arrives</text><text class="code dim" x="15" y="160">type, name and QoS must match</text>', .78, 1, d),
       at('<line class="xmark" x1="270" y1="20" x2="290" y2="40"/><line class="xmark" x1="290" y1="20" x2="270" y2="40"/>', .78, 1, d), packet("req", "M115,30 L150,30 L260,30", .8, .85, d), burst(270, 30, .85, d)]
 svgs["Your first subscriber"] = svg(214, "The /listener node subscribes to /chatter. Messages from /talker arrive, wait in a depth-10 queue, and on_msg logs I heard: Hello 3, Hello 4 and so on. Then the subscription is changed to chatter2 and nothing arrives, because type, name and QoS must match.", "".join(b), vb_w=460,
-                               trace=[(0, 16), (.06, 7), (.12, "8-9")] + [x for k in range(4) for x in ((round(.27 + k * .13, 3), 11), (round(.29 + k * .13, 3), 12))] + [(.78, "8-9")])
+                               trace=[(0, "16-17"), (.06, 7), (.12, "8-9")] + [x for k in range(4) for x in ((round(.27 + k * .13, 3), 11), (round(.29 + k * .13, 3), 12))] + [(.78, "8-9")])
 
 # ---------- Your first publisher in C++: compile once, then the same messages ----------
 d = "14s"
@@ -2007,7 +2008,7 @@ b = [ellipse_node(70, 30, "CLI client", 62, 18), at(ellipse_node(370, 30, "/mini
      packet("res", "M285,30 L132,30", .6, .68, d), at('<text class="code ok" x="150" y="54">sum=5</text>', .66, 1, d),
      cap("one request in, one response out", .7, 1, d, 230, 186)]
 svgs["Write a service server"] = svg(194, "A command-line client sends a request with a 2 and b 3 to /minimal_service. The add callback computes response.sum = 2 + 3 = 5, logs a: 2 b: 3, and returns the response, which travels back as sum=5.", "".join(b), vb_w=460,
-                                 trace=[(0, "18-19"), (.03, 7), (.08, "8-9"), (.2, 0), (.28, 11), (.32, 12), (.44, "13-14"), (.56, 15), (.7, 0)])
+                                 trace=[(0, "18-20"), (.03, 7), (.08, "8-9"), (.2, 0), (.28, 11), (.32, 12), (.44, "13-14"), (.56, 15), (.7, 0)])
 
 # ---------- Write a service client: ask, keep spinning, read the future ----------
 d = "14s"
@@ -2029,7 +2030,7 @@ for k in range(3): t0 = round(.3 + k * .1, 2); b.append(packet("req", "M346,90 L
 b += [at(chip(170, 170, 120, 40, "[0,1,1,2,3,5]", "Result"), .64, 1, d), packet("res", "M346,96 C300,200 160,200 112,96", .66, .76, d),
       cap("goal once · feedback many · result once", .76, 1, d, 230, 228)]
 svgs["Create an action interface"] = svg(236, "The three parts of Fibonacci.action as messages between a client and a server: the Goal, order 5, goes to the server once; Feedback, a growing partial sequence, streams back several times; the Result, the full sequence, comes back once at the end.", "".join(b), vb_w=460,
-                                     trace=[(0, 4), (.24, 8), (.62, 6), (.78, 0)])
+                                     trace=[(0, 1), (.24, 5), (.62, 3), (.78, 0)])
 
 # ---------- Write an action server: feedback grows, then the result ----------
 d = "14s"
@@ -2043,7 +2044,7 @@ for k in range(len(SEQ)):
 b += [term(5, 124, 450, 106, "--feedback"), at('<text class="code ok" x="250" y="152">succeed()</text>', .74, 1, d), packet("res", "M282,46 L150,46", .76, .84, d), at(f'<text class="code ok" x="250" y="176">result: {SEQ}</text>', .84, 1, d)]
 b = b[:5] + [b[-4]] + b[5:-4] + b[-3:]
 svgs["Write an action server"] = svg(236, "A goal with order 5 reaches the /fibonacci server. execute starts the sequence at 0, 1 and appends one number per second, 1, 2, 3 and 5, publishing feedback each time. Then succeed is called and the result 0, 1, 1, 2, 3, 5 returns.", "".join(b), vb_w=460,
-                                trace=[(0, "8-9"), (.04, 11), (.1, 12)] + [x for k in range(4) for x in ((round(.14 + k * .14, 2), 13), (round(.16 + k * .14, 2), "14-15"), (round(.2 + k * .14, 2), 16), (round(.23 + k * .14, 2), 17))] + [(.72, 18), (.78, 19)])
+                                trace=[(0, "8-10"), (.04, 12), (.1, 13)] + [x for k in range(4) for x in ((round(.14 + k * .14, 2), 14), (round(.16 + k * .14, 2), "18-19"), (round(.2 + k * .14, 2), 20), (round(.23 + k * .14, 2), 21))] + [(.72, 22), (.78, 23)])
 
 # ---------- Write an action client: every callback on a timeline ----------
 d = "16s"
@@ -2058,7 +2059,7 @@ for k in range(4):
     b += [packet("req", f"M380,{y} L80,{y}", t0, round(t0 + .05, 2), d), at(f'<line class="divider" x1="80" y1="{y}" x2="380" y2="{y}"/><text class="code left" x="96" y="{y - 4}" style="font-size:11px">on_feedback {FIB[:k + 3]}</text>', t0, 1, d)]
 b += [packet("res", "M380,212 L80,212", .82, .88, d), at(f'<text class="code ok left" x="96" y="208" style="font-size:11px">result: {FIB}</text>', .86, 1, d)]
 svgs["Write an action client"] = svg(244, "A sequence diagram between client and server: wait_for_server, send_goal_async with order 10, the goal accepted and on_goal_response, get_result_async, four feedback callbacks with a growing sequence, and finally the result sequence ending in 55.", "".join(b), vb_w=460,
-                                trace=[(0, 8), (.1, "9-11"), (.2, "17-19"), (.28, 20), (.36, "14-15"), (.82, "21-22"), (.95, 0)])
+                                trace=[(0, 8), (.1, "9-11"), (.2, "17-19"), (.28, 20), (.36, "14-15"), (.82, "22-25"), (.95, 0)])
 
 # ---------- Lab: request and goal ----------
 d = "16s"
@@ -2124,7 +2125,7 @@ for k in range(12): t_ = k * .5; b.append(at(f'<rect class="req" x="{X(t_)}" y="
 b += [at('<text class="code ok" x="190" y="214">control keeps its 0.5 s rhythm</text>', .4, 1, d), '<rect class="bad" x="300" y="226" width="14" height="10" rx="2"/><text class="code" x="320" y="236">plan 1.5 s</text><rect class="req" x="400" y="226" width="6" height="10" rx="2"/><text class="code" x="412" y="236">tick</text>',
       f'<line stroke="var(--orange)" stroke-width="2" x1="70" y1="30" x2="70" y2="196"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/><animate attributeName="x2" dur="{d}" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/></line>']
 svgs["Executors and callback groups"] = svg(244, "Two timelines over six seconds. With rclpy.spin on one thread, each 1.5 second plan callback blocks the 0.5 second control ticks, which bunch up late. With a MultiThreadedExecutor and separate mutually exclusive groups, plan runs on thread 1 while control keeps its rhythm on thread 2.", "".join(b), vb_w=460,
-                                           trace=[(0, "18-20"), (.03, "6-7"), (.06, "8-9"), (.1, "15-16"), (.3, "11-13"), (.56, "15-16"), (.62, "11-13"), (.84, "15-16")])
+                                           trace=[(0, "21-24"), (.03, "6-8"), (.06, "9-11"), (.1, "17-18"), (.3, "13-15"), (.56, "17-18"), (.62, "13-15"), (.84, "17-18")])
 
 # ---------- Logging and rqt_console ----------
 d = "16s"
@@ -2145,7 +2146,7 @@ svgs["Logging and rqt_console"] = svg(246, "Log lines appear by severity: DEBUG 
 
 # ---------- Launch describes a system ----------
 d = "12s"
-b = [term(5, 5, 450, 50, "terminal"), typed(15, 40, "$ ros2 launch turtles.launch.py", .02, d, .06),
+b = [term(5, 5, 450, 50, "terminal"), typed(15, 40, "$ ros2 launch demo_launch namespace.launch.py", .02, d, .06),
      packet("req", "M230,55 L230,80", .12, .16, d), at('<rect class="hub" x="140" y="80" width="180" height="34" rx="8"/><text class="code" x="152" y="102">LaunchDescription</text>', .14, 1, d),
      at('<rect class="block" x="5" y="128" width="200" height="110" rx="8" stroke-dasharray="5 4"/><text class="k" x="105" y="146">namespace /demo</text>', .26, 1, d),
      at(tswin(20, 154, 62, "turtlesim", "rgb(69,86,255)", f'<animate attributeName="fill" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="rgb(69,86,255);rgb(20,86,255)" keyTimes="0;.5"/>'), .32, 1, d),
@@ -2202,13 +2203,13 @@ svgs["Record, replay, and visualize"] = svg(258, "On the robot, ros2 bag record 
 
 # ---------- Lab: one-command startup ----------
 d = "16s"
-b = [term(5, 5, 450, 100, "terminal"), tl(15, 42, 18, [("type", "$ ros2 pkg create … demo_py", .02), ("type", "$ colcon build --symlink-install", .14), ("ok", "Summary: 1 package finished", .22), ("type", "$ ros2 launch demo_py demo.launch.py", .3)], d),
-     at(ellipse_node(90, 140, "/talker", 70, 18), .38, 1, d), at(ellipse_node(370, 140, "/listener", 74, 18), .38, 1, d), '<path class="trail" d="M160,140 L296,140"/>',
-     at('<rect class="block" x="160" y="170" width="140" height="28" rx="5"/><text class="code" x="168" y="189">params.yaml</text>', .4, 1, d), swap([(.4, .68, "rate: 1.0"), (.68, 1, "rate: 4.0")], 310, 189, d, "code ok")]
-for k in range(4): t0 = round(.42 + k * .065, 3); b.append(packet("req", "M160,140 L296,140", t0, round(t0 + .04, 3), d))
-for k in range(12): t0 = round(.7 + k * .022, 3); b.append(packet("req", "M160,140 L296,140", t0, round(t0 + .02, 3), d))
-svgs["Lab: one-command startup"] = svg(205, "The package is created and built, then one ros2 launch command starts a talker and a listener together. The talker publishes at rate 1.0; changing the rate in params.yaml to 4.0 makes the messages four times as frequent.", "".join(b), vb_w=460,
-                                      trace=[(0, "3-4"), (.12, "6-8"), (.28, 9), (.66, 0)])
+b = [term(5, 5, 450, 100, "terminal"), tl(15, 42, 18, [("type", "$ cd ~/ros2_workshop_code/ros2_ws", .02), ("type", "$ colcon build --symlink-install", .14), ("ok", "Summary: 11 packages finished", .22), ("type", "$ ros2 launch demo_py demo.launch.py", .3)], d),
+     at(ellipse_node(90, 140, "/rate_talker", 80, 18), .38, 1, d), at(ellipse_node(370, 140, "/listener", 74, 18), .38, 1, d), '<path class="trail" d="M160,140 L296,140"/>',
+     at('<rect class="block" x="160" y="170" width="140" height="28" rx="5"/><text class="code" x="168" y="189">params.yaml</text>', .4, 1, d), swap([(.4, .68, "rate: 4.0"), (.68, 1, "param set rate 1.0")], 310, 189, d, "code ok")]
+for k in range(12): t0 = round(.42 + k * .022, 3); b.append(packet("req", "M170,140 L296,140", t0, round(t0 + .02, 3), d))
+for k in range(4): t0 = round(.7 + k * .065, 3); b.append(packet("req", "M170,140 L296,140", t0, round(t0 + .04, 3), d))
+svgs["Lab: one-command startup"] = svg(205, "The workspace is built, then one ros2 launch command starts rate_talker and a listener together. The talker publishes at 4 Hz from params.yaml; ros2 param set changes the rate to 1.0 and the messages slow down while it runs.", "".join(b), vb_w=460,
+                                      trace=[(0, "2-4"), (.28, 5), (.66, "7-8")])
 # ---------- Day 2 divider: frames on a robot, then a simulated world ----------
 d = "10s"
 b = ['<rect x="420" y="20" width="460" height="160" rx="10" fill="rgba(106,168,255,.06)" stroke="var(--line)"/><text class="k" x="650" y="38">simulation</text>',
@@ -2269,7 +2270,7 @@ for k, (x, y, th) in enumerate(POS):
           swap([(round(s0 + .08, 3), e0, f"Translation: [{wx:.2f}, {wy:.2f}, 0]")], 210, 114, d, "code"),
           swap([(round(s0 + .08, 3), e0, f"q: z {math.sin(thr / 2):.2f}  w {math.cos(thr / 2):.2f}")], 210, 138, d, "code ok")]
 svgs["Write a tf2 broadcaster"] = svg(182, "As the turtle moves, each pose message, x, y and theta, becomes a world to turtle1 transform; tf2_echo shows the translation and the quaternion with z = sin(θ/2) and w = cos(θ/2).", "".join(b), vb_w=460,
-                                  trace=[(0, 10)] + [x for k in range(4) for x in ((round(k / 4 + .01, 3), "13-16"), (round(k / 4 + .04, 3), "17-18"), (round(k / 4 + .06, 3), "19-20"), (round(k / 4 + .08, 3), 21))])
+                                  trace=[(0, "11-12")] + [x for k in range(4) for x in ((round(k / 4 + .01, 3), "15-18"), (round(k / 4 + .04, 3), "19-20"), (round(k / 4 + .06, 3), "21-22"), (round(k / 4 + .08, 3), 23))])
 
 # ---------- Write a tf2 listener: the buffer and the lookup ----------
 d = "14s"
@@ -2280,17 +2281,17 @@ LOG = [(.08, "not yet: \"world\" passed to lookupTransform", "hot"), (.3, "turtl
 for j, (t0, t, cls) in enumerate(LOG): b.append(shown(15, 118 + j * 18, t, t0, d, 1, f"code {cls}" if cls != "ok" else "code ok"))
 b += [at('<circle cx="430" cy="100" r="10" fill="none" stroke="var(--orange)" stroke-width="2"/><text class="code" x="372" y="104">1 s</text>', .05, 1, d)]
 svgs["Write a tf2 listener"] = svg(206, "The listener's buffer starts empty, so the first lookup fails with not yet. As transforms arrive the buffer fills, and every second lookup_transform for world to turtle1 succeeds and logs the turtle's position.", "".join(b), vb_w=460,
-                               trace=[(0, "9-11"), (.06, 15), (.08, "16-18"), (.28, 15), (.3, "19-20"), (.48, 15), (.5, "19-20"), (.7, "19-20"), (.9, "19-20")])
+                               trace=[(0, "9-13"), (.06, 17), (.08, "18-20"), (.28, 17), (.3, "21-22"), (.48, 17), (.5, "21-22"), (.7, "21-22"), (.9, "21-22")])
 
 # ---------- Lab: debug the frame tree ----------
 d = "16s"
-b = ['<rect class="win" x="5" y="25" width="140" height="140" fill="#4556ff"/><rect class="termbar" x="5" y="5" width="140" height="22" rx="5"/><text class="k" x="75" y="16">turtle_tf2 demo</text>',
+b = ['<rect class="win" x="5" y="25" width="140" height="140" fill="#4556ff"/><rect class="termbar" x="5" y="5" width="140" height="22" rx="5"/><text class="k" x="75" y="16">demo_tf2 follow</text>',
      f'<g>{TURTLE}<animateMotion dur="{d}" repeatCount="indefinite" path="M40,120 C60,50 110,40 120,100"/></g>',
      f'<g><g transform="scale(.9)">{TURTLE}</g><animateMotion dur="{d}" repeatCount="indefinite" path="M30,150 C40,90 80,60 105,80" /></g>',
      at(ellipse_node(220, 40, "world", 46, 15) + ellipse_node(185, 110, "turtle1", 50, 15) + ellipse_node(275, 110, "turtle2", 50, 15) + '<line class="divider" x1="210" y1="55" x2="190" y2="95"/><line class="divider" x1="230" y1="55" x2="270" y2="95"/>', .1, 1, d),
      term(330, 5, 125, 100, "tf2_echo"), swap([(.3, .55, "t 1.21 0.40"), (.55, .62, "t 0.84 0.31")], 338, 50, d, "code ok"), at('<text class="code hot" x="338" y="50">turtle3 does</text><text class="code hot" x="338" y="68">not exist</text>', .62, .82, d),
      at('<text class="code" x="160" y="160">tf2_monitor: delay 0.003 s · 62 Hz</text>', .84, 1, d)]
-svgs["Lab: debug the frame tree"] = svg(170, "In the turtle_tf2 demo turtle2 chases turtle1. view_frames shows world with children turtle1 and turtle2; tf2_echo prints the changing transform between them; a wrong name, turtle3, fails with does not exist; tf2_monitor reports the delay and rate.", "".join(b), vb_w=460,
+svgs["Lab: debug the frame tree"] = svg(170, "In the demo_tf2 follow demo turtle2 chases turtle1. view_frames shows world with children turtle1 and turtle2; tf2_echo prints the changing transform between them; a wrong name, turtle3, fails with does not exist; tf2_monitor reports the delay and rate.", "".join(b), vb_w=460,
                                    trace=[(0, 1), (.1, 3), (.3, 4), (.62, 0), (.84, 6)])
 
 # ---------- URDF divider: links and joints assemble ----------
@@ -2311,7 +2312,7 @@ b = [chip(5, 5, 170, 60, "wheel(name, y)", "xacro:macro"), '<rect class="robot-b
      term(5, 145, 450, 60, "check_urdf /tmp/robot.urdf"), at('<text class="code ok" x="15" y="190">root Link: base_link has 2 child(ren)</text>', .5, 1, d),
      at(ellipse_node(70, 230, "base_link", 62, 15) + ellipse_node(230, 230, "left_wheel", 62, 15) + ellipse_node(390, 230, "right_wheel", 62, 15) + '<line class="divider" x1="132" y1="230" x2="168" y2="230"/><path class="trail" d="M70,245 C70,262 390,262 390,245"/>', .66, 1, d)]
 svgs["URDF and Xacro"] = svg(262, "One wheel macro is called twice, creating left and right wheels at y 0.1 and y -0.1 on base_link. xacro expands the file, check_urdf reports base_link with 2 children, and urdf_to_graphiz draws the tree.", "".join(b), vb_w=460,
-                          trace=[(0, 1), (.08, 2), (.12, "3-7"), (.48, 0)])
+                          trace=[(0, 1), (.08, "2-4"), (.12, "5-10"), (.48, 0)])
 
 # ---------- RViz2 tour: each display adds a layer ----------
 d = "14s"
@@ -2404,14 +2405,15 @@ svgs["Stable simulation starts with the model"] = svg(254, "Four small simulatio
 
 # ---------- Lab: spawn and drive ----------
 d = "16s"
-b = ['<rect x="5" y="5" width="220" height="170" rx="6" fill="rgba(106,168,255,.06)" stroke="var(--line)"/><text class="k" x="115" y="20">Gazebo · empty.sdf</text>']
+b = ['<rect x="5" y="5" width="220" height="170" rx="6" fill="rgba(106,168,255,.06)" stroke="var(--line)"/><text class="k" x="115" y="20">Gazebo · table.sdf</text>']
 for k in range(6): b.append(f'<line x1="{20 + k * 38}" y1="30" x2="{20 + k * 38}" y2="165" stroke="rgba(88,224,210,.12)"/>')
-b += [f'<g opacity="0"><g>{robot_top(0, 0, 0, .9)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 1 1;{EASE};0 0 1 1" values="70 40;70 120;70 120;180 120;180 120" keyTimes="0;.28;.62;.9;1"/>{vis(.22, 1, d)}</g>',
-      term(235, 5, 220, 170, "terminal"), tl(245, 44, 18, [("ok", "gz sim: empty world ✓", .06), ("ok", "spawned: workshop_bot ✓", .24), ("ok", "bridge: /clock /cmd_vel", .4), ("type", "$ ros2 topic echo /clock", .52)], d),
+b += ['<rect x="40" y="150" width="150" height="8" fill="#3a4566"/>', at('<rect x="70" y="150" width="30" height="12" class="robot-part"/>', .22, 1, d),
+      at(arm2(85, 150, 55, 45, [90, 90, 40, 70, 90], [-20, -20, -60, -90, -20], "0;.62;.75;.88;1", d, spline=True), .22, 1, d),
+      term(235, 5, 220, 170, "terminal"), tl(245, 44, 18, [("ok", "gz sim: table world ✓", .06), ("ok", "spawned: demo_arm ✓", .24), ("ok", "3 controllers active", .4), ("type", "$ ros2 topic echo /clock", .52)], d),
       swap([(round(.56 + k * .04, 2), round(.6 + k * .04, 2) if k < 10 else 1, f"sec: {k // 2} nanosec: {(k % 2) * 500000000}") for k in range(11)], 245, 134, d, "code ok"),
       at('<text class="code dim" x="245" y="160">sim time, not wall time</text>', .6, 1, d), packet("res", "M235,100 L180,120", .62, .66, d)]
-svgs["Lab: spawn and drive"] = svg(182, "Gazebo opens an empty world; the workshop robot is spawned and drops in; the bridge connects /clock and /cmd_vel; echoing /clock shows simulation time counting while a velocity command drives the robot.", "".join(b), vb_w=460,
-                              trace=[(0, "1-2"), (.2, "4-6"), (.38, "7-10"), (.52, 11)])
+svgs["Lab: spawn and drive"] = svg(182, "Gazebo opens the table world and demo_arm is spawned; three controllers become active; echoing /clock shows simulation time counting while the trajectory demo moves the arm.", "".join(b), vb_w=460,
+                              trace=[(0, "1-2"), (.2, "4-5"), (.38, "6-7"), (.52, 9)])
 
 # ---------- Sensor simulation divider ----------
 d = "8s"
@@ -2547,7 +2549,7 @@ for k, (s0, e0, q) in enumerate(((.08, .36, QS[2]), (.36, .52, QS[4]), (0, .08, 
     _, tp = fk2(*q, 1.0, .85)
     b += [swap([(s0 or .001, e0, f"q [{math.radians(q[0]):.2f}, {math.radians(q[1]):.2f}]")], 245, 50, d, "code"), swap([(s0 or .001, e0, f"tool ({tp[0]:.2f}, {tp[1]:.2f}) m")], 245, 74, d, "code ok")]
 svgs["Lab: explore a robot arm"] = svg(182, "In RViz2 an arm moves through configurations while tf2_echo prints the joint values and the tool position for each. A target beyond reach is marked unreachable, and a fully stretched configuration is flagged as near singular.", "".join(b), vb_w=460,
-                                  trace=[(0, 1), (.06, "3-4"), (.5, 0), (.84, "7-9")])
+                                  trace=[(0, "1-2"), (.06, "4-5"), (.5, 0), (.84, "8-10")])
 
 # ---------- ros2_control and MoveIt 2 divider ----------
 d = "9s"
@@ -2577,13 +2579,13 @@ svgs["The planning scene"] = svg(258, "Four layers fill the planning scene: the 
 
 # ---------- Lab: connect plan to controller ----------
 d = "16s"
-b = [term(5, 5, 450, 92, "terminal"), tl(15, 42, 18, [("ok", "hardware: arm_system [active]", .04), ("show", "joint1/position [claimed] …", .12), ("ok", "arm_controller  active", .2), ("ok", "joint_state_broadcaster  active", .2)], d),
+b = [term(5, 5, 450, 92, "terminal"), tl(15, 42, 18, [("ok", "DemoArmSystem [active]", .04), ("show", "joint1/position [claimed] …", .12), ("ok", "arm_controller  active", .2), ("ok", "joint_state_broadcaster  active", .2)], d),
      chip(5, 108, 140, 40, "Plan & Execute", cls="block app"), packet("res", "M145,128 L235,128", .4, .46, d), chip(235, 108, 220, 40, "follow_joint_trajectory"),
      '<rect x="5" y="158" width="450" height="60" rx="6" fill="#0f1527" stroke="var(--line)"/><polyline points="15,210 80,200 150,180 230,170 320,168 445,168" fill="none" stroke="var(--cyan)" stroke-dasharray="5 4" stroke-width="2"/>',
      f'<polyline points="15,212 80,204 150,186 230,173 320,169 445,168" fill="none" stroke="var(--orange)" stroke-width="2" stroke-dasharray="1 1" pathLength="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.48;.86;1"/></polyline>',
      '<text class="k left" x="15" y="172">plan (dashed) · /joint_states</text>', at('<text class="code ok" x="330" y="210">SUCCEEDED</text>', .88, 1, d)]
 svgs["Lab: connect plan to controller"] = svg(222, "ros2 control lists the active hardware, claimed joint interfaces and two active controllers. Plan and Execute sends a goal to follow_joint_trajectory, and the measured joint states trace the planned curve until the result is SUCCEEDED.", "".join(b), vb_w=460,
-                                         trace=[(0, 1), (.1, 2), (.18, 3), (.38, "5-6"), (.5, 8)])
+                                         trace=[(0, "1-3"), (.1, 4), (.18, 5), (.38, "7-8"), (.5, 10)])
 
 # ---------- Motion planning divider: RRT grows to the goal ----------
 d = "10s"
@@ -2661,7 +2663,7 @@ b = ['<rect class="term" x="5" y="5" width="220" height="170" rx="6"/><text clas
      f'<path d="M{BX + 110},{BY - 20} C{BX + 80},{BY - 140} {BX - 30},{BY - 140} {BX - 60},{BY - 60}" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="5 4" opacity="0">{vis(.4, .8, d)}</path>',
      term(235, 5, 220, 170, "terminal"), tl(245, 44, 18, [("show", "world: table", .04), ("ok", "plan: 12 waypoints", .1), ("show", "world: table, box", .36), ("ok", "replan: 21 waypoints", .42), ("hot", "goal x=2.0: PLANNING_FAILED", .84)], d)]
 svgs["Lab: plan around an obstacle"] = svg(182, "With only the table in the scene, the arm plans a short path. A collision box is added; the replanned path arcs over it with more waypoints. A goal far out of reach fails to plan.", "".join(b), vb_w=460,
-                                      trace=[(0, 2), (.1, 3), (.4, "5-6"), (.84, 0)])
+                                      trace=[(0, "1-3"), (.1, 4), (.4, "6-7"), (.84, 0)])
 
 # ---------- Cartesian motion and grasping divider ----------
 d = "9s"
@@ -2673,9 +2675,9 @@ svgs["Cartesian motion and grasping"] = svg(200, "A gripper comes straight down 
 
 # ---------- Lab: pick and place ----------
 d = "16s"
-b = term(5, 5, 450, 175, "evidence") + tl(15, 42, 19, [("show", "planning scene: + box", .04), ("ok", "pre-grasp plan: SUCCEEDED", .14), ("ok", "Cartesian approach: fraction 1.00", .26), ("show", "gripper closed · attach box → hand", .38), ("ok", "lift, move: SUCCEEDED", .52), ("show", "detach box · scene: box at place pose", .68), ("ok", "retreat: SUCCEEDED ✓", .82)], d)
-svgs["Lab: pick and place"] = svg(186, "An evidence log fills as the task runs: the box enters the planning scene, the pre-grasp plan succeeds, the Cartesian approach reaches fraction 1.00, the box is attached on closing, lift and move succeed, the box is detached at its place pose, and the retreat succeeds.", b, vb_w=460,
-                             trace=[(0, "2-4"), (.24, 6), (.36, 8), (.66, 8), (.8, 7)])
+b = term(5, 5, 450, 175, "evidence") + tl(15, 42, 19, [("show", "planning scene: + box", .04), ("ok", "pre-grasp plan: SUCCEEDED", .14), ("ok", "straight approach (LIN): done", .26), ("show", "gripper closed · attach box → hand", .38), ("ok", "lift, move: SUCCEEDED", .52), ("show", "detach box · scene: box at place pose", .68), ("ok", "retreat: SUCCEEDED ✓", .82)], d)
+svgs["Lab: pick and place"] = svg(186, "An evidence log fills as the task runs: the box enters the planning scene, the pre-grasp plan succeeds, the straight-line approach succeeds, the box is attached on closing, lift and move succeed, the box is detached at its place pose, and the retreat succeeds.", b, vb_w=460,
+                             trace=[(0, "1-5"), (.24, 7), (.36, 9), (.66, 9), (.8, 8)])
 
 # ---------- Capstone: evidence gathered into one submission ----------
 d = "16s"

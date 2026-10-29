@@ -1872,7 +1872,8 @@ SCENES['hero'] = async () => {
     else place(cube, ON_TABLE);
   };
   const hand = new THREE.Vector3(), botTop = new THREE.Vector3();
-  return { ...s, autoRotate: .55, reset() { holder = ''; }, update(t) {
+  // sway the view gently instead of spinning: both robots stay in frame
+  return { ...s, sway: { amplitude: .42, period: 26 }, reset() { holder = ''; }, update(t) {
     let tc = t % CYCLE, i = 0; while (tc > PHASES[i][1]) tc -= PHASES[i++][1];
     const [kind, dur, steps] = PHASES[i];
     // the robot
@@ -1956,7 +1957,7 @@ async function mount(slide) {
     view.prepend(renderer.domElement, labels.domElement);
     me.controls = new OrbitControls(inst.camera, renderer.domElement);
     me.controls.target.copy(inst.target); me.controls.enableDamping = true;
-    if (inst.autoRotate) Object.assign(me.controls, { autoRotate: true, autoRotateSpeed: inst.autoRotate, enableZoom: false, enablePan: false });
+    if (inst.autoRotate || inst.sway) Object.assign(me.controls, { autoRotate: true, autoRotateSpeed: inst.autoRotate ?? 0, enableZoom: false, enablePan: false });
   }
   clock = 0; inst.reset?.();
   last = performance.now(); tick(last);   // draw immediately so the previous scene never shows
@@ -1971,7 +1972,11 @@ function tick(now) {
     if (renderer.domElement.width !== Math.round(w * renderer.getPixelRatio()) || renderer.domElement.height !== Math.round(h * renderer.getPixelRatio())) {
       renderer.setSize(w, h, false); labels.setSize(w, h); inst.camera.aspect = w / h; inst.camera.updateProjectionMatrix();
     }
-    if (inst.autoRotate) cur.controls.autoRotate = !isPaused();
+    if (inst.autoRotate || inst.sway) cur.controls.autoRotate = !isPaused();
+    if (inst.sway) {   // OrbitControls turns 2π/60 · speed rad/s: a cosine speed gives a ±amplitude sine sway
+      const { amplitude, period } = inst.sway;
+      cur.controls.autoRotateSpeed = amplitude * 60 / period * Math.cos(2 * Math.PI * clock / period);
+    }
     cur.controls.update();
     renderer.render(inst.scene, inst.camera);
     // CSS2DRenderer checks only a label's own flag, so hide labels that sit inside hidden groups too.

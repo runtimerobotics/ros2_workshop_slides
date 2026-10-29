@@ -177,6 +177,12 @@
   document.addEventListener('deck:slide', startFlow);
   document.addEventListener('deck:restart', startFlow);
 
+  // Code from the workshop repository: show where it lives (ros2_ws/src/ is implied for packages).
+  document.querySelectorAll('pre[data-src]').forEach(pre => {
+    pre.dataset.label = pre.dataset.src.replace(/^ros2_ws\/src\//, '');
+    pre.title = `ros2_workshop_code/${pre.dataset.src}`;
+  });
+
   // Code tracing: a diagram names the lines it is acting out, data-trace="0:1-3;.25:6;.5:0" (cycle fraction : lines, 0 = none),
   // and a bar follows along in the real code block. data-trace-pre picks the block (default: the first pre on the slide).
   let traceRaf = 0;
