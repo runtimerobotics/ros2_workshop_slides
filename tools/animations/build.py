@@ -2125,7 +2125,7 @@ for k in range(12): t_ = k * .5; b.append(at(f'<rect class="req" x="{X(t_)}" y="
 b += [at('<text class="code ok" x="190" y="214">control keeps its 0.5 s rhythm</text>', .4, 1, d), '<rect class="bad" x="300" y="226" width="14" height="10" rx="2"/><text class="code" x="320" y="236">plan 1.5 s</text><rect class="req" x="400" y="226" width="6" height="10" rx="2"/><text class="code" x="412" y="236">tick</text>',
       f'<line stroke="var(--orange)" stroke-width="2" x1="70" y1="30" x2="70" y2="196"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/><animate attributeName="x2" dur="{d}" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/></line>']
 svgs["Executors and callback groups"] = svg(244, "Two timelines over six seconds. With rclpy.spin on one thread, each 1.5 second plan callback blocks the 0.5 second control ticks, which bunch up late. With a MultiThreadedExecutor and separate mutually exclusive groups, plan runs on thread 1 while control keeps its rhythm on thread 2.", "".join(b), vb_w=460,
-                                           trace=[(0, "21-24"), (.03, "6-8"), (.06, "9-11"), (.1, "17-18"), (.3, "13-15"), (.56, "17-18"), (.62, "13-15"), (.84, "17-18")])
+                                           trace=[(0, "19-21"), (.03, "6-7"), (.06, "8-9"), (.1, "15-16"), (.3, "11-13"), (.56, "15-16"), (.62, "11-13"), (.84, "15-16")])
 
 # ---------- Logging and rqt_console ----------
 d = "16s"
@@ -2174,7 +2174,7 @@ b = ['<line class="divider" x1="10" y1="40" x2="450" y2="40"/>', '<text class="k
      at(chip(150, 166, 150, 34, "OnProcessExit"), .66, 1, d), at('<text class="code ok" x="310" y="178">LogInfo:</text><text class="code ok" x="310" y="196">turtlesim closed</text>', .72, 1, d),
      at('<text class="code hot" x="10" y="234">Shutdown → every process stops, no orphans</text>', .8, 1, d)]
 svgs["Launch event handlers"] = svg(244, "On a launch timeline: turtlesim starts; OnProcessStart fires and spawns turtle2, which appears. Later the window is closed; OnProcessExit logs turtlesim closed and emits Shutdown, so every process stops and none are left orphaned.", "".join(b), vb_w=460,
-                                   trace=[(0, 9), (.14, "16-17"), (.22, "10-12"), (.6, 0), (.66, "18-19"), (.72, 20), (.8, 21)])
+                                   trace=[(0, 12), (.14, "18-19"), (.22, "13-15"), (.6, 0), (.66, "20-21"), (.72, 22), (.8, 23)])
 
 # ---------- Launch files in XML and YAML: three formats, one node ----------
 d = "12s"

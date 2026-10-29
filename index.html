@@ -942,7 +942,7 @@ def main():
     rclpy.init()
     try:
         rclpy.spin(Talker())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass</code></pre>
         <div><h3>Read it top to bottom</h3>
       <svg class="ros-anim" viewBox="0 0 460 228" role="img" aria-label="Running talker.py: the /talker node appears, then its publisher on /chatter with type String and depth 10, then a 0.5 second timer. Each time the timer fires, tick builds String Hello 0, Hello 1 and so on, publishes it, and ros2 topic echo prints it." data-trace="0:19;0.04:20-21;0.08:7;0.14:8-9;0.22:10;0.3:11;0.36:14;0.4:15;0.45:16;0.51:14;0.55:15;0.6:16;0.66:14;0.7:15;0.75:16;0.81:14;0.85:15;0.9:16">
@@ -973,7 +973,7 @@ def main():
     rclpy.init()
     try:
         rclpy.spin(Listener())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass</code></pre>
         <div>
       <svg class="ros-anim" viewBox="0 0 460 214" role="img" aria-label="The /listener node subscribes to /chatter. Messages from /talker arrive, wait in a depth-10 queue, and on_msg logs I heard: Hello 3, Hello 4 and so on. Then the subscription is changed to chatter2 and nothing arrives, because type, name and QoS must match." data-trace="0:16-17;0.06:7;0.12:8-9;0.27:11;0.29:12;0.4:11;0.42:12;0.53:11;0.55:12;0.66:11;0.68:12;0.78:8-9">
@@ -1021,7 +1021,7 @@ int main(int argc, char * argv[]) {
 <pre class="nested-code" data-src="ros2_ws/src/demo_cpp/CMakeLists.txt"><code>find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 add_executable(talker src/talker.cpp)
-ament_target_dependencies(talker rclcpp std_msgs)
+target_link_libraries(talker rclcpp::rclcpp ${std_msgs_TARGETS})
 ...
 install(TARGETS talker listener add_two_ints_server param_node
   DESTINATION lib/${PROJECT_NAME})</code></pre></div>
@@ -1192,7 +1192,7 @@ def main():
     rclpy.init()
     try:
         rclpy.spin(MinimalService())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass</code></pre>
         <div><h3>The server callback</h3>
       <svg class="ros-anim" viewBox="0 0 460 194" role="img" aria-label="A command-line client sends a request with a 2 and b 3 to /minimal_service. The add callback computes response.sum = 2 + 3 = 5, logs a: 2 b: 3, and returns the response, which travels back as sum=5." data-trace="0:18-20;0.03:7;0.08:8-9;0.2:0;0.28:11;0.32:12;0.44:13-14;0.56:15;0.7:0">
@@ -1464,12 +1464,10 @@ from rclpy.executors import MultiThreadedExecutor
 class Robot(Node):
     def __init__(self):
         super().__init__('robot')
-        self.create_timer(
-            2.0, self.plan,
-            callback_group=MutuallyExclusiveCallbackGroup())
-        self.create_timer(
-            0.5, self.control,
-            callback_group=MutuallyExclusiveCallbackGroup())
+        slow = MutuallyExclusiveCallbackGroup()   <span class="comment"># one group per timer:</span>
+        fast = MutuallyExclusiveCallbackGroup()   <span class="comment"># they may run at the same time</span>
+        self.create_timer(2.0, self.plan, callback_group=slow)
+        self.create_timer(0.5, self.control, callback_group=fast)
 
     def plan(self):
         time.sleep(1.5)                  <span class="comment"># slow work</span>
@@ -1480,14 +1478,12 @@ class Robot(Node):
 
 def main():
     rclpy.init()
-    executor = MultiThreadedExecutor()
-    executor.add_node(Robot())
     try:
-        executor.spin()
-    except KeyboardInterrupt:
+        rclpy.spin(Robot(), executor=MultiThreadedExecutor())
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
         pass</code></pre>
         <div><h3>Who runs your callbacks</h3>
-      <svg class="ros-anim" viewBox="0 0 460 244" role="img" aria-label="Two timelines over six seconds. With rclpy.spin on one thread, each 1.5 second plan callback blocks the 0.5 second control ticks, which bunch up late. With a MultiThreadedExecutor and separate mutually exclusive groups, plan runs on thread 1 while control keeps its rhythm on thread 2." data-trace="0:21-24;0.03:6-8;0.06:9-11;0.1:17-18;0.3:13-15;0.56:17-18;0.62:13-15;0.84:17-18">
+      <svg class="ros-anim" viewBox="0 0 460 244" role="img" aria-label="Two timelines over six seconds. With rclpy.spin on one thread, each 1.5 second plan callback blocks the 0.5 second control ticks, which bunch up late. With a MultiThreadedExecutor and separate mutually exclusive groups, plan runs on thread 1 while control keeps its rhythm on thread 2." data-trace="0:19-21;0.03:6-7;0.06:8-9;0.1:15-16;0.3:11-13;0.56:15-16;0.62:11-13;0.84:15-16">
         <text class="k left" x="5" y="22">rclpy.spin · one thread</text><text class="k left" x="5" y="122">MultiThreadedExecutor</text><text class="code dim" x="5" y="54">thread</text><text class="code dim" x="5" y="152">thread 1</text><text class="code dim" x="5" y="184">thread 2</text><line class="divider" x1="70" y1="48" x2="442" y2="48"/><line class="divider" x1="70" y1="146" x2="442" y2="146"/><line class="divider" x1="70" y1="178" x2="442" y2="178"/><g opacity="0"><rect class="req" x="70" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.02"/></g><g opacity="0"><rect class="req" x="101.0" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.095"/></g><g opacity="0"><rect class="req" x="132.0" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.17"/></g><g opacity="0"><rect class="req" x="163.0" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.245"/></g><g opacity="0"><rect class="bad" x="194.0" y="38" width="93.0" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.32"/></g><g opacity="0"><rect class="req" x="287.0" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.545"/></g><g opacity="0"><rect class="req" x="290.1" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.552"/></g><g opacity="0"><rect class="bad" x="318.0" y="38" width="93.0" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.62"/></g><g opacity="0"><rect class="req" x="411.0" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.845"/></g><g opacity="0"><rect class="req" x="414.09999999999997" y="38" width="6" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.852"/></g><g opacity="0"><text class="code hot" x="190" y="84">control ticks wait 1.5 s</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.4"/></g><g opacity="0"><rect class="bad" x="194.0" y="136" width="93.0" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.32"/></g><g opacity="0"><rect class="bad" x="318.0" y="136" width="93.0" height="20" rx="3"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.62"/></g><g opacity="0"><rect class="req" x="70.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.02"/></g><g opacity="0"><rect class="req" x="101.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.095"/></g><g opacity="0"><rect class="req" x="132.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.17"/></g><g opacity="0"><rect class="req" x="163.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.245"/></g><g opacity="0"><rect class="req" x="194.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.32"/></g><g opacity="0"><rect class="req" x="225.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.395"/></g><g opacity="0"><rect class="req" x="256.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.47"/></g><g opacity="0"><rect class="req" x="287.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.545"/></g><g opacity="0"><rect class="req" x="318.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.62"/></g><g opacity="0"><rect class="req" x="349.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.695"/></g><g opacity="0"><rect class="req" x="380.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.77"/></g><g opacity="0"><rect class="req" x="411.0" y="168" width="6" height="20" rx="2"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.845"/></g><g opacity="0"><text class="code ok" x="190" y="214">control keeps its 0.5 s rhythm</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.4"/></g><rect class="bad" x="300" y="226" width="14" height="10" rx="2"/><text class="code" x="320" y="236">plan 1.5 s</text><rect class="req" x="400" y="226" width="6" height="10" rx="2"/><text class="code" x="412" y="236">tick</text><line stroke="var(--orange)" stroke-width="2" x1="70" y1="30" x2="70" y2="196"><animate attributeName="x1" dur="14s" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/><animate attributeName="x2" dur="14s" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/></line>
       </svg>
 <p class="callout warning">With <code>rclpy.spin</code>, the 1.5 s plan freezes every control tick.</p></div>
@@ -1501,7 +1497,7 @@ def main():
         <pre data-src="ros2_ws/src/demo_py/demo_py/logging_demo.py" data-src-lines="1-7"><code>log = self.get_logger()
 log.debug('raw scan received')
 log.info('robot ready')
-log.warn('battery below 20%')
+log.warning('battery below 20%')
 log.error('lidar timeout')
 log.fatal('motor driver lost')
 log.info('tick', throttle_duration_sec=1.0)
@@ -1586,17 +1582,20 @@ ros2 launch demo_launch turtles.launch.py \
     <section class="slide" data-section="Day 1 · Runtime orchestration" data-title="Launch event handlers">
       <div class="slide-head"><p class="eyebrow">Optional · Docs · Launch: using event handlers</p><h2>Launch event handlers</h2></div>
       <div class="split code-wide">
-        <pre data-src="ros2_ws/src/demo_launch/launch/events.launch.py"><code>from launch import LaunchDescription
+        <pre data-src="ros2_ws/src/demo_launch/launch/events.launch.py"><code>from importlib.util import find_spec
+from launch import LaunchDescription
 from launch.actions import (EmitEvent, ExecuteProcess, LogInfo,
                             RegisterEventHandler)
 from launch.event_handlers import OnProcessExit, OnProcessStart
 from launch.events import Shutdown
 from launch_ros.actions import Node
 
+MSGS = 'turtlesim_msgs' if find_spec('turtlesim_msgs') else 'turtlesim'
+
 def generate_launch_description():
     sim = Node(package='turtlesim', executable='turtlesim_node')
     spawn = ExecuteProcess(cmd=[
-        'ros2', 'service', 'call', '/spawn', 'turtlesim/srv/Spawn',
+        'ros2', 'service', 'call', '/spawn', f'{MSGS}/srv/Spawn',
         "{x: 2.0, y: 2.0, name: 'turtle2'}"])
     return LaunchDescription([
         sim,
@@ -1608,7 +1607,7 @@ def generate_launch_description():
                      EmitEvent(event=Shutdown())])),
     ])</code></pre>
         <div><h3>React to what happens</h3>
-      <svg class="ros-anim" viewBox="0 0 460 244" role="img" aria-label="On a launch timeline: turtlesim starts; OnProcessStart fires and spawns turtle2, which appears. Later the window is closed; OnProcessExit logs turtlesim closed and emits Shutdown, so every process stops and none are left orphaned." data-trace="0:9;0.14:16-17;0.22:10-12;0.6:0;0.66:18-19;0.72:20;0.8:21">
+      <svg class="ros-anim" viewBox="0 0 460 244" role="img" aria-label="On a launch timeline: turtlesim starts; OnProcessStart fires and spawns turtle2, which appears. Later the window is closed; OnProcessExit logs turtlesim closed and emits Shutdown, so every process stops and none are left orphaned." data-trace="0:12;0.14:18-19;0.22:13-15;0.6:0;0.66:20-21;0.72:22;0.8:23">
         <line class="divider" x1="10" y1="40" x2="450" y2="40"/><text class="k left" x="10" y="20">launch timeline</text><g opacity="0"><rect class="block" x="10" y="56" width="120" height="34" rx="5"/><text class="code" x="18" y="77.0">start sim</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.04"/></g><g opacity="0"><rect class="block" x="150" y="56" width="150" height="34" rx="5"/><text class="code" x="158" y="77.0">OnProcessStart</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.16"/></g><g opacity="0"><rect class="block" x="320" y="56" width="130" height="34" rx="5"/><text class="code" x="328" y="77.0">spawn turtle2</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.24"/></g><g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="14s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;0.45 0 0.2 1;0 0 1 1" path="M130,73 L150,73" keyPoints="0;0;1;1" keyTimes="0;0.14;0.17;1"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.14;0.17"/></g><g class="packet"><rect class="req" x="-11" y="-11" width="22" height="22" rx="5"/><animateMotion dur="14s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;0.45 0 0.2 1;0 0 1 1" path="M300,73 L320,73" keyPoints="0;0;1;1" keyTimes="0;0.22;0.25;1"/><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.22;0.25"/></g><g opacity="0"><rect class="termbar" x="10" y="104" width="120" height="20" rx="5"/><text class="k" x="70.0" y="115">turtlesim</text><rect class="win" x="10" y="122" width="120" height="96" fill="#4556ff"></rect><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.06;0.6"/></g><g opacity="0"><g opacity=".35"><rect class="termbar" x="10" y="104" width="120" height="20" rx="5"/><text class="k" x="70.0" y="115">turtlesim</text><rect class="win" x="10" y="122" width="120" height="96" fill="#4556ff"></rect></g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.6"/></g><g opacity="0"><g transform="translate(50 170) rotate(0)"><g class="turtle"><circle cx="-2" cy="-9" r="3"/><circle cx="-2" cy="9" r="3"/><circle cx="7" cy="-8" r="3"/><circle cx="7" cy="8" r="3"/><circle cx="13" r="4.5"/><ellipse rx="11" ry="9" class="shell"/></g></g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.06;0.6"/></g><g opacity="0"><g transform="translate(95 150) rotate(0)"><g class="turtle"><circle cx="-2" cy="-9" r="3"/><circle cx="-2" cy="9" r="3"/><circle cx="7" cy="-8" r="3"/><circle cx="7" cy="8" r="3"/><circle cx="13" r="4.5"/><ellipse rx="11" ry="9" class="shell"/></g></g><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1;0" keyTimes="0;0.28;0.6"/></g><g opacity="0"><line class="xmark" x1="15" y1="104" x2="125" y2="214"/><text class="code hot" x="140" y="150">window closed</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.6"/></g><g opacity="0"><rect class="block" x="150" y="166" width="150" height="34" rx="5"/><text class="code" x="158" y="187.0">OnProcessExit</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.66"/></g><g opacity="0"><text class="code ok" x="310" y="178">LogInfo:</text><text class="code ok" x="310" y="196">turtlesim closed</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.72"/></g><g opacity="0"><text class="code hot" x="10" y="234">Shutdown → every process stops, no orphans</text><animate attributeName="opacity" dur="14s" repeatCount="indefinite" calcMode="discrete" values="0;1" keyTimes="0;0.8"/></g>
       </svg>
 <p class="callout">Close the turtlesim window and the whole launch shuts down instead of leaving orphan nodes.</p></div>
@@ -2644,7 +2643,7 @@ ros2 run demo_nodes_py listener \
   <div class="overview" id="overview" aria-hidden="true"><div class="overview-head"><h2>Slide overview</h2><button id="close-overview" aria-label="Close overview">×</button></div><div class="overview-grid" id="overview-grid"></div></div>
   <div class="notes-panel" id="notes-panel" aria-hidden="true"><div><span>Speaker notes</span><button id="close-notes" aria-label="Close notes">×</button></div><p id="notes-content"></p></div>
   <div class="help" id="help" aria-hidden="true"><div><h2>Keyboard shortcuts</h2><p><kbd>Space</kbd> <kbd>→</kbd> Reveal next step or advance</p><p><kbd>←</kbd> Hide previous step or go back</p><p><kbd>G</kbd> Choose a slide from the list</p><p><kbd>K</kbd> Pause or resume an animation</p><p><kbd>R</kbd> Restart an animation</p><p><kbd>O</kbd> Slide overview</p><p><kbd>N</kbd> Speaker notes</p><p><kbd>F</kbd> Fullscreen</p><p><kbd>P</kbd> Print slides</p><p><kbd>?</kbd> Toggle this help</p><button id="close-help">Close</button></div></div>
-  <script src="script.js?v=12"></script>
+  <script src="script.js?v=13"></script>
   <script type="importmap">{ "imports": { "three": "./vendor/three/three.module.js", "three/examples/jsm/": "./vendor/three/jsm/" } }</script>
   <script type="module" src="scenes3d.js?v=12"></script>
 </body>

@@ -53,6 +53,27 @@
     return Number.isFinite(raw) && raw > 0 ? clamp(raw - 1) : 0;
   }
 
+  // Long code on a short screen: shrink the code font until its column fits beside the diagram,
+  // instead of the centred column growing up under the title. Phones scroll, so they are left alone.
+  function fitCode(slide) {
+    if (innerWidth <= 900) return;
+    slide.querySelectorAll('.split').forEach(split => {
+      for (const col of split.children) {
+        const pres = col.matches('pre') ? [col] : [...col.querySelectorAll(':scope > pre')];
+        if (!pres.length) continue;
+        pres.forEach(pre => { pre.style.fontSize = ''; });
+        let size = parseFloat(getComputedStyle(pres[0]).fontSize);
+        while (col.offsetHeight > split.clientHeight && size > 9) {
+          size -= .5;
+          pres.forEach(pre => { pre.style.fontSize = `${size}px`; });
+        }
+      }
+    });
+  }
+  let fitTimer = 0;
+  addEventListener('resize', () => { clearTimeout(fitTimer); fitTimer = setTimeout(() => fitCode(slides[index]), 120); });
+  document.fonts?.ready.then(() => fitCode(slides[index]));
+
   function show(next, updateHash = true) {
     index = clamp(next);
     slides.forEach((slide, i) => {
@@ -69,6 +90,7 @@
     const note = slides[index].querySelector('.notes');
     notesContent.textContent = note ? note.textContent.trim() : 'No speaker notes for this slide.';
     renderSteps();
+    fitCode(slides[index]);
     document.body.classList.remove('anim-paused');
     slides[index].querySelectorAll('svg.ros-anim').forEach(svg => (reduceMotion.matches ? freeze(svg) : restart(svg)));
     document.dispatchEvent(new CustomEvent('deck:slide', { detail: slides[index] }));
@@ -217,7 +239,7 @@
       const tick = () => {
         const dur = cycleOf(svg), fr = dur ? (svg.getCurrentTime() % dur) / dur : 1;
         let cur = null; for (const e of spec) if (fr >= e[0]) cur = e;
-        const key = cur && cur[1] > 0 ? `${cur[1]}-${cur[2]}-${pre.clientWidth}` : '';
+        const key = cur && cur[1] > 0 ? `${cur[1]}-${cur[2]}-${pre.clientWidth}x${pre.clientHeight}` : '';
         if (key !== shown) {
           shown = key;
           const t = key && topOf(cur[1]);
