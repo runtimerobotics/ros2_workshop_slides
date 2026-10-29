@@ -1927,6 +1927,130 @@ b = ['<rect class="win" x="5" y="25" width="170" height="170" fill="#4556ff"/><r
      at('<text class="code dim" x="200" y="178">radius = 1.5 / 1.2 = 1.25 m</text>', .4, 1, d)]
 svgs["Lab: command the turtle"] = svg(200, "ros2 interface show prints Twist's fields, then ros2 topic pub sends linear x 1.5 and angular z 1.2 twice a second and the turtle draws a circle of radius 1.25 m. ros2 topic hz on the pose reports an average rate of 62.5 Hz.", "".join(b), vb_w=460,
                                 trace=[(0, 1), (.14, "3-5"), (.76, 7)])
+# ---------- Services and actions divider: three ways to interact ----------
+d = "9s"
+b = ['<text class="k left" x="20" y="34">topic</text><text class="k left" x="20" y="100">service</text><text class="k left" x="20" y="166">action</text>']
+for y in (30, 96, 162): b.append(f'<line class="divider" x1="110" y1="{y}" x2="880" y2="{y}"/>')
+for k in range(10): t0 = round(.02 + k * .09, 2); b.append(packet("req", "M110,30 L880,30", t0, round(t0 + .12, 2), d))
+b += [packet("fb", "M110,96 L800,96", .1, .22, d), flash(800, 80, 80, 32, .22, d, 6), '<rect class="node" x="800" y="80" width="80" height="32" rx="6"/><text class="code" x="812" y="101">server</text>', packet("res", "M800,96 L110,96", .26, .38, d),
+      packet("fb", "M110,162 L800,162", .1, .2, d), '<rect class="node" x="800" y="146" width="80" height="32" rx="6"/><text class="code" x="812" y="167">server</text>']
+for k in range(4): t0 = round(.3 + k * .12, 2); b.append(packet("req", "M800,162 L110,162", t0, round(t0 + .1, 2), d))
+b += [packet("res", "M800,162 L110,162", .82, .94, d), '<text class="k left" x="120" y="54">stream</text><text class="k left" x="120" y="120">request → one response</text><text class="k left" x="120" y="186">goal → feedback … → result</text>']
+svgs["Services and actions"] = svg(196, "Three lanes. Topic: a continuous stream of messages. Service: one request travels to a server and one response comes back. Action: a goal travels to a server, several feedback messages return while it works, and finally a result.", "".join(b))
+
+# ---------- Choose the interaction pattern ----------
+d = "12s"
+b = []
+ROWS = [("Topic", "data arrives continuously", "camera frames, joint states", 0), ("Service", "a short request returns one response", "reset odometry", 1), ("Action", "a goal takes time; feedback or cancel", "navigate to a pose", 2)]
+for i, (n, use, ex, kind) in enumerate(ROWS):
+    y = 10 + i * 88
+    b += [f'<rect class="node" x="0" y="{y}" width="900" height="80" rx="8"/><text class="s left" x="16" y="{y + 26}">{n}</text><text class="code dim" x="16" y="{y + 50}">{use}</text><text class="code ok" x="16" y="{y + 70}">{ex}</text>',
+          f'<line class="divider" x1="420" y1="{y + 40}" x2="860" y2="{y + 40}"/><text class="k" x="420" y="{y + 20}">caller</text><text class="k" x="860" y="{y + 20}">provider</text>']
+    m = y + 40
+    if kind == 0:
+        for k in range(10): t0 = round(.02 + k * .09, 2); b.append(packet("req", f"M860,{m} L420,{m}", t0, round(t0 + .08, 2), d))
+    elif kind == 1:
+        b += [packet("fb", f"M420,{m} L860,{m}", .1, .18, d), at(f'<text class="code" x="600" y="{m - 10}">reset?</text>', .1, .2, d), packet("res", f"M860,{m} L420,{m}", .22, .3, d), at(f'<text class="code ok" x="560" y="{m + 24}">done · odom = 0</text>', .3, .6, d)]
+    else:
+        b += [packet("fb", f"M420,{m} L860,{m}", .1, .18, d), at(f'<text class="code" x="580" y="{m - 10}">goal: (3, 2)</text>', .1, .22, d)]
+        for k, pct in enumerate((25, 50, 75)):
+            t0 = round(.28 + k * .16, 2); b += [packet("req", f"M860,{m} L420,{m}", t0, round(t0 + .07, 2), d), at(f'<text class="code" x="560" y="{m + 24}">feedback {pct}%</text>', round(t0 + .07, 2), round(t0 + .16, 2), d)]
+        b += [packet("res", f"M860,{m} L420,{m}", .8, .88, d), at(f'<text class="code ok" x="560" y="{m + 24}">result: arrived</text>', .88, 1, d)]
+svgs["Choose the interaction pattern"] = svg(276, "Three rows. Topic, for data that arrives continuously such as camera frames: a constant stream. Service, for a short request with one response such as reset odometry: one request, one reply. Action, for a goal that takes time such as navigate to a pose: a goal, feedback at 25, 50 and 75 percent, then the result.", "".join(b), " tall")
+
+# ---------- Communication pattern checklist: examples fall through the questions ----------
+d = "16s"
+Q = [(240, 20, "Does the data repeat?"), (450, 100, "Does it finish quickly?"), (660, 180, "Progress or cancel?")]
+b = []
+for x, y, q in Q: b += [f'<rect class="node" x="{x - 105}" y="{y}" width="210" height="42" rx="21"/><text class="s" x="{x}" y="{y + 21}">{q}</text>']
+BINS = [(240, "Topic", "req"), (450, "Service", "fb"), (660, "Action", "res")]
+for x, n, cls in BINS: b += [f'<rect class="pill topic" x="{x - 60}" y="262" width="120" height="36" rx="6"/><text class="s" x="{x}" y="280">{n}</text>']
+b += ['<path class="trail" d="M240,62 L240,262"/><path class="trail" d="M345,41 L450,41 L450,100"/><path class="trail" d="M450,142 L450,262"/><path class="trail" d="M555,121 L660,121 L660,180"/><path class="trail" d="M660,222 L660,262"/>',
+      '<text class="code ok" x="250" y="160">yes</text><text class="code dim" x="360" y="34">no</text><text class="code ok" x="460" y="200">yes</text><text class="code dim" x="570" y="114">no</text><text class="code ok" x="670" y="244">yes</text>']
+EX = [("robot pose", 0), ("clear costmap", 1), ("navigate to pose", 2), ("e-stop state", 0), ("save map", 1), ("dock robot", 2)]
+PATHS = {0: [(240, 0), (240, 41), (240, 250)], 1: [(240, 0), (240, 41), (450, 41), (450, 121), (450, 250)], 2: [(240, 0), (240, 41), (450, 41), (450, 121), (660, 121), (660, 201), (660, 250)]}
+for k, (n, dest) in enumerate(EX):
+    s0 = round(k / 6, 3); e0 = round((k + 1) / 6, 3); pts = PATHS[dest]
+    kt = ";".join(f"{(s0 + (e0 - s0) * .85 * j / (len(pts) - 1)):.4f}" for j in range(len(pts)))
+    card = f'<rect class="block app" x="-70" y="-14" width="140" height="28" rx="6"/><text class="code" x="-62" y="5">{n}</text>'
+    b.append(f'<g opacity="0">{card}<animateMotion dur="{d}" repeatCount="indefinite" calcMode="linear" path="M{" L".join(f"{x},{y}" for x, y in pts)}" keyPoints="0;0;1;1" keyTimes="0;{s0 or .0001};{kt.split(";")[-1]};1"/>{vis(s0 or .001, e0, d)}</g>')
+    b.append(at(f'<text class="code ok" x="{BINS[dest][0] - 60}" y="{316 + (k // 3) * 18}">{n}</text>', round(s0 + (e0 - s0) * .85, 3), 1, d))
+svgs["Communication pattern checklist"] = svg(356, "Three questions in a chain: does the data repeat, does it finish quickly, does it need progress or cancellation. Six examples fall through them one by one: robot pose and e-stop state land in Topic, clear costmap and save map in Service, navigate to pose and dock robot in Action.", "".join(b), " tall")
+
+# ---------- Write a service server ----------
+d = "12s"
+b = [ellipse_node(70, 30, "CLI client", 62, 18), at(ellipse_node(370, 30, "/minimal_service", 85, 18), .04, 1, d), '<path class="trail" d="M132,30 L285,30"/>',
+     packet("fb", "M132,30 L285,30", .2, .28, d), at('<text class="code" x="150" y="20">{a: 2, b: 3}</text>', .2, .3, d),
+     chip(5, 70, 450, 92, "", "callback add(request, response)"),
+     at('<text class="code" x="15" y="118">response.sum = 2 + 3</text>', .32, 1, d), at('<text class="code ok" x="245" y="118">= 5</text>', .4, 1, d),
+     at('<text class="code dim" x="15" y="146">[INFO] a: 2 b: 3</text>', .46, 1, d),
+     packet("res", "M285,30 L132,30", .6, .68, d), at('<text class="code ok" x="150" y="54">sum=5</text>', .66, 1, d),
+     cap("one request in, one response out", .7, 1, d, 230, 186)]
+svgs["Write a service server"] = svg(194, "A command-line client sends a request with a 2 and b 3 to /minimal_service. The add callback computes response.sum = 2 + 3 = 5, logs a: 2 b: 3, and returns the response, which travels back as sum=5.", "".join(b), vb_w=460,
+                                 trace=[(0, "18-19"), (.03, 7), (.08, "8-9"), (.2, 0), (.28, 11), (.32, 12), (.44, "13-14"), (.56, 15), (.7, 0)])
+
+# ---------- Write a service client: ask, keep spinning, read the future ----------
+d = "14s"
+b = [ellipse_node(70, 30, "client", 55, 18), ellipse_node(380, 30, "server", 60, 18), at('<rect x="315" y="8" width="130" height="44" rx="22" fill="#080d19" opacity=".85"/><text class="code dim" x="335" y="35">not yet up</text>', 0, .2, d),
+     '<path class="trail" d="M125,30 L320,30"/>', at('<text class="code hot" x="130" y="64">waiting for service...</text>', .08, .2, d),
+     packet("fb", "M125,30 L320,30", .36, .44, d), at('<text class="code" x="160" y="20">Request(a=2, b=3)</text>', .34, .46, d),
+     chip(5, 90, 220, 60, "", "future"), swap([(.4, .7, "pending…"), (.7, 1, "done: sum = 5")], 13, 136, d, "code"),
+     at('<circle cx="270" cy="120" r="14" fill="none" stroke="var(--cyan)" stroke-width="3" stroke-dasharray="20 70"><animateTransform attributeName="transform" type="rotate" dur="1s" repeatCount="indefinite" values="0 270 120;360 270 120"/></circle><text class="code" x="292" y="125">spin…</text>', .46, .7, d),
+     packet("res", "M320,30 L125,30", .62, .7, d), term(5, 165, 450, 46, "client log"), at('<text class="code ok" x="15" y="200">[INFO] sum: 5</text>', .76, 1, d)]
+svgs["Write a service client"] = svg(216, "The client waits until the server is up, then sends Request a=2 b=3. call_async returns a future at once, shown as pending while the client keeps spinning; the response arrives, the future becomes done with sum 5, and the client logs sum: 5.", "".join(b), vb_w=460,
+                                 trace=[(0, "13-14"), (.03, "3-4"), (.06, "5-6"), (.3, 15), (.34, 9), (.4, 10), (.46, 16), (.74, 17), (.86, "18-19")])
+
+# ---------- Create an action interface: one file, three messages ----------
+d = "12s"
+b = [ellipse_node(60, 80, "client", 52, 18), ellipse_node(400, 80, "server", 54, 18),
+     at(chip(170, 5, 120, 40, "order: 5", "Goal"), .04, 1, d), packet("fb", "M112,70 L346,70", .1, .2, d),
+     at(chip(170, 120, 120, 40, "[0, 1, 1, 2]", "Feedback", "block app"), .26, 1, d)]
+for k in range(3): t0 = round(.3 + k * .1, 2); b.append(packet("req", "M346,90 L112,90", t0, round(t0 + .07, 2), d))
+b += [at(chip(170, 170, 120, 40, "[0,1,1,2,3,5]", "Result"), .64, 1, d), packet("res", "M346,96 C300,200 160,200 112,96", .66, .76, d),
+      cap("goal once · feedback many · result once", .76, 1, d, 230, 228)]
+svgs["Create an action interface"] = svg(236, "The three parts of Fibonacci.action as messages between a client and a server: the Goal, order 5, goes to the server once; Feedback, a growing partial sequence, streams back several times; the Result, the full sequence, comes back once at the end.", "".join(b), vb_w=460,
+                                     trace=[(0, 4), (.24, 8), (.62, 6), (.78, 0)])
+
+# ---------- Write an action server: feedback grows, then the result ----------
+d = "14s"
+SEQ = [0, 1, 1, 2, 3, 5]
+b = [ellipse_node(80, 28, "send_goal", 70, 18), ellipse_node(370, 28, "/fibonacci server", 88, 18), packet("fb", "M150,28 L282,28", .04, .1, d), at('<text class="code" x="170" y="18">order: 5</text>', .04, .14, d),
+     chip(5, 64, 450, 52, "", "partial_sequence")]
+for k in range(len(SEQ)):
+    t0 = .14 if k < 2 else round(.14 + (k - 1) * .14, 2)
+    b.append(at(f'<rect class="block app" x="{15 + k * 52}" y="84" width="44" height="26" rx="4"/><text class="code" x="{30 + k * 52}" y="102">{SEQ[k]}</text>', t0, 1, d))
+    if k >= 2: b += [packet("req", "M282,40 L150,40", round(t0 + .02, 2), round(t0 + .07, 2), d), shown(15, 152 + (k - 2) * 16, f"feedback: {SEQ[:k + 1]}", round(t0 + .06, 2), d, 1, "code")]
+b += [term(5, 124, 450, 106, "--feedback"), at('<text class="code ok" x="250" y="152">succeed()</text>', .74, 1, d), packet("res", "M282,46 L150,46", .76, .84, d), at(f'<text class="code ok" x="250" y="176">result: {SEQ}</text>', .84, 1, d)]
+b = b[:5] + [b[-4]] + b[5:-4] + b[-3:]
+svgs["Write an action server"] = svg(236, "A goal with order 5 reaches the /fibonacci server. execute starts the sequence at 0, 1 and appends one number per second, 1, 2, 3 and 5, publishing feedback each time. Then succeed is called and the result 0, 1, 1, 2, 3, 5 returns.", "".join(b), vb_w=460,
+                                trace=[(0, "8-9"), (.04, 11), (.1, 12)] + [x for k in range(4) for x in ((round(.14 + k * .14, 2), 13), (round(.16 + k * .14, 2), "14-15"), (round(.2 + k * .14, 2), 16), (round(.23 + k * .14, 2), 17))] + [(.72, 18), (.78, 19)])
+
+# ---------- Write an action client: every callback on a timeline ----------
+d = "16s"
+FIB = [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
+b = ['<text class="k" x="80" y="14">client</text><text class="k" x="380" y="14">server</text>', '<line class="divider" x1="80" y1="22" x2="80" y2="236"/><line class="divider" x1="380" y1="22" x2="380" y2="236"/>']
+EV = [(.04, "fb", 30, "wait_for_server ✓", 1), (.12, "fb", 52, "send_goal_async(order=10)", 1), (.22, "res", 74, "accepted → on_goal_response", -1), (.3, "fb", 96, "get_result_async()", 1)]
+for t0, cls, y, lbl, dirn in EV:
+    p_ = f"M80,{y} L380,{y}" if dirn > 0 else f"M380,{y} L80,{y}"
+    b += [packet(cls, p_, t0, round(t0 + .06, 3), d), at(f'<line class="divider" x1="80" y1="{y}" x2="380" y2="{y}" style="stroke:var(--blue)"/><text class="code left" x="96" y="{y - 4}" style="font-size:11px">{lbl}</text>', t0, 1, d)]
+for k in range(4):
+    t0 = round(.38 + k * .1, 2); y = 120 + k * 22
+    b += [packet("req", f"M380,{y} L80,{y}", t0, round(t0 + .05, 2), d), at(f'<line class="divider" x1="80" y1="{y}" x2="380" y2="{y}"/><text class="code left" x="96" y="{y - 4}" style="font-size:11px">on_feedback {FIB[:k + 3]}</text>', t0, 1, d)]
+b += [packet("res", "M380,212 L80,212", .82, .88, d), at(f'<text class="code ok left" x="96" y="208" style="font-size:11px">result: {FIB}</text>', .86, 1, d)]
+svgs["Write an action client"] = svg(244, "A sequence diagram between client and server: wait_for_server, send_goal_async with order 10, the goal accepted and on_goal_response, get_result_async, four feedback callbacks with a growing sequence, and finally the result sequence ending in 55.", "".join(b), vb_w=460,
+                                trace=[(0, 8), (.1, "9-11"), (.2, "17-19"), (.28, 20), (.36, "14-15"), (.82, "21-22"), (.95, 0)])
+
+# ---------- Lab: request and goal ----------
+d = "16s"
+b = ['<rect class="win" x="5" y="25" width="160" height="160" fill="#4556ff"/><rect class="termbar" x="5" y="5" width="160" height="22" rx="5"/><text class="k" x="85" y="16">TurtleSim</text>',
+     f'<g transform="translate(60 110)"><g>{TURTLE}<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;{EASE};0 0 1 1;{EASE};0 0 1 1" values="0;0;-180;-180;-260;-260" keyTimes="0;.42;.62;.72;.8;1"/></g></g>',
+     at(turtle_icon(120, 60, 0), .14, 1, d), at('<text class="code" x="104" y="88">turtle2</text>', .14, 1, d),
+     term(180, 5, 275, 180, "terminal"),
+     tl(190, 44, 18, [("ok", "/spawn [turtlesim/srv/Spawn]", .04), ("ok", "/turtle1/rotate_absolute", .1), ("show", "theta --- delta --- remaining", .26), ("type", "$ … send_goal --feedback …", .38)], d),
+     swap([(.46, .52, "feedback: remaining 2.36"), (.52, .58, "feedback: remaining 1.18"), (.58, .62, "feedback: remaining 0.31")], 190, 126, d, "code"), at('<text class="code ok" x="190" y="144">result: delta -3.14 ✓</text>', .62, 1, d),
+     at('<text class="code hot" x="190" y="166">2nd goal: Goal canceled</text>', .8, 1, d)]
+svgs["Lab: request and goal"] = svg(192, "The service list shows /spawn and a second turtle appears; the action list shows rotate_absolute and its interface theta, delta, remaining. A goal with feedback rotates the first turtle half a turn while remaining counts down, ending with delta -3.14. A second goal is canceled partway.", "".join(b), vb_w=460,
+                               trace=[(0, 1), (.08, 2), (.2, "4-5"), (.36, "7-10"), (.78, 0)])
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
