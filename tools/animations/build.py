@@ -1103,6 +1103,7 @@ def joined(vals): return ";".join(f"{v:.1f}" for v in vals)
 
 def arm2(bx, by, L1, L2, q1s, q2s, kt, dur, cls="arm", tip="", w=(14, 11), spline=False):
     """Planar two-link arm at (bx, by); joint angles in degrees, counter-clockwise, y up."""
+    if len(q1s) == 1: q1s, q2s, kt = list(q1s) * 2, list(q2s) * 2, "0;1"   # SMIL needs two values to hold a pose
     mode = f'calcMode="spline" keySplines="{";".join([EASE] * (len(q1s) - 1))}"' if spline else 'calcMode="linear"'
     rot = lambda qs: f'<animateTransform attributeName="transform" type="rotate" dur="{dur}" repeatCount="indefinite" {mode} values="{joined(-q for q in qs)}" keyTimes="{kt}"/>'
     w1, w2 = w
@@ -2443,6 +2444,190 @@ b += [term(275, 5, 180, 150, "terminal"), tl(285, 44, 18, [("ok", "/scan [LaserS
       swap([(.3, .5, "noise σ 0.01"), (.5, 1, "noise σ 0.05")], 285, 108, d, "code hot"), swap([(.3, .5, "mean error 0.4 cm"), (.5, 1, "mean error 1.9 cm")], 285, 130, d, "code ok")]
 svgs["Lab: add and verify lidar"] = svg(162, "A robot's lidar scans a wall at 2.00 m. The terminal confirms the /scan topic, a 10 Hz rate and the lidar_link frame. With range noise 0.01 the points hug the wall; with 0.05 they spread out and the mean error grows from 0.4 to 1.9 cm.", "".join(b), vb_w=460,
                                    trace=[(0, 1), (.1, 2), (.18, 3), (.3, "5-7")])
+def grip_open(open_=14):
+    return f'<rect class="robot-part" x="-3" y="-6" width="6" height="12"/><rect class="robot-part" x="0" y="{-open_ - 3}" width="16" height="4"/><rect class="robot-part" x="0" y="{open_ - 1}" width="16" height="4"/>'
+
+def arm_path(qa, qb, n=24):
+    return [(qa[0] + (qb[0] - qa[0]) * i / (n - 1), qa[1] + (qb[1] - qa[1]) * i / (n - 1)) for i in range(n)]
+
+# ---------- Day 3 divider: a model becomes safe, executable motion ----------
+d = "9s"
+L1, L2, BX, BY = 110, 95, 420, 170
+qa, qm, qb = ik2(150, 60, L1, L2), ik2(10, 190, L1, L2), ik2(-120, 80, L1, L2)
+seq = [qa, qa, qm, qb, qb]; kt = "0;.15;.45;.75;1"
+b = [f'<rect x="{BX - 40}" y="{BY}" width="80" height="12" class="robot-part"/>', '<rect x="460" y="90" width="40" height="80" fill="#3a4566"/>',
+     f'<path d="M{BX + 150 - 0},{BY - 60} C{BX + 120},{BY - 220} {BX - 90},{BY - 220} {BX - 120},{BY - 80}" fill="none" stroke="var(--cyan)" stroke-width="2.5" stroke-dasharray="6 5"/>',
+     arm2(BX, BY, L1, L2, [q[0] for q in seq], [q[1] for q in seq], kt, d, spline=True, tip=grip_open()),
+     cap("plan around the obstacle · execute · arrive", .15, 1, d, 450, 196)]
+svgs["Day 3: robot manipulation"] = svg(200, "A robot arm follows a dashed planned path over an obstacle from one side to the other.", "".join(b))
+
+# ---------- Manipulation vocabulary: one scene, six labels ----------
+d = "18s"
+L1, L2, BX, BY = 130, 110, 250, 230
+P0, P1 = ik2(200, 120, L1, L2), ik2(230, 30, L1, L2)
+seq = [P0, P0, P1, P1, P0]; kt = "0;.5;.62;.9;1"
+TERMS = [("Joint state", "position and motion of each joint", 0), ("End effector", "the gripper at the end", 1), ("Pose", "position + orientation in a frame", 2),
+         ("Trajectory", "joint states assigned to times", 3), ("Planning scene", "robot plus collision objects", 4), ("Controller", "tracks commands with feedback", 5)]
+b = ['<rect x="340" y="230" width="220" height="12" fill="#3a4566"/><rect x="430" y="196" width="34" height="34" rx="3" class="res"/>', f'<rect x="{BX - 40}" y="{BY}" width="80" height="12" class="robot-part"/>',
+     arm2(BX, BY, L1, L2, [q[0] for q in seq], [q[1] for q in seq], kt, d, spline=True, tip=grip_open(12))]
+for k, (n, sub, _) in enumerate(TERMS):
+    s0, e0 = round(.02 + k * .16, 3), round(.02 + (k + 1) * .16, 3)
+    y = 16 + k * 40
+    b += [f'<text class="s left" x="620" y="{y + 10}">{n}</text><text class="code dim" x="620" y="{y + 28}">{sub}</text>', f'<rect x="608" y="{y - 6}" width="290" height="40" rx="5" fill="rgba(88,224,210,.1)" stroke="var(--cyan)" opacity="0">{vis(s0, min(e0, 1), d)}</rect>']
+_, tip0 = fk2(*P0, L1, L2); el0, _ = fk2(*P0, L1, L2)
+b += [at(f'<text class="code ok" x="{BX - 80}" y="{BY - 10}">q1 {math.radians(P0[0]):.2f}</text><text class="code ok" x="{BX + el0[0] + 10}" y="{BY - el0[1]}">q2 {math.radians(P0[1]):.2f}</text>', .02, .18, d),
+      at(f'<circle cx="{BX + tip0[0] + 8}" cy="{BY - tip0[1]}" r="22" fill="none" stroke="var(--orange)" stroke-width="2.5"/>', .18, .34, d),
+      at(axes2d(BX + tip0[0] + 8, BY - tip0[1], 0, 34) + f'<text class="code" x="{BX + tip0[0] + 30}" y="{BY - tip0[1] - 30}">in base_link</text>', .34, .5, d)]
+pts = "".join(f'<circle class="pulse" cx="{BX + fk2(P0[0] + (P1[0] - P0[0]) * i / 8, P0[1] + (P1[1] - P0[1]) * i / 8, L1, L2)[1][0] + 8:.0f}" cy="{BY - fk2(P0[0] + (P1[0] - P0[0]) * i / 8, P0[1] + (P1[1] - P0[1]) * i / 8, L1, L2)[1][1]:.0f}" r="3"/>' for i in range(9))
+b += [at(pts + '<text class="code" x="470" y="100">t = 0 … 1.2 s</text>', .5, .66, d), at('<rect x="335" y="186" width="230" height="60" fill="rgba(255,177,90,.15)" stroke="var(--orange)" stroke-dasharray="5 4"/><text class="code hot" x="345" y="180">collision objects</text>', .66, .82, d),
+      at(f'<path class="trail" d="M{BX},{BY + 14} C{BX - 60},{BY + 40} {BX - 120},{BY - 20} {BX - 60},{BY - 60}"/><text class="code ok" x="{BX - 200}" y="{BY - 70}">command ↔ state</text>', .82, 1, d)]
+svgs["Manipulation vocabulary"] = svg(260, "One arm scene labels six terms in turn: joint state values at each joint, the end effector circled, the tool pose with axes in base_link, a trajectory as timed dots, the planning scene's collision objects around the table and box, and the controller loop between command and state.", "".join(b), " tall")
+
+# ---------- Manipulator fundamentals divider: joints in, pose out ----------
+d = "10s"
+L1, L2, BX, BY = 120, 100, 600, 175
+QS = [(70, -40), (110, -90), (40, 30), (70, -40)]; kt = "0;.33;.66;1"
+b = [f'<rect x="{BX - 40}" y="{BY}" width="80" height="12" class="robot-part"/>', arm2(BX, BY, L1, L2, [q[0] for q in QS], [q[1] for q in QS], kt, d, spline=True, tip='<circle class="lidar" r="7"/>')]
+for k in range(3):
+    q = QS[k]; _, tp = fk2(*q, L1, L2)
+    b.append(swap([(round(k / 3, 3) or .001, round((k + 1) / 3, 3), f"q = [{math.radians(q[0]):.2f}, {math.radians(q[1]):.2f}]")], 120, 80, d, "code ok"))
+    b.append(swap([(round(k / 3, 3) or .001, round((k + 1) / 3, 3), f"tool at ({tp[0] / 100:.2f}, {tp[1] / 100:.2f}) m")], 120, 120, d, "code"))
+b += ['<text class="k left" x="120" y="56">joint values</text><text class="k left" x="120" y="146">→ forward kinematics</text>']
+svgs["Manipulator fundamentals"] = svg(200, "As a two-link arm moves through three configurations, a readout shows its joint values and the resulting tool position from forward kinematics.", "".join(b))
+
+# ---------- The manipulation stack: task to motors ----------
+d = "12s"
+COLS4 = [(10, "Task", "pick the part"), (235, "Motion plan", "collision-free trajectory"), (460, "Controller", "track joint command"), (685, "Hardware", "motor + encoder")]
+b = []
+for i, (x, n, sub) in enumerate(COLS4):
+    s0, e0 = round(.02 + i * .22, 3), round(.02 + (i + 1) * .22, 3)
+    b += [f'<rect class="node" x="{x}" y="10" width="205" height="190" rx="8"/><text class="s" x="{x + 102}" y="32">{n}</text><text class="k" x="{x + 102}" y="50">{sub}</text>',
+          f'<rect x="{x}" y="10" width="205" height="190" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0, min(e0, 1), d)}</rect>']
+    if i < 3: b.append(packet("req", f"M{x + 205},105 L{x + 225},105", e0 - .02, e0, d))
+b += ['<rect x="80" y="130" width="40" height="40" rx="4" class="res"/><text class="code" x="40" y="190">box on table</text>',
+      f'<path d="M260,170 C290,80 380,80 420,150" fill="none" stroke="var(--cyan)" stroke-width="3" stroke-dasharray="1 1" pathLength="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.24;.42;1"/></path>',
+      '<polyline points="480,170 520,150 560,110 600,90 640,84" fill="none" stroke="var(--cyan)" stroke-dasharray="5 4" stroke-width="2"/>',
+      f'<polyline points="480,174 520,158 560,120 600,96 640,88" fill="none" stroke="var(--orange)" stroke-width="2" opacity="0">{vis(.48, 1, d)}</polyline><text class="code" x="480" y="190">command · state</text>',
+      f'<g transform="translate(787 125)"><circle r="40" fill="none" stroke="#8f9ab3" stroke-width="6"/><g><line x1="0" y1="0" x2="36" y2="0" stroke="var(--cyan)" stroke-width="3"/><animateTransform attributeName="transform" type="rotate" dur="2s" repeatCount="indefinite" values="0;360"/></g></g>',
+      '<text class="code ok" x="745" y="190">encoder ticks</text>']
+svgs["The manipulation stack"] = svg(206, "Four stages light up in turn: a task, pick the box; a motion plan draws a collision-free path; a controller tracks the commanded joint trajectory, its actual curve close to the command; and the hardware turns a motor whose encoder reports back.", "".join(b), " tall")
+
+# ---------- Lab: explore a robot arm ----------
+d = "16s"
+L1, L2, BX, BY = 70, 60, 110, 160
+QS = [(80, -50), (80, -50), (30, 40), (30, 40), (75, -5), (75, -5), (80, -50)]; kt = "0;.08;.2;.36;.48;.84;1"
+b = ['<rect class="term" x="5" y="5" width="220" height="170" rx="6"/><text class="k" x="115" y="20">RViz2</text>', f'<rect x="{BX - 30}" y="{BY}" width="60" height="10" class="robot-part"/>',
+     arm2(BX, BY, L1, L2, [q[0] for q in QS], [q[1] for q in QS], kt, d, spline=True, tip='<circle class="lidar" r="5"/>', w=(10, 8)),
+     f'<circle cx="{BX + 150}" cy="{BY - 120}" r="7" fill="none" stroke="var(--pink)" stroke-width="2.5" opacity="0">{vis(.52, .7, d)}</circle>',
+     at('<text class="code hot" x="15" y="40">unreachable ✗</text>', .52, .7, d), at('<text class="code hot" x="15" y="40">near singular: stretched</text>', .72, .84, d),
+     term(235, 5, 220, 170, "tf2_echo base_link tool0")]
+for k, (s0, e0, q) in enumerate(((.08, .36, QS[2]), (.36, .52, QS[4]), (0, .08, QS[0]))):
+    _, tp = fk2(*q, 1.0, .85)
+    b += [swap([(s0 or .001, e0, f"q [{math.radians(q[0]):.2f}, {math.radians(q[1]):.2f}]")], 245, 50, d, "code"), swap([(s0 or .001, e0, f"tool ({tp[0]:.2f}, {tp[1]:.2f}) m")], 245, 74, d, "code ok")]
+svgs["Lab: explore a robot arm"] = svg(182, "In RViz2 an arm moves through configurations while tf2_echo prints the joint values and the tool position for each. A target beyond reach is marked unreachable, and a fully stretched configuration is flagged as near singular.", "".join(b), vb_w=460,
+                                  trace=[(0, 1), (.06, "3-4"), (.5, 0), (.84, "7-9")])
+
+# ---------- ros2_control and MoveIt 2 divider ----------
+d = "9s"
+b = [box(40, 70, 170, 60, "MoveIt 2", "plan", "node"), box(300, 70, 190, 60, "trajectory controller", "follow", "node"), box(580, 30, 150, 50, "real arm", "hardware", "node"), box(580, 120, 150, 50, "Gazebo arm", "simulation", "node"),
+     wire("M210,100 L300,100"), wire("M490,100 L580,55"), wire("M490,100 L580,145")]
+for k in range(3): t0 = round(.05 + k * .3, 2); b += [packet("res", "M210,100 L300,100", t0, round(t0 + .06, 2), d), packet("res", "M490,100 L580,55" if k % 2 else "M490,100 L580,145", round(t0 + .08, 2), round(t0 + .14, 2), d), packet("req", "M580,145 L490,100" if k % 2 == 0 else "M580,55 L490,100", round(t0 + .16, 2), round(t0 + .22, 2), d)]
+b.append(cap("the same trajectory reaches simulated or real hardware", .1, 1, d, 450, 196))
+svgs["ros2_control and MoveIt 2 architecture"] = svg(200, "MoveIt 2 sends a trajectory to the trajectory controller, which drives either a real arm or a Gazebo arm; state comes back from whichever is connected.", "".join(b))
+
+# ---------- The planning scene: what the planner believes ----------
+d = "16s"
+LAY4 = [("Robot state", "joint positions"), ("Robot model", "links + collision"), ("World", "tables + obstacles"), ("Attached bodies", "held object")]
+b = []
+for k, (n, sub) in enumerate(LAY4):
+    y = 14 + k * 50; t0 = round(.02 + k * .14, 2)
+    b += [f'<rect class="block" x="10" y="{y}" width="230" height="42" rx="5"/><text class="s left" x="24" y="{y + 18}">{n}</text><text class="k left" x="24" y="{y + 34}">{sub}</text>', at(f'<rect x="10" y="{y}" width="230" height="42" rx="5" fill="rgba(88,224,210,.12)" stroke="var(--cyan)"/>', t0, 1, d)]
+L1, L2, BX, BY = 120, 100, 380, 230
+qa, qb = ik2(190, 60, L1, L2), ik2(-150, 70, L1, L2)
+b += [f'<rect x="{BX - 40}" y="{BY}" width="80" height="12" class="robot-part"/>', at(arm2(BX, BY, L1, L2, [qa[0]], [qa[1]], "0", d), .02, 1, d),
+      at('<g opacity=".35">' + arm2(BX, BY, L1, L2, [qa[0]], [qa[1]], "0", d, cls="res", w=(26, 22)) + '</g>', .16, 1, d),
+      at('<rect x="530" y="150" width="60" height="80" fill="#3a4566"/><rect x="250" y="210" width="60" height="20" fill="#3a4566"/>', .3, 1, d),
+      at(f'<rect x="{BX + 186}" y="{BY - 76}" width="22" height="22" rx="3" class="res"/>', .44, 1, d),
+      at('<rect x="640" y="70" width="44" height="90" fill="none" stroke="var(--pink)" stroke-dasharray="5 4"/><text class="code hot" x="620" y="60">not in the scene</text>', .6, 1, d),
+      f'<path d="M570,150 C640,40 760,60 800,150" fill="none" stroke="var(--cyan)" stroke-width="3" stroke-dasharray="1 1" pathLength="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.66;.82;1"/></path>',
+      burst(662, 92, .76, d, "bad", 30), at('<text class="code hot" x="640" y="200">the plan cuts through it</text>', .8, 1, d)]
+svgs["The planning scene"] = svg(258, "Four layers fill the planning scene: the robot state, the robot model with its collision shapes, world obstacles, and an attached box in the gripper. Then a planned path neatly avoids everything known but cuts straight through an object that was never added to the scene.", "".join(b), " tall")
+
+# ---------- Lab: connect plan to controller ----------
+d = "16s"
+b = [term(5, 5, 450, 92, "terminal"), tl(15, 42, 18, [("ok", "hardware: arm_system [active]", .04), ("show", "joint1/position [claimed] …", .12), ("ok", "arm_controller  active", .2), ("ok", "joint_state_broadcaster  active", .2)], d),
+     chip(5, 108, 140, 40, "Plan & Execute", cls="block app"), packet("res", "M145,128 L235,128", .4, .46, d), chip(235, 108, 220, 40, "follow_joint_trajectory"),
+     '<rect x="5" y="158" width="450" height="60" rx="6" fill="#0f1527" stroke="var(--line)"/><polyline points="15,210 80,200 150,180 230,170 320,168 445,168" fill="none" stroke="var(--cyan)" stroke-dasharray="5 4" stroke-width="2"/>',
+     f'<polyline points="15,212 80,204 150,186 230,173 320,169 445,168" fill="none" stroke="var(--orange)" stroke-width="2" stroke-dasharray="1 1" pathLength="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.48;.86;1"/></polyline>',
+     '<text class="k left" x="15" y="172">plan (dashed) · /joint_states</text>', at('<text class="code ok" x="330" y="210">SUCCEEDED</text>', .88, 1, d)]
+svgs["Lab: connect plan to controller"] = svg(222, "ros2 control lists the active hardware, claimed joint interfaces and two active controllers. Plan and Execute sends a goal to follow_joint_trajectory, and the measured joint states trace the planned curve until the result is SUCCEEDED.", "".join(b), vb_w=460,
+                                         trace=[(0, 1), (.1, 2), (.18, 3), (.38, "5-6"), (.5, 8)])
+
+# ---------- Motion planning divider: RRT grows to the goal ----------
+d = "10s"
+rnd3 = random.Random(8)
+b = ['<rect x="40" y="10" width="820" height="170" rx="8" fill="rgba(255,255,255,.02)" stroke="var(--line)"/>', '<rect x="380" y="10" width="60" height="110" rx="10" fill="rgba(255,114,159,.3)"/>',
+     '<circle cx="90" cy="150" r="9" fill="var(--cyan)"/><circle cx="800" cy="50" r="9" fill="var(--orange)"/>']
+nodes = [(90, 150)]
+for k in range(40):
+    tx, ty = rnd3.uniform(60, 840), rnd3.uniform(20, 170)
+    nx, ny = min(nodes, key=lambda p: (p[0] - tx) ** 2 + (p[1] - ty) ** 2)
+    dd = math.hypot(tx - nx, ty - ny); st = min(60, dd)
+    px, py = nx + (tx - nx) / dd * st, ny + (ty - ny) / dd * st
+    if 370 < px < 450 and py < 130: continue
+    nodes.append((px, py)); t0 = round(.02 + k * .018, 3)
+    b.append(at(f'<line x1="{nx:.0f}" y1="{ny:.0f}" x2="{px:.0f}" y2="{py:.0f}" stroke="rgba(88,224,210,.6)" stroke-width="1.5"/><circle cx="{px:.0f}" cy="{py:.0f}" r="2.5" fill="var(--cyan)"/>', t0, 1, d))
+b.append(f'<path d="M90,150 C250,170 380,160 450,140 C560,110 700,60 800,50" fill="none" stroke="var(--ink)" stroke-width="3.5" stroke-dasharray="1 1" pathLength="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.78;.92;1"/></path>')
+svgs["Fundamentals of motion planning"] = svg(190, "A search tree grows from the start through configuration space around a pink obstacle until a path to the goal appears.", "".join(b))
+
+# ---------- From path to trajectory ----------
+d = "16s"
+STG5 = ["Request", "Plan", "Time parameterize", "Execute", "Monitor"]
+b = []
+for k, n in enumerate(STG5):
+    x = 10 + k * 178; s0, e0 = round(.02 + k * .19, 3), round(.02 + (k + 1) * .19, 3)
+    b += [f'<rect class="node" x="{x}" y="10" width="168" height="190" rx="8"/><text class="s" x="{x + 84}" y="32">{n}</text>', f'<rect x="{x}" y="10" width="168" height="190" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0, min(e0, 1), d)}</rect>']
+    if k < 4: b.append(packet("req", f"M{x + 168},105 L{x + 178},105", e0 - .015, e0, d))
+b += ['<circle cx="94" cy="110" r="12" fill="none" stroke="var(--orange)" stroke-width="3"/><text class="code" x="30" y="160">goal + limits</text>',
+      '<polyline points="205,170 240,110 290,90 330,60" fill="none" stroke="var(--cyan)" stroke-width="3"/><circle cx="205" cy="170" r="4" fill="var(--cyan)"/><circle cx="240" cy="110" r="4" fill="var(--cyan)"/><circle cx="290" cy="90" r="4" fill="var(--cyan)"/><circle cx="330" cy="60" r="4" fill="var(--cyan)"/><text class="code" x="210" y="190">waypoints only</text>']
+for j, f in enumerate((0, .08, .2, .36, .54, .7, .82, .92, 1)):
+    b.append(f'<circle cx="{383 + f * 125:.0f}" cy="{150 - math.sin(f * math.pi) * 0 :.0f}" r="4" fill="var(--orange)"/>')
+b += ['<path d="M383,120 C410,60 480,60 508,120" fill="none" stroke="var(--orange)" stroke-width="2"/><text class="code" x="383" y="190">velocity, then spacing</text>',
+      f'<g transform="translate(640 160)"><rect class="robot-part" x="-20" y="0" width="40" height="8"/>' + arm2(0, 0, 50, 40, [100, 40, 100], [-60, 20, -60], "0;.5;1", "4s", spline=True, w=(9, 7)) + '</g>',
+      '<rect x="740" y="60" width="148" height="80" rx="6" fill="#0f1527"/><text class="code ok" x="750" y="88">error 0.4°  ✓</text><text class="code ok" x="750" y="114">SUCCEEDED</text>']
+svgs["From path to trajectory"] = svg(206, "Five stages: a request with a goal and limits; a plan that is only a list of waypoints; time parameterization that adds a velocity profile and spaces the points by time; execution as an arm moves; and monitoring that shows a small tracking error and SUCCEEDED.", "".join(b), " tall")
+
+# ---------- Planning request constraints ----------
+d = "16s"
+b = ['<circle cx="200" cy="130" r="9" fill="var(--orange)"/>', '<text class="code" x="160" y="170">goal pose</text>',
+     f'<circle cx="200" cy="130" r="60" fill="rgba(88,224,210,.08)" stroke="var(--cyan)" stroke-dasharray="5 4"><animate attributeName="r" dur="{d}" repeatCount="indefinite" values="60;60;14;14;60" keyTimes="0;.4;.55;.9;1"/></circle>',
+     swap([(0, .45, "tolerance ±5 cm · ±0.5 rad"), (.45, .9, "tolerance ±1 mm · ±0.01 rad")], 90, 230, d, "code"),
+     '<rect x="380" y="60" width="200" height="140" rx="8" fill="none" stroke="var(--line)"/><path d="M400,180 C440,120 520,120 560,80" fill="none" stroke="var(--blue)" stroke-width="22" opacity=".18"/>',
+     '<path d="M400,180 C440,120 520,120 560,80" fill="none" stroke="var(--cyan)" stroke-width="2.5" stroke-dasharray="5 4"/>',
+     f'<g><rect x="-8" y="-12" width="16" height="22" rx="3" class="res"/><animateMotion dur="{d}" repeatCount="indefinite" path="M400,180 C440,120 520,120 560,80"/></g>',
+     '<text class="code" x="390" y="50">path constraint: keep the cup upright</text>',
+     '<rect x="650" y="100" width="220" height="16" rx="8" fill="var(--line)"/>', f'<rect x="650" y="100" height="16" rx="8" fill="var(--orange)" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;60;60;220;220" keyTimes="0;.3;.45;.9;1"/></rect>',
+     '<text class="code" x="650" y="90">planning time: 5 s budget</text>', at('<text class="code ok" x="650" y="146">solved in 1.2 s</text>', .3, .45, d), at('<text class="code hot" x="650" y="146">TIMED_OUT</text><text class="code dim" x="650" y="168">tolerance too narrow</text>', .88, 1, d)]
+svgs["Planning request constraints"] = svg(244, "Three constraints: a goal pose with a tolerance region that shrinks from a few centimetres to a millimetre; a path constraint keeping a cup upright along its way; and a 5 second planning budget, solved in 1.2 s with the loose tolerance but timing out once the tolerance is too narrow.", "".join(b), " tall")
+
+# ---------- Planning failures are evidence ----------
+d = "16s"
+F4 = [("No IK solution", "NO_IK_SOLUTION"), ("Start state invalid", "START_STATE_IN_COLLISION"), ("Planning timed out", "TIMED_OUT"), ("Execution aborted", "CONTROL_FAILED")]
+b = []
+for k, (n, code) in enumerate(F4):
+    x = 10 + k * 222; s0, e0 = round(k / 4, 3), round((k + 1) / 4, 3)
+    b += [f'<rect class="node" x="{x}" y="10" width="210" height="220" rx="8"/><text class="s" x="{x + 105}" y="32">{n}</text>', at(f'<text class="code hot" x="{x + 10}" y="214">{code}</text>', s0 + .1, 1, d),
+          f'<rect x="{x}" y="10" width="210" height="220" rx="8" fill="none" stroke="var(--pink)" stroke-width="3" opacity="0">{vis(s0 or .001, e0, d)}</rect>']
+    cx, cy = x + 60, 180
+    b.append(f'<rect x="{cx - 20}" y="{cy}" width="40" height="8" class="robot-part"/>')
+    if k == 0: b += [arm2(cx, cy, 60, 50, [45], [0], "0", d, w=(9, 7)), f'<circle cx="{x + 190}" cy="70" r="8" fill="none" stroke="var(--orange)" stroke-width="2.5"/>', f'<path class="trail" d="M{cx},{cy} L{x + 190},70"/>']
+    elif k == 1: b += [f'<rect x="{x + 70}" y="120" width="120" height="14" fill="rgba(255,114,159,.5)" stroke="var(--pink)"/>', arm2(cx, cy, 60, 50, [40], [-20], "0", d, w=(9, 7)), burst(x + 120, 127, s0 + .12, d, "bad", 22)]
+    elif k == 2:
+        rr = random.Random(k)
+        for j in range(16): t0 = round(s0 + .01 + j * .012, 3); b.append(at(f'<circle cx="{x + 30 + rr.random() * 150:.0f}" cy="{50 + rr.random() * 110:.0f}" r="3" fill="var(--blue)"/>', t0, 1, d))
+        b += [f'<rect x="{x + 20}" y="168" width="170" height="10" rx="5" fill="var(--line)"/>', f'<rect x="{x + 20}" y="168" height="10" rx="5" fill="var(--orange)" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;0;170;170" keyTimes="0;{s0};{s0 + .2:.3f};1"/></rect>']
+    else: b += [f'<polyline points="{x + 20},150 {x + 80},120 {x + 140},100 {x + 190},90" fill="none" stroke="var(--cyan)" stroke-dasharray="5 4" stroke-width="2"/>', f'<polyline points="{x + 20},150 {x + 80},128 {x + 120},140 {x + 150},160" fill="none" stroke="var(--orange)" stroke-width="2"/>', f'<text class="code dim" x="{x + 20}" y="80">plan vs state</text>']
+svgs["Planning failures are evidence"] = svg(238, "Four failure cases light up in turn with their MoveIt error codes: a target beyond reach gives NO_IK_SOLUTION; an arm starting inside the table gives START_STATE_IN_COLLISION; a search that runs out of time gives TIMED_OUT; and a measured motion that diverges from the plan gives CONTROL_FAILED.", "".join(b), " tall")
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}
