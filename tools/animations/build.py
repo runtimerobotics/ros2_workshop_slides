@@ -58,7 +58,7 @@ def term(x, y, w, h, title):
     return (f'<rect class="term" x="{x}" y="{y}" width="{w}" height="{h}" rx="6"/>'
             f'<rect class="termbar" x="{x}" y="{y}" width="{w}" height="22" rx="6"/>'
             + "".join(f'<circle class="dot{i}" cx="{x + 14 + i * 13}" cy="{y + 11}" r="4"/>' for i in range(3))
-            + f'<text class="k" x="{x + w / 2}" y="{y + 12}">{title}</text>')
+            + f'<text class="k" x="{max(x + w / 2, x + 54 + len(title) * 3.6)}" y="{y + 12}">{title}</text>')   # clear of the three dots
 
 WORLD = 11.0889
 def win(x, y, s, title="TurtleSim", bg_anim=""):
@@ -344,7 +344,7 @@ def stack(x0, rows, t0, step):
 r1 = [[("os", "Ubuntu Linux", "block")], [("transport", "TCPROS / UDPROS", "block")], [("discovery", "ROS master · XML-RPC", "block")],
       [("client library", "roscpp", "block"), ("separate code", "rospy", "block")], [("you", "Your nodes", "block app")]]
 r2 = [[("os", "Linux · Windows · macOS · RTOS", "block")], [("transport", "DDS / RTPS · or Zenoh", "block")], [("middleware API", "rmw", "block")],
-      [("shared C core", "rcl", "block")], [("client library", "rclcpp", "block"), ("client library", "rclpy", "block"), ("microcontrollers", "rclc", "block")],
+      [("shared C core", "rcl", "block")], [("client library", "rclcpp", "block"), ("client library", "rclpy", "block"), ("micro-ROS", "rclc", "block")],
       [("you", "Your nodes", "block app")]]
 b = ['<line class="divider" x1="450" y1="8" x2="450" y2="312"/>', '<text class="s" x="230" y="16">ROS 1</text><text class="s" x="670" y="16">ROS 2</text>',
      stack(40, r1, .03, .06), stack(480, r2, .36, .06),
@@ -622,7 +622,7 @@ EVENTS = [  # year, lane (1 above / 2 below), title, detail
     (2012.3, 1, "2012 · OSRF founded", "first ROSCon"), (2014.8, 1, "2014 · Indigo LTS", "ROS 2 design begins"),
     (2015.67, 2, "2015 · ROS 2 alpha", "rebuilt on DDS"), (2017.94, 2, "2017 · Ardent", "first ROS 2 release"),
     (2020.39, 1, "2020 · Noetic", "last ROS 1 release"), (2020.43, 2, "2020 · Foxy LTS", "Rolling starts"),
-    (2022.9, 2, "2022 · Humble LTS", "Open Robotics joins Intrinsic"), (2025.41, 1, "May 2025", "ROS 1 end of life"),
+    (2022.9, 2, "2022 · Humble LTS", "OSRC joins Intrinsic"), (2025.41, 1, "May 2025", "ROS 1 end of life"),
     (2024.39, 2, "2024 · Jazzy LTS", "this workshop"), (2026.39, 2, "2026 · Lyrical LTS", "newest release")]
 L1, L2 = 140, 230
 b = [f'<text class="lane1" x="4" y="{L1 + 1}">ROS 1</text><text class="lane2" x="4" y="{L2 + 1}">ROS 2</text>']
@@ -641,15 +641,15 @@ for letters, y, cls, up in ((ROS1, L1, "lane1", 1), (ROS2, L2, "lane2", -1)):   
         b.append(f'<g opacity="0"><circle class="{cls}-dot" cx="{x}" cy="{y}" r="5"/><text class="letter {cls}" x="{x}" y="{y + 15 * up}">{ch}</text>{vis(ht(yr), 1, d)}</g>')
 rows = {1: [[], [], []], 2: [[], [], []]}
 for i, (yr, lane, title, detail) in enumerate(EVENTS):
-    x = hx(yr)
-    row = next(k for k, used in enumerate(rows[lane]) if all(abs(u_ - x) >= 135 for u_ in used))   # first row with room
-    rows[lane][row].append(x)
+    x = hx(yr); cx = min(x, hx(HT) - 70) if lane == 1 else x   # ROS 1 cards stay left of the today line
+    row = next(k for k, used in enumerate(rows[lane]) if all(abs(u_ - cx) >= 135 for u_ in used))   # first row with room
+    rows[lane][row].append(cx)
     y = (L1 - 46 - row * 40) if lane == 1 else (L2 + 30 + row * 40)
     cls = "card1" if lane == 1 else "card2"
     b.append(f'<g opacity="0"><line class="stem" x1="{x}" y1="{L1 if lane == 1 else L2}" x2="{x}" y2="{y + (30 if lane == 1 else 0)}"/>'
-             f'<rect class="{cls}" x="{x - 64}" y="{y}" width="128" height="30" rx="4"/><text class="ct" x="{x}" y="{y + 10}">{title}</text>'
-             f'<text class="cd" x="{x}" y="{y + 22}">{detail}</text>{vis(ht(yr), 1, d)}</g>')
-b.append(f'<line class="today" x1="{hx(H0)}" y1="40" x2="{hx(H0)}" y2="342"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="{hx(H0)};{hx(HT)};{hx(HT)}" keyTimes="0;.78;1"/>'
+             f'<rect class="{cls}" x="{cx - 64}" y="{y}" width="128" height="30" rx="4"/><text class="ct" x="{cx}" y="{y + 10}">{title}</text>'
+             f'<text class="cd" x="{cx}" y="{y + 22}">{detail}</text>{vis(ht(yr), 1, d)}</g>')
+b.append(f'<line class="today" x1="{hx(H0)}" y1="40" x2="{hx(H0)}" y2="{L2 + 24}"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="{hx(H0)};{hx(HT)};{hx(HT)}" keyTimes="0;.78;1"/>'
          f'<animate attributeName="x2" dur="{d}" repeatCount="indefinite" values="{hx(H0)};{hx(HT)};{hx(HT)}" keyTimes="0;.78;1"/></line>')
 demo["history"] = slide(OV, "History of ROS and ROS 2", "From a lab project to an industry standard", "History of ROS and ROS 2",
     svg(345, "Animated history: ROS 1 from Stanford and Willow Garage in 2007 through Box Turtle, OSRF, and Noetic to its end of life in May 2025; ROS 2 from the 2015 alphas through Ardent, Foxy, Humble, Jazzy, and Lyrical. Letters mark each distribution.", "".join(b))
@@ -673,8 +673,8 @@ b.append('<g class="robot"><rect class="robot-body" x="395" y="196" width="110" 
          '<rect class="robot-part" x="476" y="150" width="6" height="46"/><rect class="robot-body" x="466" y="138" width="28" height="16" rx="3"/><circle class="lens" cx="494" cy="146" r="4"/>' + arm + '</g>')
 # phase 1: every pair invents its own link
 TANGLE = [("M230,57 C420,0 480,0 670,57", "TCP socket", 450, 22), ("M670,57 C760,140 760,180 765,256", "shared memory", 790, 160),
-          ("M670,283 C480,330 400,330 230,283", "CSV file", 450, 322), ("M135,256 C100,180 100,140 135,84", "custom UDP", 92, 172),
-          ("M230,70 C420,130 520,210 670,270", "serial bytes", 560, 196), ("M230,270 C380,210 520,120 670,70", "REST call", 330, 130)]
+          ("M670,283 C480,330 400,330 230,283", "CSV file", 450, 305), ("M135,256 C100,180 100,140 135,84", "custom UDP", 92, 172),
+          ("M230,70 C420,130 520,210 670,270", "serial bytes", 560, 190), ("M230,270 C380,210 520,120 670,70", "REST call", 330, 130)]
 for i, (p, lbl, lx, ly) in enumerate(TANGLE):
     t0 = round(.09 + i * .025, 3)
     b.append(f'<g><path class="tangle" d="{p}" pathLength="1" stroke-dasharray="1 1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;{t0};{t0 + .04};1"/></path>'
@@ -835,8 +835,8 @@ b += [f'<circle class="joint" cx="{x + 30}" cy="140" r="8"/>', f'<text class="k"
       f'<text class="k" x="{x + 150}" y="70">volatile</text>', f'<text class="k" x="{x + 150}" y="196">transient local</text>',
       packet("res", f"M{x + 38},140 L{x + 100},140", .06, .14, d), at(f'<text class="cap" x="{x + 110}" y="124">published once</text>', .06, .3, d),
       at(f'<circle class="joint" cx="{x + 180}" cy="96" r="7"/><circle class="joint" cx="{x + 180}" cy="170" r="7"/><text class="k" x="{x + 180}" y="120">late sub</text>', .4, 1, d),
-      at(f'<text class="code hot" x="{x + 120}" y="100">nothing</text>', .5, 1, d),
-      packet("res", f"M{x + 38},140 L{x + 172},170", .5, .62, d), at(f'<text class="code ok" x="{x + 120}" y="228">gets the map</text>', .62, 1, d)]
+      at(f'<text class="code hot" x="{x + 98}" y="100">nothing</text>', .5, 1, d),
+      packet("res", f"M{x + 38},140 L{x + 172},170", .5, .62, d), at(f'<text class="code ok" x="{x + 84}" y="228">gets the map</text>', .62, 1, d)]
 # deadline: messages every second, one is late
 x = 676
 b += [f'<line class="divider" x1="{x + 16}" y1="140" x2="{x + 198}" y2="140"/>']
@@ -870,18 +870,18 @@ svgs["QoS compatibility"] = svg(238, "A lidar driver offers best effort on /scan
 
 # ---------- Workspaces and overlays: who answers a package lookup ----------
 d = "12s"
-L3 = [(30, "Overlay", "~/ros2_ws/install", "workshop_runtime · demo_nodes_py"), (100, "Underlay", "/opt/ros/jazzy", "turtlesim · demo_nodes_py · rclpy"), (170, "Operating system", "Ubuntu 24.04", "Python · libraries")]
+L3 = [(10, "Overlay", "~/ros2_ws/install", "workshop_runtime · demo_nodes_py"), (80, "Underlay", "/opt/ros/jazzy", "turtlesim · demo_nodes_py · rclpy"), (150, "Operating system", "Ubuntu 24.04", "Python · libraries")]
 b = []
 for y, k, n, pk in L3:
     b += [f'<rect class="block{" app" if k == "Overlay" else ""}" x="300" y="{y}" width="580" height="56" rx="6"/>', f'<text class="k left" x="316" y="{y + 18}">{k}</text>', f'<text class="s left" x="316" y="{y + 40}">{n}</text>', f'<text class="code left" x="560" y="{y + 34}">{pk}</text>']
 Q = [("ros2 run workshop_runtime …", 0, .03, "found in the overlay"), ("ros2 run turtlesim …", 1, .36, "not in the overlay, found in the underlay"), ("ros2 run demo_nodes_py …", 0, .69, "in both: the overlay wins (shadows)")]
 for text, layer, t0, msg in Q:
-    y = (58 if layer == 0 else 128)
-    b += [typed(20, 60, text.replace("…", ""), t0, d, .04, round(t0 + .31, 3), "code"),
-          packet("req", f"M200,52 L290,52 L290,{y}", round(t0 + .05, 3), round(t0 + .12 + layer * .06, 3), d),
-          flash(300, 30 + layer * 70, 580, 56, round(t0 + .12 + layer * .06, 3), d), cap(msg, round(t0 + .12, 3), round(t0 + .32, 3), d, 450, 245)]
-    if layer: b.append(at('<text class="code hot left" x="20" y="118">overlay: no</text>', round(t0 + .08, 3), round(t0 + .31, 3), d))
-svgs["Workspaces and overlays"] = svg(255, "Three layers: the overlay ~/ros2_ws/install, the underlay /opt/ros/jazzy, and the operating system. A lookup for workshop_runtime is answered by the overlay, turtlesim falls through to the underlay, and demo_nodes_py, in both, is answered by the overlay, which shadows the underlay.", "".join(b))
+    y = (38 if layer == 0 else 108)
+    b += [typed(20, 40, text.replace("…", ""), t0, d, .04, round(t0 + .31, 3), "code"),
+          packet("req", f"M200,32 L290,32 L290,{y}", round(t0 + .05, 3), round(t0 + .12 + layer * .06, 3), d),
+          flash(300, 10 + layer * 70, 580, 56, round(t0 + .12 + layer * .06, 3), d), cap(msg, round(t0 + .12, 3), round(t0 + .32, 3), d, 450, 224)]
+    if layer: b.append(at('<text class="code hot left" x="20" y="98">overlay: no</text>', round(t0 + .08, 3), round(t0 + .31, 3), d))
+svgs["Workspaces and overlays"] = svg(232, "Three layers: the overlay ~/ros2_ws/install, the underlay /opt/ros/jazzy, and the operating system. A lookup for workshop_runtime is answered by the overlay, turtlesim falls through to the underlay, and demo_nodes_py, in both, is answered by the overlay, which shadows the underlay.", "".join(b))
 
 # ---------- Timers schedule callbacks: one long callback delays the next ----------
 d = "8s"
@@ -932,18 +932,18 @@ for p_, c, cls, lbl in E:
         for t0 in (.2, .55, .85): b.append(packet("res", path, t0, round(t0 + .06, 3), d))
 b.append('<text class="k" x="560" y="246">robot_state_publisher · /tf_static (once)</text>')
 for n, (x, y) in F.items(): b.append(pill(x, y, n, 140, "pill topic" if n in ("lidar_link", "camera_link", "tool0") else "pill"))
-CH = "M70,125 L250,125 L440,125 C580,125 560,125 630,125 L700,125"
+CH = "M140,125 L180,125 M320,125 L370,125 M510,125 L630,125"   # the gaps between the pills, so names stay readable
 b += [f'<path d="{CH}" fill="none" stroke="var(--orange)" stroke-width="6" stroke-linecap="round" opacity="0">{vis(.62, .95, d)}</path>',
-      flash(0, 105, 140, 40, .62, d, 20), flash(630, 105, 140, 40, .66, d, 20),
+      flash(0, 105, 140, 40, .62, d, 20), flash(180, 105, 140, 40, .63, d, 20), flash(370, 105, 140, 40, .64, d, 20), flash(630, 105, 140, 40, .66, d, 20),
       cap("static mounts: published once on /tf_static", 0, .12, d, 450, 280), cap("odometry streams odom → base_link; localization corrects map → odom", .12, .6, d, 450, 280),
       cap("lookup_transform('map', 'camera_link'): three transforms chained", .6, 1, d, 450, 280)]
 svgs["A tree of coordinate frames"] = svg(290, "A frame tree: map to odom to base_link, which has three children, lidar_link, camera_link and tool0. Static transforms to the children are published once; odom to base_link streams continuously and map to odom updates now and then. Finally the chain from map to camera_link lights up as one lookup.", "".join(b), " tall")
 
 # ---------- Coordinate axes and rotation ----------
 d = "10s"
-b = [axes2d(200, 180, 0, 70, "base_link"), '<circle cx="200" cy="180" r="9" fill="none" stroke="var(--blue)" stroke-width="2"/><text class="code" x="214" y="206">z ⊙ up</text>']
+b = [axes2d(200, 180, 0, 70, "base_link"), '<circle cx="200" cy="180" r="9" fill="none" stroke="var(--blue)" stroke-width="2"/><text class="code" x="128" y="185">z ⊙ up</text>']
 cam = (f'<g>{axes2d(0, 0, 0, 56)}<rect class="block app" x="-14" y="-10" width="28" height="20" rx="3"/>'
-       f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;{EASE};0 0 1 1;{EASE}" values="0;0;-90;-90;0" keyTimes="0;.42;.6;.92;1"/></g>')
+       f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;{EASE};0 0 1 1;{EASE}" values="0;0;90;90;0" keyTimes="0;.42;.6;.92;1"/></g>')
 b.append(f'<g transform="translate(200 180)"><g>{cam}<animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;{EASE};0 0 1 1;{EASE}" values="0 0;0 0;260 -90;260 -90;0 0" keyTimes="0;.1;.3;.92;1"/></g></g>')
 b += [at('<text class="k" x="460" y="58">camera_link</text>', .3, .92, d),
       '<path class="trail" d="M200,180 L460,90"/>',
@@ -961,7 +961,7 @@ b = [box(10, 10, 430, 230, "", cls="node", rx=10), '<text class="s" x="225" y="3
      packet("fb", "M185,90 L270,90", .05, .12, d), at('<text class="code ok" x="200" y="132">published once</text>', .12, .45, d),
      at(pill(110, 190, "rviz2", 120), .02, 1, d), packet("fb", "M345,114 L345,190 L170,190", .14, .24, d),
      at(pill(345, 190, "late node", 130, "pill topic"), .55, 1, d), packet("fb", "M345,114 L345,170", .6, .68, d), flash(280, 170, 130, 40, .68, d, 20),
-     at('<text class="code ok" x="230" y="226">a late joiner still gets it</text>', .68, 1, d)]
+     at('<text class="code ok" x="196" y="226">a late joiner still gets it</text>', .68, 1, d)]
 # dynamic: a wheel turning, stamped messages streaming
 b += [f'<g transform="translate(560 120)"><g><circle class="wheel" r="34"/><line x1="0" y1="0" x2="30" y2="0" stroke="var(--cyan)" stroke-width="3"/>'
       f'<animateTransform attributeName="transform" type="rotate" dur="{d}" repeatCount="indefinite" values="0;1440"/></g></g>',
@@ -989,11 +989,10 @@ b += [f'<path d="{LINK}" transform="translate(450 150)" fill="none" stroke="rgba
       f'<circle class="res" cx="450" cy="60" r="10"><animate attributeName="cy" dur="1.6s" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 .5 1" values="60;124;60" keyTimes="0;.5;1"/></circle>',
       '<text class="k" x="450" y="200">simple shape · fast contact</text>']
 # inertial: a pendulum about the joint, centre of mass marked
-b += [f'<g transform="translate(700 70)"><g><path d="{LINK}" transform="translate(66 0)" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.3)"/>'
+b += [f'<g transform="translate(750 62) scale(.72)"><g><path d="{LINK}" transform="translate(66 0)" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.3)"/>'
       '<circle cx="62" cy="0" r="7" fill="var(--pink)"/><ellipse cx="62" cy="0" rx="34" ry="14" fill="none" stroke="var(--pink)" stroke-dasharray="4 3"/>'
-      '<text class="code" x="50" y="34">m = 1.2 kg</text>'
-      f'<animateTransform attributeName="transform" type="rotate" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1" values="20;160;20" keyTimes="0;.5;1"/></g></g>',
-      '<circle class="joint" cx="700" cy="70" r="6"/>', '<text class="k" x="750" y="218">mass · centre · inertia</text>']
+      f'<animateTransform attributeName="transform" type="rotate" dur="2.4s" repeatCount="indefinite" calcMode="spline" keySplines=".4 0 .6 1;.4 0 .6 1" values="40;140;40" keyTimes="0;.5;1"/></g></g>',
+      '<circle class="joint" cx="750" cy="62" r="6"/>', '<text class="code" x="750" y="192">m = 1.2 kg</text>', '<text class="k" x="750" y="218">mass · center · inertia</text>']
 svgs["One link, three models"] = svg(240, "Three views of the same link. Visual: a detailed shape, gently turning. Collision: a simple box that a ball bounces on. Inertial: the link swings like a pendulum about its joint, with its centre of mass and inertia ellipse marked.", "".join(b), " tall")
 
 # ---------- From URDF to TF ----------
@@ -1044,15 +1043,15 @@ b = ['<rect class="robot" x="120" y="110" width="140" height="100" rx="14"/>', '
 STEPS = [("Pose", "x 0.04  z 0.19 from base_link"), ("Frame ID", "header.frame_id: lidar_link"), ("Update rate", "10 Hz: one scan every 0.1 s"), ("Noise", "σ = 1 cm on every range"), ("Topic type", "/scan · sensor_msgs/msg/LaserScan")]
 for i, (k, v) in enumerate(STEPS):
     t0 = round(.02 + i * .19, 3)
-    b += [at(f'<rect class="block" x="590" y="{20 + i * 46}" width="300" height="40" rx="5"/><text class="s left" x="604" y="{40 + i * 46}">{k}</text>', t0, 1, d),
-          at(f'<text class="code ok" x="700" y="{44 + i * 46}">{v}</text>', round(t0 + .03, 3), 1, d), flash(590, 20 + i * 46, 300, 40, t0, d, 5)]
+    b += [at(f'<rect class="block" x="560" y="{20 + i * 46}" width="336" height="40" rx="5"/><text class="s left" x="572" y="{40 + i * 46}">{k}</text>', t0, 1, d),
+          at(f'<text class="code ok" x="662" y="{44 + i * 46}" style="font-size:11.5px">{v}</text>', round(t0 + .03, 3), 1, d), flash(560, 20 + i * 46, 336, 40, t0, d, 5)]
 b += [at('<path class="trail" d="M190,160 L250,90"/><text class="code" x="270" y="140">offset</text>', .02, 1, d),
       at('<text class="code hot" x="250" y="60">lidar_link</text>', .21, 1, d)]
 for k in range(5): b.append(ring(250, 90, round(.4 + k * .04, 3), round(.45 + k * .04, 3), d, 20, 70))
 import random
 rnd = random.Random(4)
 pts = "".join(f'<circle class="pulse" cx="{50 + rnd.gauss(0, 3):.1f}" cy="{30 + j * 22}" r="3"/><circle class="pulse" cx="{510 + rnd.gauss(0, 3):.1f}" cy="{30 + j * 22}" r="3"/>' for j in range(10))
-b += [at(pts, .59, 1, d), packet("req", "M270,90 L560,90 L560,230", .8, .9, d)]
+b += [at(pts, .59, 1, d), packet("req", "M270,90 L545,90 L545,230", .8, .9, d)]
 svgs["A sensor is more than geometry"] = svg(262, "A lidar mounted on a robot between two walls. Five properties appear one by one: its pose offset from base_link, its frame ID lidar_link, a 10 Hz update rate shown as pulses, noise shown as jittered points on the walls, and the /scan topic with type sensor_msgs/msg/LaserScan.", "".join(b), " tall")
 
 # ---------- Reading a LaserScan message ----------
@@ -1182,7 +1181,7 @@ svgs["Degrees of freedom and workspace"] = svg(312, "A two-link arm jumps throug
 
 # ---------- ros2_control closes the loop ----------
 d = "6s"
-COLS = [(20, "Applications", "MoveIt 2 · teleop"), (250, "Controllers", "joint_trajectory · gripper"), (480, "Controller manager", ""), (710, "Hardware component", "robot or Gazebo")]
+COLS = [(20, "Applications", "MoveIt 2 · teleop"), (250, "Controllers", "trajectory · gripper"), (480, "Controller manager", ""), (710, "Hardware component", "robot or Gazebo")]
 b = []
 for x, k, n in COLS: b += [f'<rect class="{"hub" if k == "Controller manager" else "node"}" x="{x}" y="40" width="170" height="130" rx="8"/>', f'<text class="k" x="{x + 85}" y="62">{k}</text>', f'<text class="s" x="{x + 85}" y="92">{n}</text>' if n else '']
 PH = [("read", "states in"), ("update", "controllers run"), ("write", "commands out")]
@@ -1363,6 +1362,10 @@ def chip(x, y, w, h, title, sub="", cls="block", rx=5):
             + (f'<text class="k left" x="{x + 8}" y="{y + 14}">{sub}</text>' if sub else '')
             + (f'<text class="code" x="{x + 8}" y="{ty}">{title}</text>' if title else ''))
 
+def robot_top(x, y, rot=0, s=1):
+    return (f'<g transform="translate({x} {y}) rotate({rot}) scale({s})"><rect class="robot-body" x="-26" y="-18" width="52" height="36" rx="10"/>'
+            '<rect class="wheel" x="-14" y="-24" width="28" height="7" rx="3"/><rect class="wheel" x="-14" y="17" width="28" height="7" rx="3"/><circle class="lens" cx="14" cy="0" r="6"/></g>')
+
 def rover(x, y, s=1):
     return (f'<g transform="translate({x} {y}) scale({s})"><rect class="robot-body" x="-22" y="-14" width="44" height="20" rx="6"/>'
             '<circle class="wheel" cx="-12" cy="8" r="7"/><circle class="wheel" cx="12" cy="8" r="7"/><rect class="robot-part" x="-4" y="-24" width="8" height="10"/><circle class="lens" cx="0" cy="-26" r="4"/></g>')
@@ -1384,14 +1387,14 @@ b += [NODE(560, 52, "/home/ada"), '<path class="trail" d="M566,60 L566,96 L590,9
       '<path class="trail" d="M646,158 L646,236 L670,236" opacity=".9"/>',
       at(NODE(676, 200, "a.py") + '<path class="trail" d="M646,196 L670,196"/>', .21, .56, d), at(f'<line class="xmark" x1="672" y1="196" x2="712" y2="196"/>', .54, .58, d),
       at(NODE(676, 240, "b.py"), .3, .38, d), at(NODE(676, 240, "talker.py"), .38, 1, d), packet("req", "M690,206 L690,232", .28, .31, d)]
-MK = '<path d="M0,0 L-14,-7 L-14,7 Z" fill="var(--orange)"/><text class="code hot" x="-120" y="5">you are here</text>'
+MK = '<path d="M0,0 L-14,-7 L-14,7 Z" fill="var(--orange)"/><text class="code hot" x="-30" y="22" style="font-size:12px">you are here</text>'
 b.append(move(MK, [(552, 48), (552, 48), (628, 146), (628, 146), (588, 96), (588, 96)], "0;.12;.15;.64;.67;1", d))
 b.append(f'<text class="k" x="720" y="285">rm deletes for good: there is no bin</text>')
 svgs["Navigate the file system"] = svg(300, "A terminal runs mkdir, cd, nano, cp, mv, ls, rm, cd .., pwd and cat. Beside it a folder tree grows: ros2_ws and src appear, a.py is created, copied to b.py, b.py renamed to talker.py, a.py deleted, and an orange you-are-here marker moves into src and back up to ros2_ws.", "".join(b), " tall")
 
 # ---------- Processes, search, and permissions ----------
 d = "16s"
-CMD = [("type", "$ ros2 run demo_nodes_py talker", .01), ("show", "[INFO] Publishing: 'Hello World: 7'", .04), ("hot", "^C  (node stopped)", .09),
+CMD = [("type", "$ ros2 run demo_nodes_py talker", .01), ("show", '[INFO] Publishing: "Hello World: 7"', .04), ("hot", "^C  (node stopped)", .09),
        ("type", "$ ps aux | grep ros", .14), ("show", "ada 4242 … ros2 run … listener", .3), ("type", "$ kill 4242", .36), ("type", "$ grep -rn \"chatter\" src/", .46), ("show", "src/talker.py:12: 'chatter'", .52),
        ("type", "$ chmod +x script.py", .6), ("type", "$ ls -l script.py", .68), ("ok", "-rwxr-xr-x  script.py", .72), ("type", "$ sudo apt install ros-jazzy-rqt", .8)]
 b = [term(10, 10, 450, 280, "bash"), tl(24, 50, 19, CMD, d)]
@@ -1467,7 +1470,7 @@ d = "14s"
 b = [at(chip(5, 5, 110, 30, "math") + chip(125, 5, 200, 30, "std_msgs.msg.String"), .02, 1, d),
      chip(5, 60, 170, 50, "on_message(text)", ""), '<text class="code dim" x="13" y="98">print(…)</text>',
      chip(250, 60, 205, 80, "subscribe(callback)", ""), '<rect class="block app" x="262" y="96" width="180" height="30" rx="4"/>', at('<text class="code ok" x="272" y="116">callback = on_message</text>', .26, .78, d),
-     packet("fb", "M175,85 L262,111", .2, .26, d), '<text class="k" x="212" y="70">the function itself</text>']
+     packet("fb", "M175,85 L262,111", .2, .26, d), '<text class="k" x="200" y="152">the function itself</text>']
 for k, word in enumerate(["'hello'", "'world'"]):
     t0 = round(.34 + k * .16, 3)
     b += [at(f'<text class="code hot" x="350" y="160">{word}</text>', t0, round(t0 + .08, 3), d), packet("req", "M300,111 C230,150 160,150 90,110", round(t0 + .04, 3), round(t0 + .1, 3), d)]
@@ -1483,9 +1486,8 @@ b = ['<rect class="block" x="5" y="10" width="200" height="40" rx="6"/>', '<rect
      '<line x1="43" y1="8" x2="43" y2="52" stroke="var(--pink)" stroke-width="2" stroke-dasharray="3 3"/><text class="code hot" x="35" y="66">20%</text>',
      term(225, 5, 230, 150, "output")]
 LOG = [(f"battery {100 - 10 * (k + 1)}%", round(.06 + k * .08, 2)) for k in range(8)] + [("battery low", .7), ("battery low", .8)]
-for j, (txt, t0) in enumerate(LOG):
-    row = min(j, 5); e0 = round(LOG[j + 6][1], 2) if j + 6 < len(LOG) else 1
-    b.append(shown(235, 45 + (j % 6) * 18, txt, t0, d, e0 if j < 6 else 1, "code hot" if "low" in txt else "code"))
+for j, (txt, t0) in enumerate(LOG):   # two columns of five, in print order
+    b.append(shown(235 + (j // 5) * 110, 45 + (j % 5) * 20, txt, t0, d, 1, "code hot" if "low" in txt else "code"))
 b.append(move(rover(30, 120, .9), [(0, 0)] + [(k * 18, 0) for k in range(1, 9)] + [(144, 0)], "0;" + ";".join(f"{(.06 + k * .08):.2f}" for k in range(8)) + ";1", d, False))
 svgs["Self-check: Python"] = svg(160, "A battery gauge drains from 100 percent in steps of 10 as a rover drives forward; each change prints through the callback, battery 90 percent down to battery 20 percent. At 20 percent the robot refuses to drive and prints battery low twice.", "".join(b), vb_w=460,
                                 trace=[(0, "14-16"), (.05, "7-8"), (.07, "11-12"), (.68, "8-10")])
@@ -1504,7 +1506,7 @@ for x, y in MESH: b.append(f'<circle class="deco-node" cx="{x}" cy="{y}" r="9"/>
 for k in range(6):
     a_, c_ = MESH[k % 5], MESH[(k * 2 + 1) % 5]; t0 = round(.55 + k * .07, 2)
     b.append(packet("req", f"M{a_[0]},{a_[1]} L{c_[0]},{c_[1]}", t0, round(t0 + .06, 2), d))
-b.append(cap("peers find each other: nothing in the middle to fail", .55, 1, d, 700, 194))
+b.append(cap("peers find each other: nothing in the middle to fail", .55, 1, d, 640, 190))
 svgs["ROS 2 overview"] = svg(200, "Left, ROS 1: four nodes talk through one central master, which then fails, marked single point of failure. Right, ROS 2: five nodes form a mesh and messages pass directly between peers.", "".join(b))
 
 # ---------- ROS 1 vs ROS 2: every row acts out its difference ----------
@@ -1513,12 +1515,12 @@ ROWS = [("Discovery", "Central ROS master", "Distributed, through DDS"), ("Trans
         ("Real-time", "Not designed for it", "Supported with a suitable OS and executor"), ("Security", "None built in", "SROS2: authentication and encryption"), ("Platforms", "Mainly Ubuntu", "Ubuntu, Windows, macOS, RTOS"),
         ("Build", "catkin, rosbuild", "colcon with ament"), ("Launch", "XML only", "Python, XML, or YAML")]
 RH, Y0 = 40, 34
-b = ['<text class="k left" x="10" y="20">feature</text><text class="k left" x="160" y="20">ROS 1</text><text class="k left" x="530" y="20">ROS 2</text>']
+b = ['<text class="k left" x="10" y="20">feature</text><text class="k left" x="160" y="20">ROS 1</text><text class="k left" x="440" y="20">ROS 2</text>']
 for i, (f_, r1, r2) in enumerate(ROWS):
     y = Y0 + i * RH; s0 = round(i / 8, 3); e0 = round((i + 1) / 8, 3)
     b += [f'<line class="divider" x1="0" y1="{y + RH}" x2="900" y2="{y + RH}"/>', f'<rect x="0" y="{y + 2}" width="900" height="{RH - 4}" rx="4" fill="rgba(88,224,210,.08)" opacity="0">{vis(s0 or .001, e0, d)}</rect>',
-          f'<text class="s left" x="10" y="{y + RH / 2}">{f_}</text>', f'<text class="code left" x="250" y="{y + RH / 2 + 4}">{r1}</text>', f'<text class="code ok left" x="620" y="{y + RH / 2 + 4}">{r2}</text>']
-    m = y + RH / 2; A, B = 160, 530   # mini animation slots, 80 px wide
+          f'<text class="s left" x="10" y="{y + RH / 2}">{f_}</text>', f'<text class="code left" x="250" y="{y + RH / 2 + 4}">{r1}</text>', f'<text class="code ok left" x="530" y="{y + RH / 2 + 4}">{r2}</text>']
+    m = y + RH / 2; A, B = 160, 440   # mini animation slots, 80 px wide
     if f_ == "Discovery":
         b += [f'<circle class="joint" cx="{A + 40}" cy="{m}" r="5"/>'] + [f'<line class="divider" x1="{A + 40}" y1="{m}" x2="{A + 40 + dx}" y2="{m + dy}"/><circle class="pulse" cx="{A + 40 + dx}" cy="{m + dy}" r="3"/>' for dx, dy in ((-30, -10), (30, -10), (0, 14))]
         b += [f'<line class="divider" x1="{B + 10}" y1="{m - 8}" x2="{B + 70}" y2="{m - 8}"/><line class="divider" x1="{B + 10}" y1="{m - 8}" x2="{B + 40}" y2="{m + 12}"/><line class="divider" x1="{B + 70}" y1="{m - 8}" x2="{B + 40}" y2="{m + 12}"/>'] + [f'<circle class="pulse" cx="{B + x_}" cy="{m + y_}" r="3"/>' for x_, y_ in ((10, -8), (70, -8), (40, 12))]
@@ -1560,7 +1562,7 @@ for i, (n, s0, e0) in enumerate(STEPS):
     b += [f'<rect class="block" x="5" y="{y}" width="450" height="34" rx="5"/><text class="code" x="44" y="{y + 22}">{n}</text>',
           f'<circle cx="24" cy="{y + 17}" r="8" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-dasharray="12 40" opacity="0"><animateTransform attributeName="transform" type="rotate" dur="1s" repeatCount="indefinite" values="0 24 {y + 17};360 24 {y + 17}"/>{vis(s0, e0, d)}</circle>',
           at(f'<text class="code ok" x="17" y="{y + 22}">✓</text>', e0 if e0 < 1 else .97, 1, d)]
-b += [at('<text class="code dim" x="240" y="114">← GitHub release .deb</text>', .3, .5, d), at('<text class="code ok" x="240" y="136">ros2-apt-source.deb installed</text>', .42, .5, d),
+b += [at('<text class="code dim" x="210" y="114">← GitHub release .deb</text>', .3, .5, d), at('<text class="code ok" x="210" y="136">ros2-apt-source.deb installed</text>', .42, .5, d),
       '<rect x="240" y="146" width="200" height="8" rx="4" fill="var(--line)"/>', f'<rect class="req" x="240" y="146" height="8" rx="4" width="0"><animate attributeName="width" dur="{d}" repeatCount="indefinite" values="0;0;200;200" keyTimes="0;.52;.82;1"/></rect>',
       swap([(.52, .6, "unpacking rviz2…"), (.6, .68, "unpacking rclpy…"), (.68, .76, "unpacking demo_nodes…"), (.76, .84, "setting up 600+ packages")], 240, 176, d, "code dim"),
       at('<text class="code ok" x="240" y="218">$ ros2 --help  ✓</text>', .88, 1, d)]
@@ -1578,7 +1580,7 @@ for k, n in enumerate(PK):
     t0 = round(.62 + k * .05, 2); x = 5 + (k % 3) * 152; y = 222 + (k // 3) * 26
     b.append(at(f'<rect class="block app" x="{x}" y="{y}" width="146" height="22" rx="4"/><text class="code" x="{x + 6}" y="{y + 16}">{n}</text>', t0, 1, d))
 svgs["Set up the environment"] = svg(276, "Before sourcing, ros2 topic list fails with command not found. After sourcing /opt/ros/jazzy/setup.bash it lists /parameter_events and /rosout, because PATH, ROS_DISTRO and PYTHONPATH now point at ROS. The source line goes into ~/.bashrc for every new terminal, then six packages for the Day 2 and Day 3 labs install.", "".join(b), vb_w=460,
-                                    trace=[(0, 0), (.16, 2), (.46, 5), (.62, "8-10")])
+                                    trace=[(0, 0), (.16, 2), (.46, 5), (.62, "8-11")])
 
 # ---------- Configure the ROS environment: a classroom of laptops ----------
 d = "16s"
@@ -1603,8 +1605,8 @@ b = [term(5, 5, 225, 200, "terminal 1"), term(235, 5, 225, 200, "terminal 2"),
      tl(15, 44, 19, [("type", "$ echo $ROS_DISTRO", .02), ("ok", "jazzy", .08), ("type", "$ ros2 doctor --report", .14), ("ok", "All 5 checks passed", .24), ("type", "$ ros2 run … talker", .32)], d)]
 for k in range(4):
     t0 = round(.42 + k * .13, 2)
-    b += [shown(15, 140 + k * 17, f"Publishing: Hello World: {k + 1}", t0, d), packet("req", f"M220,{136 + k * 17} L245,{64 + k * 19}", t0, round(t0 + .04, 2), d)]
-b += [typed(245, 44, "$ ros2 topic echo /chatter", .36, d, .04)] + [shown(245, 68 + k * 19, f"data: Hello World: {k + 1}", round(.46 + k * .13, 2), d, 1, "code ok") for k in range(4)]
+    b += [shown(15, 140 + k * 17, f"<tspan style=\"font-size:11px\">Publishing: 'Hello World: {k + 1}'</tspan>", t0, d), packet("req", f"M220,{136 + k * 17} L245,{64 + k * 19}", t0, round(t0 + .04, 2), d)]
+b += [typed(245, 44, "$ ros2 topic echo /chatter", .36, d, .04)] + [shown(245, 68 + k * 19, f"data: 'Hello World: {k + 1}'", round(.46 + k * .13, 2), d, 1, "code ok") for k in range(4)]
 svgs["Lab baseline"] = svg(210, "Terminal 1 prints jazzy for ROS_DISTRO, ros2 doctor reports all checks passed, and the C++ talker starts publishing Hello World messages. Terminal 2 echoes /chatter and receives each one.", "".join(b), vb_w=465,
                           trace=[(0, 2), (.14, 5), (.32, 6), (.36, 9)])
 
@@ -1671,7 +1673,7 @@ svgs["Workshop outcomes"] = svg(165, "Three panels light up in turn. Read the gr
 
 # ---------- Three-day programme: twelve blocks build one robot system ----------
 d = "14s"
-BL = ["Architecture", "Topics", "Services · actions", "Params · launch", "TF2", "URDF", "Gazebo", "Sensors", "Manipulators", "ros2_control · MoveIt", "Planning", "Cartesian · grasp"]
+BL = ["Architecture", "Topics", "Services", "Launch", "TF2", "URDF", "Gazebo", "Sensors", "Manipulators", "ros2_control", "Planning", "Grasping"]
 COLS3 = ["req", "fb", "res"]
 b = []
 for k, n in enumerate(BL):
@@ -1718,7 +1720,7 @@ b += [at(ellipse_node(310, 50, "/turtlesim", 70, 18), .04, 1, d), at(ellipse_nod
       at('<text class="code" x="236" y="94">/turtle1/cmd_vel</text>', .16, 1, d)]
 for k in range(4): t0 = round(.2 + k * .04, 2); b.append(packet("req", "M310,112 L310,68", t0, round(t0 + .03, 2), d))
 b += [at('<text class="code hot" x="250" y="168">↑ ↑ ← arrow keys</text>', .2, .36, d),
-      term(225, 180, 230, 92, "ros2 node info /turtlesim"), tl(235, 216, 17, [("ok", "Subscribers: /turtle1/cmd_vel", .48), ("ok", "Publishers: /turtle1/pose", .5), ("ok", "Services: /spawn /kill …", .52)], d),
+      term(218, 180, 240, 92, "ros2 node info /turtlesim"), tl(226, 216, 17, [("ok", "Subscribers: /turtle1/cmd_vel", .48), ("ok", "Publishers: /turtle1/pose", .5), ("ok", "Services: /spawn /kill …", .52)], d),
       at(ellipse_node(105, 260, "/my_turtle", 70, 18, "node"), .74, 1, d), at('<text class="code ok" x="10" y="292">--remap __node:=my_turtle</text>', .74, 1, d)]
 svgs["Understanding nodes"] = svg(300, "Two ros2 run commands start the /turtlesim and /teleop_turtle nodes; arrow keys send messages on /turtle1/cmd_vel and the turtle moves. ros2 node info /turtlesim lists its subscriber, publisher and services. A remapped second turtlesim appears as /my_turtle.", "".join(b), vb_w=460,
                                  trace=[(0, 2), (.1, 3), (.38, 5), (.46, 7), (.72, "10-11")])
@@ -1747,7 +1749,7 @@ d = "16s"
 b = [at(ellipse_node(230, 30, "/turtlesim", 70, 18), .05, 1, d)]
 TOP = [("/turtle1/cmd_vel", "geometry_msgs/msg/Twist", 70, 90, "sub"), ("/turtle1/pose", "turtlesim/msg/Pose", 390, 90, "pub"), ("/turtle1/color_sensor", "turtlesim/msg/Color", 230, 130, "pub")]
 for n, ty, x, y, kind in TOP:
-    b.append(at(f'<rect class="pill topic" x="{x - 80}" y="{y - 12}" width="160" height="24" rx="4"/><text class="code" x="{x - 74}" y="{y + 5}">{n}</text><text class="msgtype" x="{x}" y="{y + 24}">{ty}</text>', .16, 1, d))
+    b.append(at(f'<rect class="pill topic" x="{x - 80}" y="{y - 12}" width="160" height="24" rx="4"/><text class="code" x="{x - 74}" y="{y + 5}" style="font-size:12px">{n}</text><text class="msgtype" x="{x}" y="{y + 24}">{ty}</text>', .16, 1, d))
     b.append(at(f'<path class="edge" d="{"M" + str(x) + "," + str(y - 12) + " L210,48" if kind == "sub" else "M250,48 L" + str(x) + "," + str(y - 12)}"/>', .5, 1, d))
 b += [at('<text class="code" x="10" y="180">services: /spawn /kill /reset /clear …</text>', .26, 1, d), at('<text class="code" x="10" y="200">action: /turtle1/rotate_absolute</text>', .34, 1, d),
       at('<text class="code ok" x="10" y="220">/turtle1/pose · RELIABLE · VOLATILE</text>', .62, 1, d), at('<text class="code ok" x="290" y="220">rqt_graph ✓</text>', .78, 1, d)]
@@ -1789,8 +1791,9 @@ for j, ax in enumerate("xyz"):
     b.append(at(f'<text class="code" x="250" y="{88 + j * 22}">float64 {ax}</text>', round(.3 + j * .03, 2), 1, d))
 b += [at('<text class="code ok" x="120" y="88">= 0.5 m/s</text><text class="code ok" x="355" y="132">= 1.0 rad/s</text>', .5, 1, d),
       at('<text class="k" x="230" y="186">x forward · z up · SI units (REP 103)</text>', .5, 1, d),
-      '<line class="divider" x1="40" y1="250" x2="420" y2="250"/>',
-      f'<g opacity="0"><g transform="translate(-22 0)">{rover(0, 0, .8)}</g><animateMotion dur="{d}" repeatCount="indefinite" path="M100,240 A70,70 0 1,1 101,240" keyPoints="0;0;1;1" keyTimes="0;.56;.98;1" rotate="auto"/>{vis(.56, 1, d)}</g>']
+      '<circle cx="230" cy="232" r="30" fill="none" stroke="var(--line)" stroke-dasharray="4 4"/><text class="code dim" x="270" y="236">r = v / ω = 0.5 m</text>',
+      # top view, x forward: positive angular.z turns counter-clockwise
+      f'<g opacity="0">{robot_top(0, 0, 0, .55)}<animateMotion dur="{d}" repeatCount="indefinite" path="M230,262 A30,30 0 0,0 230,202 A30,30 0 0,0 230,262" keyPoints="0;0;1;1" keyTimes="0;.56;.98;1" rotate="auto"/>{vis(.56, 1, d)}</g>']
 svgs["Message interfaces"] = svg(270, "ros2 interface show prints Twist: a Vector3 linear and a Vector3 angular, each with float64 x, y and z. Then a real message fills linear.x with 0.5 m/s and angular.z with 1.0 rad/s, a note gives the conventions, and a rover drives the circle those values describe.", "".join(b), vb_w=460,
                                 trace=[(0, 1), (.1, "4-7"), (.28, "8-11"), (.5, "4-5"), (.56, 0)])
 # ---------- Topic command-line tools: six commands, six views of the same topic ----------
@@ -1864,7 +1867,7 @@ b = [f'<g opacity="0"><ellipse class="node" cx="80" cy="40" rx="70" ry="22"/><te
 for k in range(4):
     t0 = round(.36 + k * .15, 3)
     b += [ring(80, 140, t0, t0 + .04, d, 38, 54), at(f'<rect class="block app" x="140" y="{16 if k % 2 else 20}" width="0" height="0"/>', t0, t0 + .01, d),
-          at(f'<text class="code hot" x="150" y="98">String(data=\'Hello {k}\')</text>', t0, round(t0 + .1, 3), d),
+          at(f'<text class="code hot" x="150" y="89">String(data=\'Hello {k}\')</text>', t0, round(t0 + .1, 3), d),
           packet("req", "M150,40 L270,40", round(t0 + .04, 3), round(t0 + .08, 3), d), shown(172, 140 + k * 20, f"data: Hello {k}", round(t0 + .09, 3), d, 1, "code ok")]
 svgs["Your first publisher"] = svg(228, "Running talker.py: the /talker node appears, then its publisher on /chatter with type String and depth 10, then a 0.5 second timer. Each time the timer fires, tick builds String Hello 0, Hello 1 and so on, publishes it, and ros2 topic echo prints it.", "".join(b), vb_w=460,
                               trace=[(0, 19), (.04, 20), (.08, 7), (.14, "8-9"), (.22, 10), (.3, 11)] + [x for k in range(4) for x in ((round(.36 + k * .15, 3), 14), (round(.4 + k * .15, 3), 15), (round(.45 + k * .15, 3), 16))])
@@ -1964,7 +1967,6 @@ svgs["Choose the interaction pattern"] = svg(276, "Three rows. Topic, for data t
 d = "16s"
 Q = [(240, 20, "Does the data repeat?"), (450, 100, "Does it finish quickly?"), (660, 180, "Progress or cancel?")]
 b = []
-for x, y, q in Q: b += [f'<rect class="node" x="{x - 105}" y="{y}" width="210" height="42" rx="21"/><text class="s" x="{x}" y="{y + 21}">{q}</text>']
 BINS = [(240, "Topic", "req"), (450, "Service", "fb"), (660, "Action", "res")]
 for x, n, cls in BINS: b += [f'<rect class="pill topic" x="{x - 60}" y="262" width="120" height="36" rx="6"/><text class="s" x="{x}" y="280">{n}</text>']
 b += ['<path class="trail" d="M240,62 L240,262"/><path class="trail" d="M345,41 L450,41 L450,100"/><path class="trail" d="M450,142 L450,262"/><path class="trail" d="M555,121 L660,121 L660,180"/><path class="trail" d="M660,222 L660,262"/>',
@@ -1977,6 +1979,8 @@ for k, (n, dest) in enumerate(EX):
     card = f'<rect class="block app" x="-70" y="-14" width="140" height="28" rx="6"/><text class="code" x="-62" y="5">{n}</text>'
     b.append(f'<g opacity="0">{card}<animateMotion dur="{d}" repeatCount="indefinite" calcMode="linear" path="M{" L".join(f"{x},{y}" for x, y in pts)}" keyPoints="0;0;1;1" keyTimes="0;{s0 or .0001};{kt.split(";")[-1]};1"/>{vis(s0 or .001, e0, d)}</g>')
     b.append(at(f'<text class="code ok" x="{BINS[dest][0] - 60}" y="{316 + (k // 3) * 18}">{n}</text>', round(s0 + (e0 - s0) * .85, 3), 1, d))
+# the questions sit on top, so an example card passes behind each one it is asked
+for x, y, q in Q: b += [f'<rect x="{x - 105}" y="{y}" width="210" height="42" rx="21" fill="var(--bg-2)"/><rect class="node" x="{x - 105}" y="{y}" width="210" height="42" rx="21"/><text class="s" x="{x}" y="{y + 21}">{q}</text>']
 svgs["Communication pattern checklist"] = svg(356, "Three questions in a chain: does the data repeat, does it finish quickly, does it need progress or cancellation. Six examples fall through them one by one: robot pose and e-stop state land in Topic, clear costmap and save map in Service, navigate to pose and dock robot in Action.", "".join(b), " tall")
 
 # ---------- Write a service server ----------
@@ -2020,7 +2024,7 @@ b = [ellipse_node(80, 28, "send_goal", 70, 18), ellipse_node(370, 28, "/fibonacc
      chip(5, 64, 450, 52, "", "partial_sequence")]
 for k in range(len(SEQ)):
     t0 = .14 if k < 2 else round(.14 + (k - 1) * .14, 2)
-    b.append(at(f'<rect class="block app" x="{15 + k * 52}" y="84" width="44" height="26" rx="4"/><text class="code" x="{30 + k * 52}" y="102">{SEQ[k]}</text>', t0, 1, d))
+    b.append(at(f'<rect class="block app" x="{15 + k * 52}" y="88" width="44" height="24" rx="4"/><text class="code" x="{30 + k * 52}" y="105">{SEQ[k]}</text>', t0, 1, d))
     if k >= 2: b += [packet("req", "M282,40 L150,40", round(t0 + .02, 2), round(t0 + .07, 2), d), shown(15, 152 + (k - 2) * 16, f"feedback: {SEQ[:k + 1]}", round(t0 + .06, 2), d, 1, "code")]
 b += [term(5, 124, 450, 106, "--feedback"), at('<text class="code ok" x="250" y="152">succeed()</text>', .74, 1, d), packet("res", "M282,46 L150,46", .76, .84, d), at(f'<text class="code ok" x="250" y="176">result: {SEQ}</text>', .84, 1, d)]
 b = b[:5] + [b[-4]] + b[5:-4] + b[-3:]
@@ -2063,7 +2067,7 @@ b = [term(40, 30, 300, 60, "terminal"), typed(54, 70, "$ ros2 launch demo.launch
 for k, (y, n, p_) in enumerate(((30, "/demo/turtlesim", "background_r: 20"), (85, "/demo/teleop", "scale_linear: 2.0"), (140, "/demo/recorder", "rate: 10 Hz"))):
     t0 = round(.22 + k * .1, 2)
     b += [packet("req", f"M340,60 L500,{y + 20}", t0, round(t0 + .06, 2), d), at(f'<rect class="node" x="500" y="{y}" width="200" height="40" rx="20"/><text class="s" x="600" y="{y + 20}">{n}</text><text class="code ok" x="720" y="{y + 25}">{p_}</text>', round(t0 + .06, 2), 1, d)]
-b.append(cap("one command · every node · every setting", .55, 1, d, 450, 196))
+b.append(cap("one command · every node · every setting", .55, 1, d, 450, 190))
 svgs["Parameters, timers, and launch"] = svg(200, "One ros2 launch command starts three nodes in the /demo namespace, each with its own parameter: turtlesim with background_r 20, teleop with scale_linear 2.0, and a recorder at 10 Hz.", "".join(b))
 
 # ---------- Parameters configure nodes: turtlesim's background ----------
@@ -2130,16 +2134,16 @@ d = "12s"
 b = [term(5, 5, 450, 50, "terminal"), typed(15, 40, "$ ros2 launch turtles.launch.py", .02, d, .06),
      packet("req", "M230,55 L230,80", .12, .16, d), at('<rect class="hub" x="140" y="80" width="180" height="34" rx="8"/><text class="code" x="152" y="102">LaunchDescription</text>', .14, 1, d),
      at('<rect class="block" x="5" y="128" width="200" height="110" rx="8" stroke-dasharray="5 4"/><text class="k" x="105" y="146">namespace /demo</text>', .26, 1, d),
-     at(tswin(20, 156, 90, "turtlesim", "rgb(69,86,255)", f'<animate attributeName="fill" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="rgb(69,86,255);rgb(20,86,255)" keyTimes="0;.5"/>'), .32, 1, d),
-     at('<text class="code ok" x="120" y="196">bg_r 20</text>', .5, 1, d), packet("req", "M230,114 L105,128", .26, .32, d),
+     at(tswin(20, 154, 62, "turtlesim", "rgb(69,86,255)", f'<animate attributeName="fill" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="rgb(69,86,255);rgb(20,86,255)" keyTimes="0;.5"/>'), .32, 1, d),
+     at('<text class="code ok" x="100" y="196">bg_r 20</text>', .5, 1, d), packet("req", "M230,114 L105,128", .26, .32, d),
      at('<text class="code ok" x="230" y="160">$ ros2 node list</text><text class="code" x="230" y="182">/demo/turtlesim</text>', .62, 1, d)]
-svgs["Launch describes a system"] = svg(244, "ros2 launch reads the LaunchDescription, which starts turtlesim inside the /demo namespace and applies background_r 20, so its window turns from blue to purple. ros2 node list shows /demo/turtlesim.", "".join(b), vb_w=460,
+svgs["Launch describes a system"] = svg(244, "ros2 launch reads the LaunchDescription, which starts turtlesim inside the /demo namespace and applies background_r 20, so its window background shifts from rgb(69, 86, 255) to rgb(20, 86, 255). ros2 node list shows /demo/turtlesim.", "".join(b), vb_w=460,
                                        trace=[(0, 4), (.12, 5), (.24, "6-8"), (.32, 9), (.46, 10), (.6, 0)], trace_pre=0)
 
 # ---------- Launch arguments and substitutions ----------
 d = "14s"
 b = [chip(5, 5, 450, 56, "", "DeclareLaunchArgument"), swap([(0, .5, "ns = turtlesim1   background_r = 69"), (.5, 1, "ns = robot1   background_r = 200")], 13, 47, d, "code ok"),
-     at('<text class="code hot" x="250" y="20">ns:=robot1 background_r:=200</text>', .44, 1, d),
+     at('<text class="code hot" x="205" y="20">ns:=robot1 background_r:=200</text>', .44, 1, d),
      at(tswin(20, 82, 130, "/turtlesim1/turtlesim", "rgb(69,86,255)"), .12, 1, d), at(tswin(250, 82, 130, "/robot1/turtlesim", "rgb(200,86,255)"), .6, 1, d),
      packet("req", "M100,61 L85,82", .08, .12, d), packet("res", "M330,61 L315,82", .56, .6, d)]
 svgs["Launch arguments and substitutions"] = svg(196, "The launch arguments start with defaults ns turtlesim1 and background_r 69, giving a blue window under /turtlesim1. Launched again with ns:=robot1 background_r:=200, LaunchConfiguration substitutes the new values and a purple window appears under /robot1.", "".join(b), vb_w=460,
@@ -2150,12 +2154,12 @@ d = "14s"
 b = ['<line class="divider" x1="10" y1="40" x2="450" y2="40"/>', '<text class="k left" x="10" y="20">launch timeline</text>',
      at(chip(10, 56, 120, 34, "start sim"), .04, 1, d), at(chip(150, 56, 150, 34, "OnProcessStart"), .16, 1, d), at(chip(320, 56, 130, 34, "spawn turtle2"), .24, 1, d),
      packet("req", "M130,73 L150,73", .14, .17, d), packet("req", "M300,73 L320,73", .22, .25, d),
-     at(tswin(10, 104, 120, "turtlesim") + turtle_icon(50, 170, 0), .06, .6, d), at(turtle_icon(95, 150, 0), .28, .6, d),
+     at(tswin(10, 104, 120, "turtlesim"), .06, .6, d), at('<g opacity=".35">' + tswin(10, 104, 120, "turtlesim") + '</g>', .6, 1, d), at(turtle_icon(50, 170, 0), .06, .6, d), at(turtle_icon(95, 150, 0), .28, .6, d),
      at('<line class="xmark" x1="15" y1="104" x2="125" y2="214"/><text class="code hot" x="140" y="150">window closed</text>', .6, 1, d),
      at(chip(150, 166, 150, 34, "OnProcessExit"), .66, 1, d), at('<text class="code ok" x="310" y="178">LogInfo:</text><text class="code ok" x="310" y="196">turtlesim closed</text>', .72, 1, d),
-     at('<text class="code hot" x="150" y="232">Shutdown → every process stops, no orphans</text>', .8, 1, d)]
+     at('<text class="code hot" x="10" y="234">Shutdown → every process stops, no orphans</text>', .8, 1, d)]
 svgs["Launch event handlers"] = svg(244, "On a launch timeline: turtlesim starts; OnProcessStart fires and spawns turtle2, which appears. Later the window is closed; OnProcessExit logs turtlesim closed and emits Shutdown, so every process stops and none are left orphaned.", "".join(b), vb_w=460,
-                                   trace=[(0, 7), (.14, "14-15"), (.22, "8-10"), (.6, 0), (.66, "16-17"), (.72, 18), (.8, 19)])
+                                   trace=[(0, 9), (.14, "16-17"), (.22, "10-12"), (.6, 0), (.66, "18-19"), (.72, 20), (.8, 21)])
 
 # ---------- Launch files in XML and YAML: three formats, one node ----------
 d = "12s"
@@ -2163,7 +2167,7 @@ b = []
 for k, (n, cls) in enumerate((("turtles.launch.py", "block"), ("turtles.launch.xml", "block app"), ("turtles.launch.yaml", "block"))):
     t0 = round(.05 + k * .2, 2); y = 10 + k * 46
     b += [chip(5, y, 200, 36, n, cls=cls), packet("req", f"M205,{y + 18} L290,70", t0, round(t0 + .08, 2), d)]
-b += [at(tswin(300, 10, 150, "/turtlesim1/turtlesim", "rgb(200,86,255)"), .12, 1, d), '<text class="code ok" x="300" y="160">same node · same args</text>',
+b += [at(tswin(300, 10, 150, "/turtlesim1/turtlesim", "rgb(200,86,255)"), .12, 1, d), '<text class="code ok" x="276" y="160">same node · same args</text>',
       at('<path class="edge" d="M205,28 C240,40 240,60 205,74"/><text class="code" x="10" y="166">py can &lt;include&gt; xml or yaml</text>', .72, 1, d)]
 svgs["Launch files in XML and YAML"] = svg(176, "Three launch files, Python, XML and YAML, each start the same turtlesim node with the same arguments and parameters; then one file includes another.", "".join(b), vb_w=460, trace=[(0, 0), (.25, 2), (.3, "3-4"), (.36, 5), (.6, 0)])
 
@@ -2191,10 +2195,6 @@ for k in range(4): t0 = round(.42 + k * .065, 3); b.append(packet("req", "M160,1
 for k in range(12): t0 = round(.7 + k * .022, 3); b.append(packet("req", "M160,140 L296,140", t0, round(t0 + .02, 3), d))
 svgs["Lab: one-command startup"] = svg(205, "The package is created and built, then one ros2 launch command starts a talker and a listener together. The talker publishes at rate 1.0; changing the rate in params.yaml to 4.0 makes the messages four times as frequent.", "".join(b), vb_w=460,
                                       trace=[(0, "3-4"), (.12, "6-8"), (.28, 9), (.66, 0)])
-def robot_top(x, y, rot=0, s=1):
-    return (f'<g transform="translate({x} {y}) rotate({rot}) scale({s})"><rect class="robot-body" x="-26" y="-18" width="52" height="36" rx="10"/>'
-            '<rect class="wheel" x="-14" y="-24" width="28" height="7" rx="3"/><rect class="wheel" x="-14" y="17" width="28" height="7" rx="3"/><circle class="lens" cx="14" cy="0" r="6"/></g>')
-
 # ---------- Day 2 divider: frames on a robot, then a simulated world ----------
 d = "10s"
 b = ['<rect x="420" y="20" width="460" height="160" rx="10" fill="rgba(106,168,255,.06)" stroke="var(--line)"/><text class="k" x="650" y="38">simulation</text>',
@@ -2202,7 +2202,7 @@ b = ['<rect x="420" y="20" width="460" height="160" rx="10" fill="rgba(106,168,2
      robot_top(180, 110, 0, 1.6), at(axes2d(180, 110, 0, 50, "base_link"), .05, 1, d), at(axes2d(203, 110, 0, 30), .15, 1, d), at('<text class="code" x="210" y="76">lidar_link</text>', .15, 1, d),
      move(robot_top(0, 0, 0, 1), [(470, 140), (470, 140), (700, 140), (700, 140)], "0;.3;.8;1", d)]
 for k in range(8): b.append(at(f'<line x1="{470 + k * 30}" y1="140" x2="{560 if k < 3 else 820}" y2="{110 if k < 3 else 70}" stroke="var(--pink)" stroke-width="1.5" opacity=".6"/>', round(.3 + k * .06, 2), round(.36 + k * .06, 2), d))
-b.append(cap("frames make geometry explicit · simulation makes behaviour observable", .3, 1, d, 450, 196))
+b.append(cap("frames make geometry explicit · simulation makes behavior observable", .3, 1, d, 450, 190))
 svgs["Day 2: model and simulation"] = svg(200, "A robot gains frames, base_link and lidar_link; then the same robot drives through a simulated room while its lidar rays hit the obstacles.", "".join(b))
 
 # ---------- TF2 divider: where was it, and when? ----------
@@ -2225,12 +2225,19 @@ svgs["Transform a stamped observation"] = svg(282, "A moving robot's camera sees
                                          trace=[(0, "1-2"), (.4, 4), (.6, "6-7"), (.8, "1-2")])
 
 # ---------- Publish a static transform ----------
+def xz_axes(x, y, L):
+    """Side view: x forward (pink), z up (cyan)."""
+    return (f'<line class="ax-x" x1="{x}" y1="{y}" x2="{x + L}" y2="{y}"/><line class="ax-y" x1="{x}" y1="{y}" x2="{x}" y2="{y - L}"/><circle class="joint" cx="{x}" cy="{y}" r="4"/>'
+            f'<text class="code" x="{x + L + 4}" y="{y + 4}">x</text><text class="code" x="{x - 4}" y="{y - L - 6}">z</text>')
+
 d = "12s"
 b = ['<line class="divider" x1="10" y1="150" x2="450" y2="150"/>', '<rect class="robot-body" x="60" y="100" width="120" height="44" rx="8"/><circle class="wheel" cx="85" cy="146" r="10"/><circle class="wheel" cx="155" cy="146" r="10"/>',
-     axes2d(100, 120, 0, 36, "base_link"), at('<rect class="block app" x="130" y="64" width="30" height="16" rx="4"/>' + axes2d(145, 72, 0, 30), .1, 1, d), at('<text class="code" x="120" y="34">lidar_link</text>', .1, 1, d),
-     at('<path class="trail" d="M100,120 L145,120 L145,72"/><text class="code ok" x="150" y="104">z 0.2</text><text class="code ok" x="104" y="138">x 0.1</text>', .14, 1, d),
+     xz_axes(100, 120, 36), '<text class="k" x="120" y="166">base_link</text>',
+     at('<rect class="block app" x="130" y="64" width="30" height="16" rx="4"/>' + xz_axes(145, 72, 30), .1, 1, d), at('<text class="code" x="160" y="44" style="font-size:12px">lidar_link</text>', .1, 1, d),
+     at('<path class="trail" d="M100,90 L145,90 M100,86 L100,94 M145,86 L145,94"/><text class="code ok" x="70" y="94" style="font-size:11px">x 0.1</text>'
+        '<path class="trail" d="M194,120 L194,72 M190,120 L198,120 M190,72 L198,72"/><text class="code ok" x="202" y="100" style="font-size:11px">z 0.2</text>', .14, 1, d),
      term(250, 5, 205, 90, "tf2_echo"), at('<text class="code" x="258" y="44">Translation: [0.100,</text><text class="code" x="258" y="62">  0.000, 0.200]</text><text class="code" x="258" y="80">Rotation: [0,0,0,1]</text>', .5, 1, d)]
-svgs["Publish a static transform"] = svg(170, "A robot with base_link axes; static_transform_publisher places lidar_link 0.1 m forward and 0.2 m up with no rotation, and tf2_echo prints translation 0.1, 0, 0.2 and rotation 0, 0, 0, 1.", "".join(b), vb_w=460,
+svgs["Publish a static transform"] = svg(176, "A robot with base_link axes; static_transform_publisher places lidar_link 0.1 m forward and 0.2 m up with no rotation, and tf2_echo prints translation 0.1, 0, 0.2 and rotation 0, 0, 0, 1.", "".join(b), vb_w=460,
                                     trace=[(0, "2-5"), (.12, 3), (.2, 5), (.45, 7)])
 
 # ---------- Write a tf2 broadcaster: pose in, transform out ----------
@@ -2279,7 +2286,7 @@ LINKS = [(442, 110, 16, 60, .05), (442, 74, 100, 14, .15), (528, 80, 12, 60, .25
 for x, y, w, h, t0 in LINKS: b.append(at(f'<rect class="arm" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>', t0, 1, d))
 for (x, y, t0) in ((450, 170, .08), (450, 82, .18), (534, 82, .28)): b += [at(f'<circle class="joint" cx="{x}" cy="{y}" r="7"/>', t0, 1, d), at(f'<line class="ax-x" x1="{x}" y1="{y}" x2="{x + 26}" y2="{y}"/><line class="ax-y" x1="{x}" y1="{y}" x2="{x}" y2="{y - 26}"/>', t0 + .04, 1, d)]
 b += [at('<text class="code" x="180" y="80">&lt;link name="base"/&gt;</text><text class="code" x="180" y="104">&lt;joint type="revolute"&gt;</text><text class="code" x="180" y="128">&lt;link name="arm"/&gt;</text>', .05, 1, d),
-      cap("shape · motion · frames, in one description", .4, 1, d, 450, 196)]
+      cap("shape · motion · frames, in one description", .4, 1, d, 450, 190)]
 svgs["URDF robot modeling"] = svg(200, "Link by link a small arm assembles from its URDF lines; a joint dot and coordinate axes appear at each connection.", "".join(b))
 
 # ---------- Xacro removes repetition ----------
@@ -2348,7 +2355,7 @@ svgs["Gazebo simulation"] = svg(200, "A robot model drops onto the ground under 
 d = "16s"
 b = ['<rect x="10" y="10" width="520" height="210" rx="8" fill="rgba(106,168,255,.05)" stroke="var(--line)"/>']
 for k in range(9): b.append(at(f'<line x1="{30 + k * 60}" y1="30" x2="{30 + k * 60}" y2="200" stroke="rgba(88,224,210,.12)"/>', .02, 1, d))
-b += [f'<g opacity="0"><g>{robot_top(0, 0, 0, 1.2)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 .5 1;0 0 1 1;{EASE};0 0 1 1" values="150 40;150 130;150 130;380 130;380 130" keyTimes="0;.24;.8;.95;1"/>{vis(.2, 1, d)}</g>',
+b += [f'<g opacity="0"><g>{robot_top(0, 0, 0, 1.2)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 1 1;{EASE};0 0 1 1" values="150 40;150 130;150 130;380 130;380 130" keyTimes="0;.24;.8;.95;1"/>{vis(.2, 1, d)}</g>',
       at('<text class="code ok" x="30" y="200">/clock 12.40 s</text>', .4, 1, d), at('<text class="code" x="340" y="200">/cmd_vel /scan bridged</text>', .6, 1, d)]
 CHK = ["World opens", "Robot appears", "Clock flows", "Interfaces exist", "One command works"]
 for k, n in enumerate(CHK):
@@ -2363,7 +2370,7 @@ FAULTS = [("Robot explodes", "inertia · overlap · joints"), ("Robot slides", "
 b = []
 for k, (n, why) in enumerate(FAULTS):
     x = 10 + k * 222
-    b += [f'<rect class="node" x="{x}" y="10" width="210" height="220" rx="8"/><text class="s" x="{x + 105}" y="32">{n}</text><text class="k" x="{x + 105}" y="200">check</text><text class="code dim" x="{x + 105}" y="218" style="text-anchor:middle">{why}</text>',
+    b += [f'<rect class="node" x="{x}" y="10" width="210" height="220" rx="8"/><text class="s" x="{x + 105}" y="32">{n}</text><text class="k" x="{x + 105}" y="200">check</text><text class="code dim" x="{x + 105}" y="218" style="text-anchor:middle;font-size:11.5px">{why}</text>',
           f'<line x1="{x + 15}" y1="170" x2="{x + 195}" y2="170" stroke="var(--line)" stroke-width="2"/>', '<text class="k" x="0" y="0"></text>']
     cx = x + 105
     if k == 0:
@@ -2386,7 +2393,7 @@ d = "16s"
 b = ['<rect x="5" y="5" width="220" height="170" rx="6" fill="rgba(106,168,255,.06)" stroke="var(--line)"/><text class="k" x="115" y="20">Gazebo · empty.sdf</text>']
 for k in range(6): b.append(f'<line x1="{20 + k * 38}" y1="30" x2="{20 + k * 38}" y2="165" stroke="rgba(88,224,210,.12)"/>')
 b += [f'<g opacity="0"><g>{robot_top(0, 0, 0, .9)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 1 1;{EASE};0 0 1 1" values="70 40;70 120;70 120;180 120;180 120" keyTimes="0;.28;.62;.9;1"/>{vis(.22, 1, d)}</g>',
-      term(235, 5, 220, 170, "terminal"), tl(245, 44, 18, [("ok", "gz sim: empty world ✓", .06), ("ok", "create: spawned workshop_bot", .24), ("ok", "bridge: /clock /cmd_vel", .4), ("type", "$ ros2 topic echo /clock", .52)], d),
+      term(235, 5, 220, 170, "terminal"), tl(245, 44, 18, [("ok", "gz sim: empty world ✓", .06), ("ok", "spawned: workshop_bot ✓", .24), ("ok", "bridge: /clock /cmd_vel", .4), ("type", "$ ros2 topic echo /clock", .52)], d),
       swap([(round(.56 + k * .04, 2), round(.6 + k * .04, 2) if k < 10 else 1, f"sec: {k // 2} nanosec: {(k % 2) * 500000000}") for k in range(11)], 245, 134, d, "code ok"),
       at('<text class="code dim" x="245" y="160">sim time, not wall time</text>', .6, 1, d), packet("res", "M235,100 L180,120", .62, .66, d)]
 svgs["Lab: spawn and drive"] = svg(182, "Gazebo opens an empty world; the workshop robot is spawned and drops in; the bridge connects /clock and /cmd_vel; echoing /clock shows simulation time counting while a velocity command drives the robot.", "".join(b), vb_w=460,
@@ -2415,7 +2422,7 @@ b += [chip(20, 20, 220, 50, "sensor_msgs/LaserScan", "2D lidar · ranges"), chip
       '<rect x="250" y="80" width="60" height="50" rx="4" fill="#222b44" stroke="var(--line)"/><circle cx="280" cy="105" r="12" fill="var(--orange)" opacity=".8"><animate attributeName="r" dur="2s" repeatCount="indefinite" values="10;14;10"/></circle>',
       chip(20, 140, 220, 50, "sensor_msgs/Imu", "IMU · orientation, rates"), chip(20, 200, 220, 50, "Contacts", "contact · point, normal")]
 b += [f'<g transform="translate(275 165)"><g><line class="ax-x" x1="0" y1="0" x2="26" y2="0"/><line class="ax-y" x1="0" y1="0" x2="0" y2="-26"/><animateTransform attributeName="transform" type="rotate" dur="2.4s" repeatCount="indefinite" values="-15;15;-15"/></g></g>',
-      burst(860, 130, .55, d, "bad", 30), at('<path d="M860,130 L820,130" stroke="var(--pink)" stroke-width="3" marker-end="url(#mm-arrow)"/><text class="code hot" x="700" y="110">contact · normal</text>', .55, .72, d)]
+      burst(860, 130, .55, d, "bad", 30), at('<path d="M860,130 L820,130" stroke="var(--pink)" stroke-width="3" marker-end="url(#mm-arrow)"/><text class="code hot" x="636" y="100">contact · normal</text>', .55, .72, d)]
 svgs["Common simulated sensors"] = svg(260, "A simulated robot drives towards a wall with its lidar fan sweeping ahead. Beside it, four sensors and their message types: 2D lidar LaserScan, a camera Image with CameraInfo shown as a live view, an IMU whose axes wobble, and a contact sensor that fires with a point and normal when the robot touches the wall.", "".join(b), " tall")
 
 # ---------- Validate sensor data: climb the ladder with evidence ----------
@@ -2442,7 +2449,7 @@ for k in range(15):
     y = 20 + k * 8.5
     b += [at(f'<circle cx="{238 + rnd2.gauss(0, 1.2):.1f}" cy="{y:.0f}" r="2.4" class="pulse"/>', .1, .5, d), at(f'<circle cx="{238 + rnd2.gauss(0, 6):.1f}" cy="{y:.0f}" r="2.4" fill="var(--orange)"/>', .5, 1, d)]
 b += [term(275, 5, 180, 150, "terminal"), tl(285, 44, 18, [("ok", "/scan [LaserScan]", .04), ("ok", "average rate: 10.0", .12), ("show", "frame_id: lidar_link", .2)], d),
-      swap([(.3, .5, "noise σ 0.01"), (.5, 1, "noise σ 0.05")], 285, 108, d, "code hot"), swap([(.3, .5, "mean error 0.4 cm"), (.5, 1, "mean error 1.9 cm")], 285, 130, d, "code ok")]
+      swap([(.3, .5, "noise σ 0.01"), (.5, 1, "noise σ 0.05")], 285, 108, d, "code hot"), swap([(.3, .5, "mean |error| 0.8 cm"), (.5, 1, "mean |error| 4.0 cm")], 285, 130, d, "code ok")]
 svgs["Lab: add and verify lidar"] = svg(162, "A robot's lidar scans a wall at 2.00 m. The terminal confirms the /scan topic, a 10 Hz rate and the lidar_link frame. With range noise 0.01 the points hug the wall; with 0.05 they spread out and the mean error grows from 0.4 to 1.9 cm.", "".join(b), vb_w=460,
                                    trace=[(0, 1), (.1, 2), (.18, 3), (.3, "5-7")])
 def grip_open(open_=14):
@@ -2459,7 +2466,7 @@ seq = [qa, qa, qm, qb, qb]; kt = "0;.15;.45;.75;1"
 b = [f'<rect x="{BX - 40}" y="{BY}" width="80" height="12" class="robot-part"/>', '<rect x="460" y="90" width="40" height="80" fill="#3a4566"/>',
      f'<path d="M{BX + 150 - 0},{BY - 60} C{BX + 120},{BY - 220} {BX - 90},{BY - 220} {BX - 120},{BY - 80}" fill="none" stroke="var(--cyan)" stroke-width="2.5" stroke-dasharray="6 5"/>',
      arm2(BX, BY, L1, L2, [q[0] for q in seq], [q[1] for q in seq], kt, d, spline=True, tip=grip_open()),
-     cap("plan around the obstacle · execute · arrive", .15, 1, d, 450, 196)]
+     cap("plan around the obstacle · execute · arrive", .15, 1, d, 450, 190)]
 svgs["Day 3: robot manipulation"] = svg(200, "A robot arm follows a dashed planned path over an obstacle from one side to the other.", "".join(b))
 
 # ---------- Manipulation vocabulary: one scene, six labels ----------
@@ -2474,13 +2481,13 @@ b = ['<rect x="340" y="230" width="220" height="12" fill="#3a4566"/><rect x="430
 for k, (n, sub, _) in enumerate(TERMS):
     s0, e0 = round(.02 + k * .16, 3), round(.02 + (k + 1) * .16, 3)
     y = 16 + k * 40
-    b += [f'<text class="s left" x="620" y="{y + 10}">{n}</text><text class="code dim" x="620" y="{y + 28}">{sub}</text>', f'<rect x="608" y="{y - 6}" width="290" height="40" rx="5" fill="rgba(88,224,210,.1)" stroke="var(--cyan)" opacity="0">{vis(s0, min(e0, 1), d)}</rect>']
+    b += [f'<text class="s left" x="620" y="{y + 10}">{n}</text><text class="code dim" x="620" y="{y + 26}">{sub}</text>', f'<rect x="608" y="{y - 2}" width="290" height="38" rx="5" fill="rgba(88,224,210,.1)" stroke="var(--cyan)" opacity="0">{vis(s0, min(e0, 1), d)}</rect>']
 _, tip0 = fk2(*P0, L1, L2); el0, _ = fk2(*P0, L1, L2)
 b += [at(f'<text class="code ok" x="{BX - 80}" y="{BY - 10}">q1 {math.radians(P0[0]):.2f}</text><text class="code ok" x="{BX + el0[0] + 10}" y="{BY - el0[1]}">q2 {math.radians(P0[1]):.2f}</text>', .02, .18, d),
       at(f'<circle cx="{BX + tip0[0] + 8}" cy="{BY - tip0[1]}" r="22" fill="none" stroke="var(--orange)" stroke-width="2.5"/>', .18, .34, d),
       at(axes2d(BX + tip0[0] + 8, BY - tip0[1], 0, 34) + f'<text class="code" x="{BX + tip0[0] + 30}" y="{BY - tip0[1] - 30}">in base_link</text>', .34, .5, d)]
 pts = "".join(f'<circle class="pulse" cx="{BX + fk2(P0[0] + (P1[0] - P0[0]) * i / 8, P0[1] + (P1[1] - P0[1]) * i / 8, L1, L2)[1][0] + 8:.0f}" cy="{BY - fk2(P0[0] + (P1[0] - P0[0]) * i / 8, P0[1] + (P1[1] - P0[1]) * i / 8, L1, L2)[1][1]:.0f}" r="3"/>' for i in range(9))
-b += [at(pts + '<text class="code" x="470" y="100">t = 0 … 1.2 s</text>', .5, .66, d), at('<rect x="335" y="186" width="230" height="60" fill="rgba(255,177,90,.15)" stroke="var(--orange)" stroke-dasharray="5 4"/><text class="code hot" x="345" y="180">collision objects</text>', .66, .82, d),
+b += [at(pts + '<text class="code" x="470" y="100">t = 0 … 1.2 s</text>', .5, .66, d), at('<rect x="336" y="226" width="228" height="20" fill="rgba(255,177,90,.15)" stroke="var(--orange)" stroke-dasharray="5 4"/><rect x="426" y="192" width="42" height="38" fill="rgba(255,177,90,.15)" stroke="var(--orange)" stroke-dasharray="5 4"/><text class="code hot" x="380" y="254">collision objects</text>', .66, .82, d),
       at(f'<path class="trail" d="M{BX},{BY + 14} C{BX - 60},{BY + 40} {BX - 120},{BY - 20} {BX - 60},{BY - 60}"/><text class="code ok" x="{BX - 200}" y="{BY - 70}">command ↔ state</text>', .82, 1, d)]
 svgs["Manipulation vocabulary"] = svg(260, "One arm scene labels six terms in turn: joint state values at each joint, the end effector circled, the tool pose with axes in base_link, a trajectory as timed dots, the planning scene's collision objects around the table and box, and the controller loop between command and state.", "".join(b), " tall")
 
@@ -2533,7 +2540,7 @@ d = "9s"
 b = [box(40, 70, 170, 60, "MoveIt 2", "plan", "node"), box(300, 70, 190, 60, "trajectory controller", "follow", "node"), box(580, 30, 150, 50, "real arm", "hardware", "node"), box(580, 120, 150, 50, "Gazebo arm", "simulation", "node"),
      wire("M210,100 L300,100"), wire("M490,100 L580,55"), wire("M490,100 L580,145")]
 for k in range(3): t0 = round(.05 + k * .3, 2); b += [packet("res", "M210,100 L300,100", t0, round(t0 + .06, 2), d), packet("res", "M490,100 L580,55" if k % 2 else "M490,100 L580,145", round(t0 + .08, 2), round(t0 + .14, 2), d), packet("req", "M580,145 L490,100" if k % 2 == 0 else "M580,55 L490,100", round(t0 + .16, 2), round(t0 + .22, 2), d)]
-b.append(cap("the same trajectory reaches simulated or real hardware", .1, 1, d, 450, 196))
+b.append(cap("the same trajectory reaches simulated or real hardware", .1, 1, d, 450, 190))
 svgs["ros2_control and MoveIt 2 architecture"] = svg(200, "MoveIt 2 sends a trajectory to the trajectory controller, which drives either a real arm or a Gazebo arm; state comes back from whichever is connected.", "".join(b))
 
 # ---------- The planning scene: what the planner believes ----------
@@ -2593,7 +2600,7 @@ b += ['<circle cx="94" cy="110" r="12" fill="none" stroke="var(--orange)" stroke
       '<polyline points="205,170 240,110 290,90 330,60" fill="none" stroke="var(--cyan)" stroke-width="3"/><circle cx="205" cy="170" r="4" fill="var(--cyan)"/><circle cx="240" cy="110" r="4" fill="var(--cyan)"/><circle cx="290" cy="90" r="4" fill="var(--cyan)"/><circle cx="330" cy="60" r="4" fill="var(--cyan)"/><text class="code" x="210" y="190">waypoints only</text>']
 for j, f in enumerate((0, .08, .2, .36, .54, .7, .82, .92, 1)):
     b.append(f'<circle cx="{383 + f * 125:.0f}" cy="{150 - math.sin(f * math.pi) * 0 :.0f}" r="4" fill="var(--orange)"/>')
-b += ['<path d="M383,120 C410,60 480,60 508,120" fill="none" stroke="var(--orange)" stroke-width="2"/><text class="code" x="383" y="190">velocity, then spacing</text>',
+b += ['<path d="M383,120 C410,60 480,60 508,120" fill="none" stroke="var(--orange)" stroke-width="2"/><text class="code" x="383" y="190">velocity + timing</text>',
       f'<g transform="translate(640 160)"><rect class="robot-part" x="-20" y="0" width="40" height="8"/>' + arm2(0, 0, 50, 40, [100, 40, 100], [-60, 20, -60], "0;.5;1", "4s", spline=True, w=(9, 7)) + '</g>',
       '<rect x="740" y="60" width="148" height="80" rx="6" fill="#0f1527"/><text class="code ok" x="750" y="88">error 0.4°  ✓</text><text class="code ok" x="750" y="114">SUCCEEDED</text>']
 svgs["From path to trajectory"] = svg(206, "Five stages: a request with a goal and limits; a plan that is only a list of waypoints; time parameterization that adds a velocity profile and spaces the points by time; execution as an arm moves; and monitoring that shows a small tracking error and SUCCEEDED.", "".join(b), " tall")
@@ -2647,7 +2654,7 @@ d = "9s"
 b = ['<rect x="300" y="160" width="300" height="10" fill="#3a4566"/><rect x="433" y="126" width="34" height="34" rx="3" class="res"/>',
      '<line x1="450" y1="20" x2="450" y2="120" stroke="rgba(255,255,255,.3)" stroke-dasharray="5 4"/>',
      f'<g><g transform="rotate(90)">{grip_open(16)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};{EASE};0 0 1 1;{EASE};0 0 1 1" values="450 30;450 30;450 112;450 112;450 40;450 40" keyTimes="0;.15;.45;.55;.8;1"/></g>',
-     cap("straight-line approach · close · lift", .15, 1, d, 450, 196)]
+     cap("straight-line approach · close · lift", .15, 1, d, 450, 190)]
 svgs["Cartesian motion and grasping"] = svg(200, "A gripper comes straight down a dashed line onto a box, closes and lifts it.", "".join(b))
 
 # ---------- Lab: pick and place ----------

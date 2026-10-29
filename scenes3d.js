@@ -381,7 +381,7 @@ SCENES['tf-tree'] = async (panel) => {
 
 // ---------- Day 1 · Launch: a robot model launch file running ----------
 SCENES['launch-display'] = async (panel) => {
-  const s = base3d({ cam: [1.5, 1.0, 1.5], target: [0, .45, 0] });
+  const s = base3d({ cam: [1.9, 1.25, 1.9], target: [0, .52, 0] });   // the zero pose stands the arm straight up
   const r = await panda(); s.world.add(r);
   const vis = {}; r.traverse(o => { if (o.isURDFVisual) (vis[o.parent.urdfName] ??= []).push(o); });
   const tfFrames = ['panda_link0', 'panda_link2', 'panda_link4', 'panda_link6', 'panda_hand'].map(n => { const f = frame(.1, n === 'panda_hand' || n === 'panda_link0' ? n : '', 'small'); r.links[n].add(f); return f; });
@@ -414,7 +414,7 @@ SCENES['launch-display'] = async (panel) => {
     const q = HOME.map(() => 0);
     if (tc > 6.5 && jsp) { const k = Math.floor((tc - 6.5) / 1.6) % 7; q[k] = .7 * Math.sin(((tc - 6.5) % 1.6) / 1.6 * Math.PI); }
     setArm(r, q, .04);
-    log.innerHTML = LOG.filter(([at]) => tc >= at).map(([, l]) => l.replace(/</g, '&lt;')).join('<br>');
+    log.innerHTML = LOG.filter(([at]) => tc >= at).slice(-4).map(([, l]) => l.replace(/</g, '&lt;')).join('<br>');   // the newest lines, like a terminal
     r.updateMatrixWorld(true); r.links.panda_hand.getWorldPosition(hand); r.worldToLocal(hand);
     out.innerHTML = jsp ? `<b>ros2 node list</b> /robot_state_publisher /joint_state_publisher${rviz ? ' /rviz' : ''}<br><b>tf2_echo panda_link0 panda_hand</b> ${[hand.x, hand.y, hand.z].map(v => v.toFixed(3)).join(', ')}`
                         : rsp ? '<b>ros2 node list</b> /robot_state_publisher<br>/tf_static only: moving links have no transform yet' : '<b>ros2 node list</b> (empty)';
@@ -1973,7 +1973,12 @@ function tick(now) {
     }
     if (inst.autoRotate) cur.controls.autoRotate = !isPaused();
     cur.controls.update();
-    renderer.render(inst.scene, inst.camera); labels.render(inst.scene, inst.camera);
+    renderer.render(inst.scene, inst.camera);
+    // CSS2DRenderer checks only a label's own flag, so hide labels that sit inside hidden groups too.
+    const hidden = [];
+    inst.scene.traverse(o => { if (o.isCSS2DObject && o.visible) for (let p = o.parent; p; p = p.parent) if (!p.visible) { o.visible = false; hidden.push(o); break; } });
+    labels.render(inst.scene, inst.camera);
+    hidden.forEach(o => (o.visible = true));
   }
   raf = requestAnimationFrame(tick);
 }
