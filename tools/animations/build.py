@@ -1617,14 +1617,15 @@ for k, n in enumerate(CH):
     b += [shown(18, y, f"checking {n}…", t0, d, round(t0 + .07, 2), "code dim"), shown(18, y, f"✓ {n}", round(t0 + .07, 2), d, .5)]
 b += [shown(18, 150, "All 5 checks passed", .42, d, .5, "code ok"),
       at('<text class="code hot" x="18" y="178">warning: /turtle1/cmd_vel has 1 subscriber</text><text class="code hot" x="18" y="196">and no publisher (information, not an error)</text>', .3, .5, d)]
-REP = ["PLATFORM INFORMATION", "RMW MIDDLEWARE", "ROS 2 INFORMATION", "NETWORK CONFIGURATION", "TOPIC LIST"]
+REP = [("NETWORK CONFIGURATION", "inet · multicast"), ("PACKAGE VERSIONS", "installed vs latest"), ("PLATFORM INFORMATION", "Ubuntu 24.04"), ("QOS COMPATIBILITY LIST", "mismatched pairs"),
+       ("RMW MIDDLEWARE", "rmw_fastrtps_cpp"), ("ROS 2 INFORMATION", "distribution: jazzy"), ("TOPIC LIST", "pub / sub counts")]
 b.append(typed(18, 46, "$ ros2 doctor --report", .52, d, .04))
-for k, n in enumerate(REP):
-    t0 = round(.58 + k * .07, 2)
-    b.append(shown(18, 76 + k * 34, n, t0, d, 1, "code ok"))
-    b.append(shown(40, 94 + k * 34, ["system: Linux · Ubuntu 24.04", "middleware name: rmw_fastrtps_cpp", "distribution name: jazzy", "inet: 192.168.1.14 · multicast", "publisher count / subscriber count"][k], round(t0 + .02, 2), d, 1, "code dim"))
+for k, (n, det) in enumerate(REP):
+    t0 = round(.58 + k * .05, 2)
+    b.append(shown(18, 74 + k * 25, n, t0, d, 1, "code ok"))
+    b.append(shown(270, 74 + k * 25, det, round(t0 + .02, 2), d, 1, "code dim"))
 b = b[:1] + [at("".join(b[1:13]), 0, .5, d)] + b[13:]
-svgs["Check your setup with ros2 doctor"] = svg(262, "ros2 doctor runs five checks, platform, network, topic, package and QoS compatibility, each ticking off, then reports all 5 passed with a topic warning that is information, not an error. ros2 doctor --report then prints its five sections: platform, middleware, ROS 2 information, network configuration and topic list.", "".join(b), vb_w=460,
+svgs["Check your setup with ros2 doctor"] = svg(262, "ros2 doctor runs five checks, platform, network, topic, package and QoS compatibility, each ticking off, then reports all 5 passed with a topic warning that is information, not an error. ros2 doctor --report then prints its seven sections: network configuration, package versions, platform information, QoS compatibility, middleware, ROS 2 information and topic list.", "".join(b), vb_w=460,
                                                trace=[(0, 1), (.5, 4), (.58, "5-9")])
 
 # ---------- Common setup problems: error, cause, fix, success ----------
