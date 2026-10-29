@@ -2301,6 +2301,148 @@ pts = "".join(f'<circle class="pulse" cx="{480 + 160 * math.cos(a):.0f}" cy="{11
 b += [at(pts, .45, 1, d), at('<rect x="700" y="40" width="180" height="120" rx="4" fill="#222b44" stroke="var(--line)"/><circle cx="790" cy="100" r="26" fill="var(--orange)" opacity=".8"/><text class="k" x="790" y="152">/camera/image</text>', .65, 1, d),
       cap("RViz only draws what is published", .82, 1, d, 450, 188)]
 svgs["RViz2 tour"] = svg(200, "An RViz2 window where four displays are ticked in turn: RobotModel draws the robot, TF adds its frame axes, LaserScan adds a ring of scan points, and Image shows a camera view.", "".join(b))
+def check(x, y, t0, dur):
+    return at(f'<circle cx="{x}" cy="{y}" r="11" fill="rgba(88,224,210,.15)" stroke="var(--cyan)"/><path d="M{x - 5},{y} L{x - 1},{y + 4} L{x + 6},{y - 5}" stroke="var(--cyan)" stroke-width="2.5" fill="none"/>', t0, 1, dur)
+
+# ---------- URDF build order: one arm, five stages ----------
+d = "16s"
+STG = ["Kinematic tree", "Simple visuals", "Collision geometry", "Mass and inertia", "Meshes and plugins"]
+b = []
+for k, n in enumerate(STG):
+    x = 10 + k * 178; s0, e0 = round(.02 + k * .19, 3), round(.02 + (k + 1) * .19, 3)
+    b += [f'<rect class="node" x="{x}" y="10" width="168" height="200" rx="8"/><text class="s" x="{x + 84}" y="32">{n}</text>',
+          f'<rect x="{x}" y="10" width="168" height="200" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0, min(e0, 1), d)}</rect>', check(x + 150, 196, e0 - .02, d)]
+    bx, by = x + 84, 180
+    base = f'<line x1="{bx - 40}" y1="{by}" x2="{bx + 40}" y2="{by}" stroke="var(--line)" stroke-width="2"/>'
+    if k == 0: body = f'<line class="divider" x1="{bx}" y1="{by}" x2="{bx}" y2="{by - 70}"/><line class="divider" x1="{bx}" y1="{by - 70}" x2="{bx + 50}" y2="{by - 110}"/>' + axes2d(bx, by, 0, 20) + axes2d(bx, by - 70, 0, 20) + axes2d(bx + 50, by - 110, 0, 20)
+    elif k == 1: body = f'<rect class="arm" x="{bx - 8}" y="{by - 70}" width="16" height="70" rx="3"/><g transform="rotate(-38 {bx} {by - 70})"><rect class="arm" x="{bx}" y="{by - 76}" width="64" height="12" rx="3"/></g>'
+    elif k == 2: body = f'<rect class="arm" x="{bx - 8}" y="{by - 70}" width="16" height="70" rx="3" opacity=".4"/><rect x="{bx - 12}" y="{by - 74}" width="24" height="78" fill="rgba(255,177,90,.35)" stroke="var(--orange)"/><g transform="rotate(-38 {bx} {by - 70})"><rect x="{bx - 4}" y="{by - 80}" width="72" height="20" fill="rgba(255,177,90,.35)" stroke="var(--orange)"/></g>'
+    elif k == 3: body = f'<rect class="arm" x="{bx - 8}" y="{by - 70}" width="16" height="70" rx="3" opacity=".4"/><circle cx="{bx}" cy="{by - 35}" r="6" fill="var(--pink)"/><ellipse cx="{bx}" cy="{by - 35}" rx="10" ry="34" fill="none" stroke="var(--pink)" stroke-dasharray="3 3"/><text class="code" x="{bx + 14}" y="{by - 30}">1.2 kg</text>'
+    else: body = f'<path d="M{bx - 10},{by} L{bx - 7},{by - 70} Q{bx},{by - 80} {bx + 7},{by - 70} L{bx + 10},{by} Z" fill="#c9d1e3"/><g transform="rotate(-38 {bx} {by - 70})"><path d="M{bx},{by - 76} L{bx + 60},{by - 74} Q{bx + 70},{by - 70} {bx + 60},{by - 64} L{bx},{by - 64} Z" fill="#c9d1e3"/></g><text class="code ok" x="{x + 10}" y="58">+ gz_ros2_control</text>'
+    b.append(base + at(body, s0, 1, d))
+svgs["URDF build order"] = svg(242, "One arm model through five stages: a kinematic tree of frames, simple box visuals, orange collision boxes, a centre of mass and inertia ellipse, then detailed meshes with a gz_ros2_control plugin. Each stage gets a check mark when it is validated.", "".join(b), " tall")
+
+# ---------- Lab: model a two-link arm ----------
+d = "14s"
+b = ['<rect class="term" x="5" y="5" width="220" height="170" rx="6"/><text class="k" x="115" y="20">RViz2</text>', '<rect class="robot-part" x="75" y="150" width="70" height="12" rx="3"/>',
+     at(arm2(110, 150, 60, 50, [80, 120, 60, 80], [-40, -80, 20, -40], "0;.33;.66;1", d, spline=True), .1, 1, d),
+     '<rect class="block" x="235" y="5" width="220" height="88" rx="6"/><text class="k" x="345" y="20">joint_state_publisher_gui</text>',
+     '<line x1="250" y1="44" x2="440" y2="44" stroke="var(--line)" stroke-width="4"/><line x1="250" y1="74" x2="440" y2="74" stroke="var(--line)" stroke-width="4"/>',
+     f'<circle class="pulse" cy="44" r="8"><animate attributeName="cx" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};{EASE};{EASE}" values="320;390;280;320" keyTimes="0;.33;.66;1"/></circle>',
+     f'<circle class="pulse" cy="74" r="8"><animate attributeName="cx" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};{EASE};{EASE}" values="320;270;380;320" keyTimes="0;.33;.66;1"/></circle>',
+     term(235, 102, 220, 73, "/joint_states"), swap([(0, .33, "position: [0.70, -0.70]"), (.33, .66, "position: [1.40, -1.40]"), (.66, 1, "position: [0.35, 0.35]")], 243, 146, d, "code ok")]
+svgs["Lab: model a two-link arm"] = svg(182, "The two-link arm model appears in RViz2; moving the joint_state_publisher_gui sliders changes /joint_states and the arm follows.", "".join(b), vb_w=460,
+                                   trace=[(0, "1-2"), (.3, 4), (.8, 5)])
+
+# ---------- Gazebo divider ----------
+d = "9s"
+b = ['<line class="divider" x1="80" y1="160" x2="820" y2="160"/>',
+     f'<g><g>{robot_top(0, 0, 0, 1.3)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 .5 1;.5 0 1 1;0 0 .5 1;{EASE};0 0 1 1" values="200 40;200 136;200 116;200 136;200 136;600 136;600 136" keyTimes="0;.12;.18;.24;.3;.85;1"/></g>',
+     '<text class="k" x="200" y="190">physics: gravity, contact</text>', swap([(round(k / 10, 2) or .001, round((k + 1) / 10, 2), f"/clock {k * 0.5:.1f} s") for k in range(10)], 760, 40, d, "code ok"),
+     at('<text class="code" x="420" y="110">/cmd_vel →</text>', .3, .85, d)]
+svgs["Gazebo simulation"] = svg(200, "A robot model drops onto the ground under gravity, bounces once and settles, then drives along as a /cmd_vel command arrives, while /clock counts simulation time.", "".join(b))
+
+# ---------- Simulation startup checklist ----------
+d = "16s"
+b = ['<rect x="10" y="10" width="520" height="210" rx="8" fill="rgba(106,168,255,.05)" stroke="var(--line)"/>']
+for k in range(9): b.append(at(f'<line x1="{30 + k * 60}" y1="30" x2="{30 + k * 60}" y2="200" stroke="rgba(88,224,210,.12)"/>', .02, 1, d))
+b += [f'<g opacity="0"><g>{robot_top(0, 0, 0, 1.2)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 .5 1;0 0 1 1;{EASE};0 0 1 1" values="150 40;150 130;150 130;380 130;380 130" keyTimes="0;.24;.8;.95;1"/>{vis(.2, 1, d)}</g>',
+      at('<text class="code ok" x="30" y="200">/clock 12.40 s</text>', .4, 1, d), at('<text class="code" x="340" y="200">/cmd_vel /scan bridged</text>', .6, 1, d)]
+CHK = ["World opens", "Robot appears", "Clock flows", "Interfaces exist", "One command works"]
+for k, n in enumerate(CHK):
+    y = 18 + k * 42; t0 = round(.12 + k * .19, 2)
+    b += [f'<rect class="block" x="560" y="{y}" width="330" height="34" rx="5"/><text class="code" x="600" y="{y + 22}">{n}</text>', check(578, y + 17, t0, d)]
+b.append(packet("req", "M560,200 L400,150", .82, .86, d))
+svgs["Simulation startup checklist"] = svg(228, "Five checks tick one by one alongside a simulated world: the empty world opens, the robot is spawned and settles, /clock advances, /cmd_vel and /scan are bridged, and one velocity command moves the robot.", "".join(b), " tall")
+
+# ---------- Stable simulation starts with the model ----------
+d = "12s"
+FAULTS = [("Robot explodes", "inertia · overlap · joints"), ("Robot slides", "friction · contact · gains"), ("Runs slowly", "meshes · sensors · rates"), ("Motion oscillates", "timestep · gains · rate")]
+b = []
+for k, (n, why) in enumerate(FAULTS):
+    x = 10 + k * 222
+    b += [f'<rect class="node" x="{x}" y="10" width="210" height="220" rx="8"/><text class="s" x="{x + 105}" y="32">{n}</text><text class="k" x="{x + 105}" y="200">check</text><text class="code dim" x="{x + 105}" y="218" style="text-anchor:middle">{why}</text>',
+          f'<line x1="{x + 15}" y1="170" x2="{x + 195}" y2="170" stroke="var(--line)" stroke-width="2"/>', '<text class="k" x="0" y="0"></text>']
+    cx = x + 105
+    if k == 0:
+        for j, (dx, dy) in enumerate(((-30, -40), (25, -55), (40, -10), (-45, -5))):
+            b.append(f'<rect class="robot-part" x="{cx - 10}" y="140" width="20" height="20" rx="3"><animateTransform attributeName="transform" type="translate" dur="1.2s" repeatCount="indefinite" values="0 0;{dx} {dy};0 0"/></rect>')
+        b.append(f'<text class="code hot" x="{x + 12}" y="62">inertia 0.0001 kg·m²</text>')
+    elif k == 1:
+        b += [f'<g><rect class="robot-body" x="{cx - 30}" y="140" width="60" height="22" rx="6"/><circle class="wheel" cx="{cx - 16}" cy="164" r="7"/><circle class="wheel" cx="{cx + 16}" cy="164" r="7"/><animateTransform attributeName="transform" type="translate" dur="3s" repeatCount="indefinite" values="-60 0;60 0;-60 0"/></g>',
+              f'<text class="code hot" x="{x + 12}" y="62">mu = 0.01: wheels spin</text>']
+    elif k == 2:
+        b += [f'<rect x="{x + 20}" y="90" width="170" height="12" rx="6" fill="var(--line)"/><rect x="{x + 20}" y="90" height="12" rx="6" fill="var(--pink)" width="34"><animate attributeName="width" dur="2s" repeatCount="indefinite" values="20;40;24;36;20"/></rect>',
+              f'<text class="code hot" x="{x + 12}" y="62">real-time factor 0.21</text>', f'<text class="code dim" x="{x + 12}" y="132">200k-triangle mesh</text>']
+    else:
+        b += [f'<g transform="translate({cx} 160)"><rect class="robot-part" x="-16" y="0" width="32" height="8"/><g><rect class="arm" x="-4" y="-70" width="8" height="70" rx="4"/><circle class="joint" r="5"/>'
+              f'<animateTransform attributeName="transform" type="rotate" dur="1s" repeatCount="indefinite" values="-25;25;-25"/></g></g>', f'<text class="code hot" x="{x + 12}" y="62">Kp too high for 1 kHz</text>']
+svgs["Stable simulation starts with the model"] = svg(254, "Four small simulations of common faults: parts jittering apart from a tiny inertia value, a robot sliding back and forth with near-zero friction, a real-time factor stuck near 0.2 under a huge mesh, and an arm joint oscillating with too high a gain. Each names what to check.", "".join(b), " tall")
+
+# ---------- Lab: spawn and drive ----------
+d = "16s"
+b = ['<rect x="5" y="5" width="220" height="170" rx="6" fill="rgba(106,168,255,.06)" stroke="var(--line)"/><text class="k" x="115" y="20">Gazebo · empty.sdf</text>']
+for k in range(6): b.append(f'<line x1="{20 + k * 38}" y1="30" x2="{20 + k * 38}" y2="165" stroke="rgba(88,224,210,.12)"/>')
+b += [f'<g opacity="0"><g>{robot_top(0, 0, 0, .9)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines=".5 0 1 1;0 0 1 1;{EASE};0 0 1 1" values="70 40;70 120;70 120;180 120;180 120" keyTimes="0;.28;.62;.9;1"/>{vis(.22, 1, d)}</g>',
+      term(235, 5, 220, 170, "terminal"), tl(245, 44, 18, [("ok", "gz sim: empty world ✓", .06), ("ok", "create: spawned workshop_bot", .24), ("ok", "bridge: /clock /cmd_vel", .4), ("type", "$ ros2 topic echo /clock", .52)], d),
+      swap([(round(.56 + k * .04, 2), round(.6 + k * .04, 2) if k < 10 else 1, f"sec: {k // 2} nanosec: {(k % 2) * 500000000}") for k in range(11)], 245, 134, d, "code ok"),
+      at('<text class="code dim" x="245" y="160">sim time, not wall time</text>', .6, 1, d), packet("res", "M235,100 L180,120", .62, .66, d)]
+svgs["Lab: spawn and drive"] = svg(182, "Gazebo opens an empty world; the workshop robot is spawned and drops in; the bridge connects /clock and /cmd_vel; echoing /clock shows simulation time counting while a velocity command drives the robot.", "".join(b), vb_w=460,
+                              trace=[(0, "1-2"), (.2, "4-6"), (.38, "7-10"), (.52, 11)])
+
+# ---------- Sensor simulation divider ----------
+d = "8s"
+b = ['<rect x="300" y="20" width="12" height="150" fill="#3a4566"/><rect x="600" y="60" width="80" height="12" fill="#3a4566"/>', robot_top(160, 100, 0, 1.3)]
+for k in range(24):
+    a = -1.1 + k * .095; t0 = round(.02 + k * .04, 2)
+    hit = 140 / math.cos(a) if abs(a) < .55 else 500
+    ex = 160 + min(hit, 480) * math.cos(a); ey = 100 + min(hit, 480) * math.sin(a)
+    b += [at(f'<line x1="180" y1="100" x2="{ex:.0f}" y2="{ey:.0f}" stroke="var(--pink)" stroke-width="1.5" opacity=".5"/>', t0, round(t0 + .05, 2), d),
+          at(f'<circle cx="{ex + (3 if k % 3 else -3):.0f}" cy="{ey:.0f}" r="3" class="pulse"/>', t0, 1, d)]
+b.append(cap("useful simulated data: right frame, rate, noise, and type", .3, 1, d, 450, 194))
+svgs["Sensor simulation"] = svg(200, "A simulated robot sweeps lidar rays across a wall; the hits land as slightly noisy points, like a real sensor.", "".join(b))
+
+# ---------- Common simulated sensors ----------
+d = "12s"
+b = ['<rect x="5" y="5" width="890" height="250" rx="8" fill="rgba(255,255,255,.02)" stroke="var(--line)"/>', '<rect x="860" y="30" width="14" height="200" fill="#3a4566"/>',
+     f'<g><g>{robot_top(0, 0, 0, 1.6)}</g><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};0 0 1 1;{EASE}" values="420 130;780 130;780 130;420 130" keyTimes="0;.55;.7;1"/></g>']
+for k in range(9):
+    a = -.8 + k * .2
+    b.append(f'<line x1="0" y1="0" x2="{150 * math.cos(a):.0f}" y2="{150 * math.sin(a):.0f}" stroke="var(--pink)" stroke-width="1.2" opacity=".5" transform="translate(440 130)"><animateTransform attributeName="transform" type="translate" dur="{d}" repeatCount="indefinite" calcMode="spline" keySplines="{EASE};0 0 1 1;{EASE}" values="440 130;800 130;800 130;440 130" keyTimes="0;.55;.7;1"/></line>')
+b += [chip(20, 20, 220, 50, "sensor_msgs/LaserScan", "2D lidar · ranges"), chip(20, 80, 220, 50, "sensor_msgs/Image", "camera · + CameraInfo"),
+      '<rect x="250" y="80" width="60" height="50" rx="4" fill="#222b44" stroke="var(--line)"/><circle cx="280" cy="105" r="12" fill="var(--orange)" opacity=".8"><animate attributeName="r" dur="2s" repeatCount="indefinite" values="10;14;10"/></circle>',
+      chip(20, 140, 220, 50, "sensor_msgs/Imu", "IMU · orientation, rates"), chip(20, 200, 220, 50, "Contacts", "contact · point, normal")]
+b += [f'<g transform="translate(275 165)"><g><line class="ax-x" x1="0" y1="0" x2="26" y2="0"/><line class="ax-y" x1="0" y1="0" x2="0" y2="-26"/><animateTransform attributeName="transform" type="rotate" dur="2.4s" repeatCount="indefinite" values="-15;15;-15"/></g></g>',
+      burst(860, 130, .55, d, "bad", 30), at('<path d="M860,130 L820,130" stroke="var(--pink)" stroke-width="3" marker-end="url(#mm-arrow)"/><text class="code hot" x="700" y="110">contact · normal</text>', .55, .72, d)]
+svgs["Common simulated sensors"] = svg(260, "A simulated robot drives towards a wall with its lidar fan sweeping ahead. Beside it, four sensors and their message types: 2D lidar LaserScan, a camera Image with CameraInfo shown as a live view, an IMU whose axes wobble, and a contact sensor that fires with a point and normal when the robot touches the wall.", "".join(b), " tall")
+
+# ---------- Validate sensor data: climb the ladder with evidence ----------
+d = "16s"
+RUNG = [("Exists", "topic + type", "/scan · sensor_msgs/msg/LaserScan"), ("Flows", "rate + bandwidth", "average rate: 10.0 Hz"), ("Aligns", "frame + timestamp", "frame_id lidar_link · age 0.01 s"),
+        ("Looks plausible", "RViz + known scene", "points trace the room outline"), ("Matches reality", "noise + limits", "wall 2.00 m · scan mean 2.01 m")]
+b = []
+for k, (n, sub, ev) in enumerate(RUNG):
+    y = 196 - k * 44; t0 = round(.04 + k * .19, 2)
+    b += [f'<rect class="block" x="10" y="{y}" width="230" height="36" rx="5"/><text class="s left" x="44" y="{y + 18}">{n}</text><text class="k" x="190" y="{y + 18}">{sub.split(" + ")[0]}</text>', check(26, y + 18, round(t0 + .12, 2), d),
+          at(f'<text class="code ok" x="260" y="{y + 23}">{ev}</text>', round(t0 + .06, 2), 1, d)]
+b += [at('<rect x="600" y="20" width="280" height="200" rx="6" fill="#0f1527" stroke="var(--line)"/><rect x="630" y="50" width="220" height="140" fill="none" stroke="rgba(255,255,255,.25)" stroke-dasharray="4 4"/>', .6, 1, d)]
+pts = "".join(f'<circle class="pulse" cx="{630 + 220 * (j / 30):.0f}" cy="{50 + (1.5 if j % 2 else -1.5):.0f}" r="2.5"/><circle class="pulse" cx="{850 + (1.5 if j % 2 else -1.5):.0f}" cy="{50 + 140 * (j / 30):.0f}" r="2.5"/>' for j in range(31))
+b += [at(pts, .64, 1, d), move(robot_top(0, 0, 0, .7), [(700, 130), (700, 130)], "0;1", d)]
+svgs["Validate sensor data"] = svg(240, "A five-rung ladder climbed from the bottom, each rung ticked with evidence: the /scan topic exists with LaserScan type, it flows at 10 Hz, it aligns with frame lidar_link and a fresh timestamp, its points trace a known room outline in RViz, and its mean range of 2.01 m matches a wall measured at 2.00 m.", "".join(b), " tall",
+                              trace=[(0, 1), (.2, 2), (.4, "3-4"), (.6, 0)])
+
+# ---------- Lab: add and verify lidar ----------
+d = "14s"
+b = ['<rect x="5" y="5" width="260" height="150" rx="6" fill="rgba(255,255,255,.02)" stroke="var(--line)"/><rect x="240" y="15" width="10" height="130" fill="#3a4566"/>', robot_top(60, 80, 0, 1),
+     '<line class="divider" x1="80" y1="150" x2="240" y2="150"/><text class="code" x="120" y="146">wall at 2.00 m</text>']
+rnd2 = random.Random(3)
+for k in range(15):
+    y = 20 + k * 8.5
+    b += [at(f'<circle cx="{238 + rnd2.gauss(0, 1.2):.1f}" cy="{y:.0f}" r="2.4" class="pulse"/>', .1, .5, d), at(f'<circle cx="{238 + rnd2.gauss(0, 6):.1f}" cy="{y:.0f}" r="2.4" fill="var(--orange)"/>', .5, 1, d)]
+b += [term(275, 5, 180, 150, "terminal"), tl(285, 44, 18, [("ok", "/scan [LaserScan]", .04), ("ok", "average rate: 10.0", .12), ("show", "frame_id: lidar_link", .2)], d),
+      swap([(.3, .5, "noise σ 0.01"), (.5, 1, "noise σ 0.05")], 285, 108, d, "code hot"), swap([(.3, .5, "mean error 0.4 cm"), (.5, 1, "mean error 1.9 cm")], 285, 130, d, "code ok")]
+svgs["Lab: add and verify lidar"] = svg(162, "A robot's lidar scans a wall at 2.00 m. The terminal confirms the /scan topic, a 10 Hz rate and the lidar_link frame. With range noise 0.01 the points hug the wall; with 0.05 they spread out and the mean error grows from 0.4 to 1.9 cm.", "".join(b), vb_w=460,
+                                   trace=[(0, 1), (.1, 2), (.18, 3), (.3, "5-7")])
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}

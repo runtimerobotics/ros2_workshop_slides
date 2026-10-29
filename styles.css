@@ -406,3 +406,4 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 .baseline-line { color: var(--muted); font-size: .9rem; margin: 0 0 .4rem; }
 .split > div > .nested-code + svg.ros-anim { max-height: 24vh; }
 .split > div > .check-list + svg.ros-anim { max-height: 34vh; }
+[data-title="Lab: spawn and drive"] .lab-layout svg.ros-anim { max-height: 19vh; }
