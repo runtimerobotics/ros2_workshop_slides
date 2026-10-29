@@ -2051,6 +2051,144 @@ b = ['<rect class="win" x="5" y="25" width="160" height="160" fill="#4556ff"/><r
      at('<text class="code hot" x="190" y="166">2nd goal: Goal canceled</text>', .8, 1, d)]
 svgs["Lab: request and goal"] = svg(192, "The service list shows /spawn and a second turtle appears; the action list shows rotate_absolute and its interface theta, delta, remaining. A goal with feedback rotates the first turtle half a turn while remaining counts down, ending with delta -3.14. A second goal is canceled partway.", "".join(b), vb_w=460,
                                trace=[(0, 1), (.08, 2), (.2, "4-5"), (.36, "7-10"), (.78, 0)])
+def tswin(x, y, s, title, fill="#4556ff", fill_anim=""):
+    return (f'<rect class="termbar" x="{x}" y="{y}" width="{s}" height="20" rx="5"/><text class="k" x="{x + s / 2}" y="{y + 11}">{title}</text>'
+            f'<rect class="win" x="{x}" y="{y + 18}" width="{s}" height="{s * .8:.0f}" fill="{fill}">{fill_anim}</rect>')
+
+# ---------- Parameters, timers, launch divider: one command, a configured system ----------
+d = "9s"
+b = [term(40, 30, 300, 60, "terminal"), typed(54, 70, "$ ros2 launch demo.launch.py", .04, d, .08)]
+for k, (y, n, p_) in enumerate(((30, "/demo/turtlesim", "background_r: 20"), (85, "/demo/teleop", "scale_linear: 2.0"), (140, "/demo/recorder", "rate: 10 Hz"))):
+    t0 = round(.22 + k * .1, 2)
+    b += [packet("req", f"M340,60 L500,{y + 20}", t0, round(t0 + .06, 2), d), at(f'<rect class="node" x="500" y="{y}" width="200" height="40" rx="20"/><text class="s" x="600" y="{y + 20}">{n}</text><text class="code ok" x="720" y="{y + 25}">{p_}</text>', round(t0 + .06, 2), 1, d)]
+b.append(cap("one command · every node · every setting", .55, 1, d, 450, 196))
+svgs["Parameters, timers, and launch"] = svg(200, "One ros2 launch command starts three nodes in the /demo namespace, each with its own parameter: turtlesim with background_r 20, teleop with scale_linear 2.0, and a recorder at 10 Hz.", "".join(b))
+
+# ---------- Parameters configure nodes: turtlesim's background ----------
+d = "16s"
+b = [tswin(5, 5, 170, "TurtleSim", "rgb(69,86,255)", f'<animate attributeName="fill" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="rgb(69,86,255);rgb(20,86,255)" keyTimes="0;.58"/>'),
+     turtle_icon(90, 90, -90), term(190, 5, 265, 240, "terminal")]
+b += [tl(200, 44, 18, [("type", "$ ros2 param list /turtlesim", .02), ("show", "background_b · background_g", .06), ("show", "background_r · use_sim_time …", .06),
+                         ("type", "$ … describe … background_r", .2), ("show", "Type: integer · range 0 – 255", .25), ("type", "$ … get … background_r", .34), ("ok", "Integer value is: 69", .39),
+                         ("type", "$ … set … background_r 20", .5), ("ok", "Set parameter successful", .56), ("type", "$ ros2 param dump /turtlesim", .7), ("show", "background_r: 20  (YAML)", .76)], d),
+      at('<text class="code ok" x="10" y="188">r 69 → 20</text>', .58, 1, d), at('<text class="code dim" x="10" y="210">same node, new setting,</text><text class="code dim" x="10" y="228">no restart</text>', .62, 1, d)]
+svgs["Parameters configure nodes"] = svg(252, "A terminal lists turtlesim's parameters, describes background_r as an integer from 0 to 255, gets its value 69, and sets it to 20; the turtlesim background changes colour at once without a restart. param dump then prints the settings as YAML.", "".join(b), vb_w=460,
+                                        trace=[(0, 1), (.18, 2), (.32, 3), (.48, 4), (.68, 5)])
+
+# ---------- Use parameters in a node ----------
+d = "16s"
+b = [ellipse_node(110, 28, "/minimal_param_node", 105, 18), chip(240, 8, 215, 40, "", "my_parameter"), swap([(0, .4, "'world'"), (.4, 1, "'earth'")], 248, 41, d, "code ok"),
+     term(5, 60, 450, 150, "node log")]
+LOGS = [("Hello world!", .1), ("Hello world!", .2), ("Hello world!", .3), ("Hello earth!", .46), ("Hello earth!", .56), ("Hello earth!", .86), ("Hello earth!", .94)]
+for j, (t, t0) in enumerate(LOGS):
+    b.append(shown(15, 96 + (j % 5) * 20, f"[INFO] {t}", t0, d, LOGS[j + 5][1] if j + 5 < len(LOGS) else 1, "code"))
+b += [at('<rect x="5" y="215" width="450" height="30" rx="5" fill="rgba(88,224,210,.1)" stroke="var(--cyan)"/><text class="code ok" x="15" y="235">param set … my_parameter earth → accepted</text>', .38, .62, d),
+      at('<rect x="5" y="215" width="450" height="30" rx="5" fill="rgba(255,114,159,.12)" stroke="var(--pink)"/><text class="code hot" x="15" y="235">param set … "" → rejected: name is empty</text>', .64, .9, d)]
+svgs["Use parameters in a node"] = svg(252, "The node declares my_parameter with default world and its timer logs Hello world! every second. Setting it to earth is accepted and the log becomes Hello earth!. Setting it to an empty string is rejected by the set callback with the reason name is empty, and the value stays earth.", "".join(b), vb_w=460,
+                                      trace=[(0, 6), (.04, 7), (.07, 8), (.1, "11-12"), (.38, "14-16"), (.4, 19), (.46, "11-12"), (.64, "15-18"), (.86, "11-12")])
+
+# ---------- Executors and callback groups: one thread vs two ----------
+d = "14s"
+X = lambda t_: 70 + t_ * 62   # 0 .. 6 s
+b = ['<text class="k left" x="5" y="22">rclpy.spin · one thread</text>', '<text class="k left" x="5" y="122">MultiThreadedExecutor</text>',
+     '<text class="code dim" x="5" y="54">thread</text>', '<text class="code dim" x="5" y="152">thread 1</text>', '<text class="code dim" x="5" y="184">thread 2</text>']
+for y in (48, 146, 178): b.append(f'<line class="divider" x1="70" y1="{y}" x2="442" y2="{y}"/>')
+# single thread: plan blocks at 2 and 4 s; control ticks wait
+SINGLE = [("c", 0), ("c", .5), ("c", 1.0), ("c", 1.5), ("p", 2.0), ("c", 3.5), ("c", 3.55), ("p", 4.0), ("c", 5.5), ("c", 5.55)]
+for kind, t_ in SINGLE:
+    w_ = 1.5 * 62 if kind == "p" else 6; t0 = round(.02 + t_ / 6 * .9, 3)
+    b.append(at(f'<rect class="{"bad" if kind == "p" else "req"}" x="{X(t_)}" y="38" width="{w_}" height="20" rx="3"/>', t0, 1, d))
+b.append(at('<text class="code hot" x="190" y="84">control ticks wait 1.5 s</text>', .4, 1, d))
+for t_ in (2.0, 4.0): b.append(at(f'<rect class="bad" x="{X(t_)}" y="136" width="{1.5 * 62}" height="20" rx="3"/>', round(.02 + t_ / 6 * .9, 3), 1, d))
+for k in range(12): t_ = k * .5; b.append(at(f'<rect class="req" x="{X(t_)}" y="168" width="6" height="20" rx="2"/>', round(.02 + t_ / 6 * .9, 3), 1, d))
+b += [at('<text class="code ok" x="190" y="214">control keeps its 0.5 s rhythm</text>', .4, 1, d), '<rect class="bad" x="300" y="226" width="14" height="10" rx="2"/><text class="code" x="320" y="236">plan 1.5 s</text><rect class="req" x="400" y="226" width="6" height="10" rx="2"/><text class="code" x="412" y="236">tick</text>',
+      f'<line stroke="var(--orange)" stroke-width="2" x1="70" y1="30" x2="70" y2="196"><animate attributeName="x1" dur="{d}" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/><animate attributeName="x2" dur="{d}" repeatCount="indefinite" values="70;442;442" keyTimes="0;.92;1"/></line>']
+svgs["Executors and callback groups"] = svg(244, "Two timelines over six seconds. With rclpy.spin on one thread, each 1.5 second plan callback blocks the 0.5 second control ticks, which bunch up late. With a MultiThreadedExecutor and separate mutually exclusive groups, plan runs on thread 1 while control keeps its rhythm on thread 2.", "".join(b), vb_w=460,
+                                           trace=[(0, "18-20"), (.03, "6-7"), (.06, "8-9"), (.1, "15-16"), (.3, "11-13"), (.56, "15-16"), (.62, "11-13"), (.84, "15-16")])
+
+# ---------- Logging and rqt_console ----------
+d = "16s"
+LV = [("DEBUG", "raw scan received", "dim", 2), ("INFO", "robot ready", "ok", 3), ("WARN", "battery below 20%", "hot", 4), ("ERROR", "lidar timeout", "hot", 5), ("FATAL", "motor driver lost", "hot", 6)]
+b = [term(5, 5, 450, 150, "rqt_console · level INFO"), at('<rect x="5" y="5" width="450" height="22" rx="6" fill="#18213a"/><text class="k" x="230" y="17">rqt_console · level WARN</text>', .62, 1, d)]
+for k, (lv, msg, cls, ln) in enumerate(LV):
+    t0 = round(.04 + k * .08, 2); y = 44 + k * 20
+    col = {"dim": "var(--muted)", "ok": "var(--cyan)", "hot": "var(--orange)" if lv == "WARN" else "var(--pink)"}[cls]
+    hide = (lv in ("DEBUG",)) 
+    end = .62 if lv in ("INFO",) else 1
+    if not hide: b.append(at(f'<text class="code" x="15" y="{y}" style="fill:{col}">[{lv}] {msg}</text>', t0, end, d))
+    else: b.append(at(f'<text class="code dim" x="15" y="{y}">(DEBUG hidden at INFO)</text>', t0, .62, d))
+b += [chip(5, 168, 450, 70, "", "throttle_duration_sec=1.0 · a fast loop")]
+for k in range(20): t0 = round(.05 + k * .045, 3); b.append(at(f'<circle cx="{20 + k * 21}" cy="{205}" r="3" fill="var(--muted)"/>', t0, 1, d))
+for k in range(5): t0 = round(.05 + k * .2, 3); b.append(at(f'<text class="code ok" x="{14 + k * 84}" y="{228}">tick</text>', t0, 1, d))
+svgs["Logging and rqt_console"] = svg(246, "Log lines appear by severity: DEBUG is hidden at the default INFO level, INFO, WARN, ERROR and FATAL show in rising colours. Switching rqt_console to WARN hides INFO too. Below, a fast loop calls the logger twenty times but throttling lets only one tick per second through.", "".join(b), vb_w=460,
+                                     trace=[(0, 2), (.04, 2), (.12, 3), (.2, 4), (.28, 5), (.36, 6), (.44, 7), (.62, "10-11")])
+
+# ---------- Launch describes a system ----------
+d = "12s"
+b = [term(5, 5, 450, 50, "terminal"), typed(15, 40, "$ ros2 launch turtles.launch.py", .02, d, .06),
+     packet("req", "M230,55 L230,80", .12, .16, d), at('<rect class="hub" x="140" y="80" width="180" height="34" rx="8"/><text class="code" x="152" y="102">LaunchDescription</text>', .14, 1, d),
+     at('<rect class="block" x="5" y="128" width="200" height="110" rx="8" stroke-dasharray="5 4"/><text class="k" x="105" y="146">namespace /demo</text>', .26, 1, d),
+     at(tswin(20, 156, 90, "turtlesim", "rgb(69,86,255)", f'<animate attributeName="fill" dur="{d}" repeatCount="indefinite" calcMode="discrete" values="rgb(69,86,255);rgb(20,86,255)" keyTimes="0;.5"/>'), .32, 1, d),
+     at('<text class="code ok" x="120" y="196">bg_r 20</text>', .5, 1, d), packet("req", "M230,114 L105,128", .26, .32, d),
+     at('<text class="code ok" x="230" y="160">$ ros2 node list</text><text class="code" x="230" y="182">/demo/turtlesim</text>', .62, 1, d)]
+svgs["Launch describes a system"] = svg(244, "ros2 launch reads the LaunchDescription, which starts turtlesim inside the /demo namespace and applies background_r 20, so its window turns from blue to purple. ros2 node list shows /demo/turtlesim.", "".join(b), vb_w=460,
+                                       trace=[(0, 4), (.12, 5), (.24, "6-8"), (.32, 9), (.46, 10), (.6, 0)], trace_pre=0)
+
+# ---------- Launch arguments and substitutions ----------
+d = "14s"
+b = [chip(5, 5, 450, 56, "", "DeclareLaunchArgument"), swap([(0, .5, "ns = turtlesim1   background_r = 69"), (.5, 1, "ns = robot1   background_r = 200")], 13, 47, d, "code ok"),
+     at('<text class="code hot" x="250" y="20">ns:=robot1 background_r:=200</text>', .44, 1, d),
+     at(tswin(20, 82, 130, "/turtlesim1/turtlesim", "rgb(69,86,255)"), .12, 1, d), at(tswin(250, 82, 130, "/robot1/turtlesim", "rgb(200,86,255)"), .6, 1, d),
+     packet("req", "M100,61 L85,82", .08, .12, d), packet("res", "M330,61 L315,82", .56, .6, d)]
+svgs["Launch arguments and substitutions"] = svg(196, "The launch arguments start with defaults ns turtlesim1 and background_r 69, giving a blue window under /turtlesim1. Launched again with ns:=robot1 background_r:=200, LaunchConfiguration substitutes the new values and a purple window appears under /robot1.", "".join(b), vb_w=460,
+                                                trace=[(0, "8-9"), (.08, "10-14"), (.44, 0), (.52, "12-14")])
+
+# ---------- Launch event handlers ----------
+d = "14s"
+b = ['<line class="divider" x1="10" y1="40" x2="450" y2="40"/>', '<text class="k left" x="10" y="20">launch timeline</text>',
+     at(chip(10, 56, 120, 34, "start sim"), .04, 1, d), at(chip(150, 56, 150, 34, "OnProcessStart"), .16, 1, d), at(chip(320, 56, 130, 34, "spawn turtle2"), .24, 1, d),
+     packet("req", "M130,73 L150,73", .14, .17, d), packet("req", "M300,73 L320,73", .22, .25, d),
+     at(tswin(10, 104, 120, "turtlesim") + turtle_icon(50, 170, 0), .06, .6, d), at(turtle_icon(95, 150, 0), .28, .6, d),
+     at('<line class="xmark" x1="15" y1="104" x2="125" y2="214"/><text class="code hot" x="140" y="150">window closed</text>', .6, 1, d),
+     at(chip(150, 166, 150, 34, "OnProcessExit"), .66, 1, d), at('<text class="code ok" x="310" y="178">LogInfo:</text><text class="code ok" x="310" y="196">turtlesim closed</text>', .72, 1, d),
+     at('<text class="code hot" x="150" y="232">Shutdown → every process stops, no orphans</text>', .8, 1, d)]
+svgs["Launch event handlers"] = svg(244, "On a launch timeline: turtlesim starts; OnProcessStart fires and spawns turtle2, which appears. Later the window is closed; OnProcessExit logs turtlesim closed and emits Shutdown, so every process stops and none are left orphaned.", "".join(b), vb_w=460,
+                                   trace=[(0, 7), (.14, "14-15"), (.22, "8-10"), (.6, 0), (.66, "16-17"), (.72, 18), (.8, 19)])
+
+# ---------- Launch files in XML and YAML: three formats, one node ----------
+d = "12s"
+b = []
+for k, (n, cls) in enumerate((("turtles.launch.py", "block"), ("turtles.launch.xml", "block app"), ("turtles.launch.yaml", "block"))):
+    t0 = round(.05 + k * .2, 2); y = 10 + k * 46
+    b += [chip(5, y, 200, 36, n, cls=cls), packet("req", f"M205,{y + 18} L290,70", t0, round(t0 + .08, 2), d)]
+b += [at(tswin(300, 10, 150, "/turtlesim1/turtlesim", "rgb(200,86,255)"), .12, 1, d), '<text class="code ok" x="300" y="160">same node · same args</text>',
+      at('<path class="edge" d="M205,28 C240,40 240,60 205,74"/><text class="code" x="10" y="166">py can &lt;include&gt; xml or yaml</text>', .72, 1, d)]
+svgs["Launch files in XML and YAML"] = svg(176, "Three launch files, Python, XML and YAML, each start the same turtlesim node with the same arguments and parameters; then one file includes another.", "".join(b), vb_w=460, trace=[(0, 0), (.25, 2), (.3, "3-4"), (.36, 5), (.6, 0)])
+
+# ---------- Record, replay, and visualize ----------
+d = "18s"
+b = ['<text class="k" x="150" y="16">on the robot</text><text class="k" x="720" y="16">at your desk, later</text>', '<line class="divider" x1="450" y1="10" x2="450" y2="250"/>',
+     tswin(20, 26, 120, "turtlesim"), f'<path class="pen" d="M40,110 C70,40 110,40 120,100" pathLength="1" stroke-dasharray="1 1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.04;.36;1"/></path>',
+     '<rect class="bag" x="200" y="56" width="200" height="60" rx="8"/><text class="k" x="300" y="74">my_bag · MCAP</text>']
+for k in range(12):
+    t0 = round(.04 + k * .027, 3); b += [packet("req" if k % 2 else "fb", "M140,80 L200,86", t0, round(t0 + .02, 3), d), at(f'<rect x="{212 + k * 15}" y="88" width="10" height="16" rx="2" fill="{"var(--cyan)" if k % 2 else "var(--blue)"}"/>', round(t0 + .02, 3), 1, d)]
+b += [term(20, 150, 410, 100, "terminal"), tl(30, 188, 18, [("type", "$ ros2 bag record /turtle1/pose /turtle1/cmd_vel", .02, .4), ("type", "$ ros2 bag info my_bag", .42), ("show", "Duration: 12.4s · Messages: 812", .46), ("show", "Topics: /turtle1/pose · /turtle1/cmd_vel", .46)], d),
+      tswin(500, 26, 120, "turtlesim (replay)"), f'<path class="pen play" d="M520,110 C550,40 590,40 600,100" pathLength="1" stroke-dasharray="1 1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.56;.88;1"/></path>',
+      '<rect class="bag" x="660" y="56" width="200" height="60" rx="8"/><text class="k" x="760" y="74">my_bag</text>']
+for k in range(12):
+    t0 = round(.56 + k * .027, 3); b += [at(f'<rect x="{672 + k * 15}" y="88" width="10" height="16" rx="2" fill="{"var(--cyan)" if k % 2 else "var(--blue)"}"/>', 0, round(t0, 3), d), packet("res", "M660,86 L620,80", t0, round(t0 + .02, 3), d)]
+b += [term(470, 150, 420, 100, "terminal"), tl(480, 188, 18, [("type", "$ ros2 bag play my_bag", .52), ("show", "same timing as the original run", .56), ("type", "$ rqt_graph", .84), ("ok", "/rosbag2_player → /turtle1/cmd_vel", .88)], d)]
+svgs["Record, replay, and visualize"] = svg(258, "On the robot, ros2 bag record captures pose and cmd_vel messages into my_bag while the turtle draws a path; bag info reports 12.4 seconds and 812 messages. Later at a desk, ros2 bag play feeds the same messages back with the original timing and the replayed turtle draws the same path; rqt_graph shows rosbag2_player publishing.", "".join(b), " tall")
+
+# ---------- Lab: one-command startup ----------
+d = "16s"
+b = [term(5, 5, 450, 100, "terminal"), tl(15, 42, 18, [("type", "$ ros2 pkg create … workshop_runtime", .02), ("type", "$ colcon build --symlink-install", .14), ("ok", "Summary: 1 package finished", .22), ("type", "$ ros2 launch workshop_runtime demo.launch.py", .3)], d),
+     at(ellipse_node(90, 140, "/talker", 70, 18), .38, 1, d), at(ellipse_node(370, 140, "/listener", 74, 18), .38, 1, d), '<path class="trail" d="M160,140 L296,140"/>',
+     at('<rect class="block" x="160" y="170" width="140" height="28" rx="5"/><text class="code" x="168" y="189">params.yaml</text>', .4, 1, d), swap([(.4, .68, "rate: 1.0"), (.68, 1, "rate: 4.0")], 310, 189, d, "code ok")]
+for k in range(4): t0 = round(.42 + k * .065, 3); b.append(packet("req", "M160,140 L296,140", t0, round(t0 + .04, 3), d))
+for k in range(12): t0 = round(.7 + k * .022, 3); b.append(packet("req", "M160,140 L296,140", t0, round(t0 + .02, 3), d))
+svgs["Lab: one-command startup"] = svg(205, "The package is created and built, then one ros2 launch command starts a talker and a listener together. The talker publishes at rate 1.0; changing the rate in params.yaml to 4.0 makes the messages four times as frequent.", "".join(b), vb_w=460,
+                                      trace=[(0, "3-4"), (.12, "6-8"), (.28, 9), (.66, 0)])
 # ---------- write into index.html ----------
 TALL = {"ROS 2 distributions over time", "History of ROS and ROS 2", "ROS 1 vs ROS 2 architecture", "ROS 1 vs ROS 2 software stack", "Turtlesim demo: topics", "Turtlesim demo: services",
         "Turtlesim demo: actions", "Turtlesim demo: parameters", "Turtlesim demo: launch", "Turtlesim demo: ros2 bag"}

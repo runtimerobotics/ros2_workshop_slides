@@ -405,3 +405,4 @@ body.anim-paused .slide.active .flow-item::after, body.anim-paused .slide.active
 .agenda-days + .ros-anim { flex-shrink: 0; height: 13vh; margin: 1vh auto 0; }
 .baseline-line { color: var(--muted); font-size: .9rem; margin: 0 0 .4rem; }
 .split > div > .nested-code + svg.ros-anim { max-height: 24vh; }
+.split > div > .check-list + svg.ros-anim { max-height: 34vh; }
