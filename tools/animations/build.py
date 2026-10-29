@@ -165,7 +165,7 @@ out["tools"] = slide(OV, "Tools: see inside the system", "ROS 2 equation · 2 of
             ("visualize", "RViz2", "rviz2"),
             ("plot + GUIs", "rqt", "rqt_graph"),
             ("record", "ros2 bag", "ros2 bag record -a"),
-            ("start", "launch", "ros2 launch my_pkg robot.launch.py"),
+            ("start", "launch", "ros2 launch demo_launch robot.launch.py"),
             ("simulate", "Gazebo", "ros2 launch ros_gz_sim gz_sim.launch.py"),
         ], d, "req"))
     + '      <p class="takeaway">The same tools work on every ROS 2 robot, because every robot speaks the same graph.</p>\n',
@@ -870,18 +870,18 @@ svgs["QoS compatibility"] = svg(238, "A lidar driver offers best effort on /scan
 
 # ---------- Workspaces and overlays: who answers a package lookup ----------
 d = "12s"
-L3 = [(10, "Overlay", "~/ros2_ws/install", "workshop_runtime · demo_nodes_py"), (80, "Underlay", "/opt/ros/jazzy", "turtlesim · demo_nodes_py · rclpy"), (150, "Operating system", "Ubuntu 24.04", "Python · libraries")]
+L3 = [(10, "Overlay", "~/ros2_ws/install", "demo_py · demo_nodes_py"), (80, "Underlay", "/opt/ros/jazzy", "turtlesim · demo_nodes_py · rclpy"), (150, "Operating system", "Ubuntu 24.04", "Python · libraries")]
 b = []
 for y, k, n, pk in L3:
     b += [f'<rect class="block{" app" if k == "Overlay" else ""}" x="300" y="{y}" width="580" height="56" rx="6"/>', f'<text class="k left" x="316" y="{y + 18}">{k}</text>', f'<text class="s left" x="316" y="{y + 40}">{n}</text>', f'<text class="code left" x="560" y="{y + 34}">{pk}</text>']
-Q = [("ros2 run workshop_runtime …", 0, .03, "found in the overlay"), ("ros2 run turtlesim …", 1, .36, "not in the overlay, found in the underlay"), ("ros2 run demo_nodes_py …", 0, .69, "in both: the overlay wins (shadows)")]
+Q = [("ros2 run demo_py …", 0, .03, "found in the overlay"), ("ros2 run turtlesim …", 1, .36, "not in the overlay, found in the underlay"), ("ros2 run demo_nodes_py …", 0, .69, "in both: the overlay wins (shadows)")]
 for text, layer, t0, msg in Q:
     y = (38 if layer == 0 else 108)
     b += [typed(20, 40, text.replace("…", ""), t0, d, .04, round(t0 + .31, 3), "code"),
           packet("req", f"M200,32 L290,32 L290,{y}", round(t0 + .05, 3), round(t0 + .12 + layer * .06, 3), d),
           flash(300, 10 + layer * 70, 580, 56, round(t0 + .12 + layer * .06, 3), d), cap(msg, round(t0 + .12, 3), round(t0 + .32, 3), d, 450, 224)]
     if layer: b.append(at('<text class="code hot left" x="20" y="98">overlay: no</text>', round(t0 + .08, 3), round(t0 + .31, 3), d))
-svgs["Workspaces and overlays"] = svg(232, "Three layers: the overlay ~/ros2_ws/install, the underlay /opt/ros/jazzy, and the operating system. A lookup for workshop_runtime is answered by the overlay, turtlesim falls through to the underlay, and demo_nodes_py, in both, is answered by the overlay, which shadows the underlay.", "".join(b))
+svgs["Workspaces and overlays"] = svg(232, "Three layers: the overlay ~/ros2_ws/install, the underlay /opt/ros/jazzy, and the operating system. A lookup for demo_py is answered by the overlay, turtlesim falls through to the underlay, and demo_nodes_py, in both, is answered by the overlay, which shadows the underlay.", "".join(b))
 
 # ---------- Timers schedule callbacks: one long callback delays the next ----------
 d = "8s"
@@ -1553,6 +1553,20 @@ for k in range(4): t0 = round(.5 + k * .1, 2); b += [packet("req", "M620,80 L740
 b.append(cap("installed · checked · talking", .5, 1, d, 680, 140))
 svgs["Setup"] = svg(160, "An install bar fills for ros-jazzy-desktop, ros2 doctor reports all 5 checks passed, and a talker sends messages to a listener.", "".join(b))
 
+# ---------- Install ROS 2 Lyrical: one release per Ubuntu LTS ----------
+d = "14s"
+PAIRS = [(20, "Ubuntu 24.04", "noble", "Jazzy Jalisco", "jazzy", "2024–2029", "req"), (250, "Ubuntu 26.04", "resolute", "Lyrical Luth", "lyrical", "2026–2031", "res")]
+b = []
+for k, (x, os_, code, distro, short, years, cls) in enumerate(PAIRS):
+    t0 = round(.04 + k * .4, 2)
+    b += [at(chip(x, 10, 190, 44, os_, code), t0, 1, d),
+          packet("req", f"M{x + 95},54 L{x + 95},84", round(t0 + .06, 2), round(t0 + .1, 2), d),
+          at(f'<rect class="block app" x="{x}" y="84" width="190" height="44" rx="5"/><text class="k left" x="{x + 8}" y="98">apt source · {code}</text><text class="code" x="{x + 8}" y="118">ros-{short}-desktop</text>', round(t0 + .1, 2), 1, d),
+          packet(cls, f"M{x + 95},128 L{x + 95},158", round(t0 + .16, 2), round(t0 + .2, 2), d),
+          at(f'<rect class="node" x="{x}" y="158" width="190" height="50" rx="25"/><text class="s" x="{x + 95}" y="178">{distro}</text><text class="code dim" x="{x + 95}" y="198" style="text-anchor:middle;font-size:11px">LTS · {years}</text>', round(t0 + .2, 2), 1, d)]
+b.append(at('<text class="cap" x="230" y="222">each ROS 2 release targets one Ubuntu LTS</text>', .82, 1, d))
+svgs["Install ROS 2 Lyrical"] = svg(228, "Two columns build in turn. Ubuntu 24.04 noble gets the apt source for noble, installs ros-jazzy-desktop, and becomes Jazzy Jalisco, supported 2024 to 2029. Ubuntu 26.04 resolute does the same for ros-lyrical-desktop and becomes Lyrical Luth, supported 2026 to 2031.", "".join(b), vb_w=460)
+
 # ---------- Install ROS 2 Jazzy ----------
 d = "16s"
 STEPS = [("UTF-8 locale", .02, .14), ("universe repository", .14, .24), ("ROS 2 apt source", .24, .5), ("ros-jazzy-desktop", .5, .84), ("source setup.bash", .84, 1)]
@@ -1819,9 +1833,9 @@ svgs["Topic command-line tools"] = svg(290, "A lidar driver publishes /scan to r
 
 # ---------- Package anatomy: what colcon installs, and what it leaves behind ----------
 d = "12s"
-b = [chip(10, 10, 210, 30, "launch/demo.launch.py"), chip(10, 50, 210, 30, "workshop_runtime/talker.py"), chip(10, 90, 210, 30, "launch/extra.launch.py"),
+b = [chip(10, 10, 210, 30, "launch/demo.launch.py"), chip(10, 50, 210, 30, "demo_py/talker.py"), chip(10, 90, 210, 30, "launch/extra.launch.py"),
      '<rect class="hub" x="300" y="35" width="150" height="60" rx="8"/><text class="s" x="375" y="60">colcon build</text><text class="k" x="375" y="80">reads setup.py</text>',
-     chip(530, 10, 360, 30, "install/share/workshop_runtime/launch/"), chip(530, 50, 360, 30, "install/lib/workshop_runtime/talker"),
+     chip(530, 10, 360, 30, "install/share/demo_py/launch/"), chip(530, 50, 360, 30, "install/lib/demo_py/talker"),
      packet("req", "M220,25 L300,55 L450,55 L530,25", .05, .25, d), at('<text class="code ok" x="840" y="30">✓</text>', .25, 1, d),
      packet("req", "M220,65 L300,70 L450,70 L530,65", .3, .5, d), at('<text class="code ok" x="840" y="70">✓</text>', .5, 1, d),
      packet("bad", "M220,105 L290,105", .55, .65, d), burst(295, 105, .65, d), at('<text class="code hot" x="460" y="114">not in data_files → not installed</text>', .65, 1, d),
@@ -1831,9 +1845,9 @@ svgs["Package anatomy"] = svg(145, "colcon build reads setup.py: demo.launch.py,
 
 # ---------- Workshop packages: three ros2 pkg create commands ----------
 d = "14s"
-PK = [(10, "workshop_runtime", "ament_python", ["talker · listener", "param · service · action nodes", "launch files · util.py · tests"]),
-      (310, "workshop_interfaces", "ament_cmake", ["msg/Num.msg", "srv/AddThreeInts.srv", "action/Fibonacci.action"]),
-      (610, "workshop_cpp", "ament_cmake · optional", ["C++ talker", "C++ listener", ""])]
+PK = [(10, "demo_py", "ament_python", ["talker · listener", "param · service · action nodes", "launch files · util.py · tests"]),
+      (310, "demo_interfaces", "ament_cmake", ["msg/Num.msg", "srv/AddThreeInts.srv", "action/Fibonacci.action"]),
+      (610, "demo_cpp", "ament_cmake · optional", ["C++ talker", "C++ listener", ""])]
 b = ['<text class="code dim" x="10" y="16">~/ros2_ws/src/</text>']
 for k, (x, n, bt, items) in enumerate(PK):
     t0 = round(.05 + k * .2, 2)
@@ -1841,8 +1855,8 @@ for k, (x, n, bt, items) in enumerate(PK):
     b.append(at(inner, t0, 1, d))
     for j, it in enumerate(items):
         if it: b.append(at(f'<rect class="block" x="{x + 14}" y="{86 + j * 28}" width="252" height="22" rx="4"/><text class="code" x="{x + 22}" y="{101 + j * 28}">{it}</text>', round(t0 + .06 + j * .03, 2), 1, d))
-b += [at('<path class="edge" d="M290,110 L310,110" marker-end="url(#mm-arrow)"/>', .7, 1, d), at('<text class="code ok" x="10" y="204">workshop_runtime imports the interfaces from workshop_interfaces</text>', .7, 1, d)]
-svgs["Workshop packages"] = svg(214, "Three ros2 pkg create commands make three packages in ~/ros2_ws/src: workshop_runtime, ament_python, filling with nodes, launch files and tests; workshop_interfaces, ament_cmake, with Num.msg, AddThreeInts.srv and Fibonacci.action; and the optional workshop_cpp with a C++ talker and listener. Then an arrow shows workshop_runtime depending on workshop_interfaces.", "".join(b), " tall",
+b += [at('<path class="edge" d="M290,110 L310,110" marker-end="url(#mm-arrow)"/>', .7, 1, d), at('<text class="code ok" x="10" y="204">demo_py imports the interfaces from demo_interfaces</text>', .7, 1, d)]
+svgs["Workshop packages"] = svg(214, "Three ros2 pkg create commands make three packages in ~/ros2_ws/src: demo_py, ament_python, filling with nodes, launch files and tests; demo_interfaces, ament_cmake, with Num.msg, AddThreeInts.srv and Fibonacci.action; and the optional demo_cpp with a C++ talker and listener. Then an arrow shows demo_py depending on demo_interfaces.", "".join(b), " tall",
                                trace=[(0, 1), (.05, 2), (.25, 3), (.45, 4), (.7, 0)])
 
 # ---------- Install dependencies with rosdep ----------
@@ -1876,7 +1890,7 @@ svgs["Your first publisher"] = svg(228, "Running talker.py: the /talker node app
 d = "14s"
 b = [ellipse_node(60, 30, "/talker", 55, 18), '<rect class="pill topic" x="150" y="14" width="110" height="32" rx="6"/><text class="s" x="205" y="30">/chatter</text>',
      at(ellipse_node(380, 30, "/listener", 64, 18), .06, 1, d), '<path class="trail" d="M115,30 L150,30"/><path class="trail" d="M260,30 L316,30"/>',
-     at('<rect class="block" x="320" y="62" width="120" height="26" rx="4"/><text class="k" x="380" y="80">queue · depth 10</text>', .12, 1, d), term(5, 100, 450, 110, "ros2 run workshop_runtime listener")]
+     at('<rect class="block" x="320" y="62" width="120" height="26" rx="4"/><text class="k" x="380" y="80">queue · depth 10</text>', .12, 1, d), term(5, 100, 450, 110, "ros2 run demo_py listener")]
 for k in range(4):
     t0 = round(.22 + k * .13, 3)
     b += [packet("req", "M115,30 L150,30 L260,30 L316,30", t0, round(t0 + .05, 3), d), packet("req", "M380,48 L380,75", round(t0 + .05, 3), round(t0 + .07, 3), d),
@@ -1906,7 +1920,7 @@ for col, (x, lang) in enumerate(((5, "Python talker"), (275, "C++ listener"))):
     b.append(f'<text class="k" x="{x + 90}" y="14">{lang}</text>')
     for i, n in enumerate(LAYERS if col == 0 else ["rclcpp", "rcl", "rmw · DDS"]): b.append(chip(x, 22 + i * 40, 180, 32, n, cls="block app" if i == 0 else "block"))
 b += ['<path class="wire" d="M95,142 L95,156 L365,156 L365,142"/>', packet("req", "M95,38 L95,150 L365,150 L365,38", .05, .45, d),
-      term(5, 170, 450, 60, "ros2 run workshop_cpp listener"), shown(15, 214, "[INFO] [listener]: I heard: 'Hello 7'", .46, d, 1, "code ok"), cap("same message, any language", .5, 1, d, 230, 248)]
+      term(5, 170, 450, 60, "ros2 run demo_cpp listener"), shown(15, 214, "[INFO] [listener]: I heard: 'Hello 7'", .46, d, 1, "code ok"), cap("same message, any language", .5, 1, d, 230, 248)]
 svgs["Your first subscriber in C++"] = svg(256, "A message from a Python talker goes down through rclpy, rcl and the DDS middleware, crosses to the other side, and comes up through rcl and rclcpp into a C++ listener, which logs I heard: Hello 7.", "".join(b), vb_w=460,
                                       trace=[(0, "18-19"), (.05, "6-8"), (.4, "9-10"), (.6, 0)])
 
@@ -2188,7 +2202,7 @@ svgs["Record, replay, and visualize"] = svg(258, "On the robot, ros2 bag record 
 
 # ---------- Lab: one-command startup ----------
 d = "16s"
-b = [term(5, 5, 450, 100, "terminal"), tl(15, 42, 18, [("type", "$ ros2 pkg create … workshop_runtime", .02), ("type", "$ colcon build --symlink-install", .14), ("ok", "Summary: 1 package finished", .22), ("type", "$ ros2 launch workshop_runtime demo.launch.py", .3)], d),
+b = [term(5, 5, 450, 100, "terminal"), tl(15, 42, 18, [("type", "$ ros2 pkg create … demo_py", .02), ("type", "$ colcon build --symlink-install", .14), ("ok", "Summary: 1 package finished", .22), ("type", "$ ros2 launch demo_py demo.launch.py", .3)], d),
      at(ellipse_node(90, 140, "/talker", 70, 18), .38, 1, d), at(ellipse_node(370, 140, "/listener", 74, 18), .38, 1, d), '<path class="trail" d="M160,140 L296,140"/>',
      at('<rect class="block" x="160" y="170" width="140" height="28" rx="5"/><text class="code" x="168" y="189">params.yaml</text>', .4, 1, d), swap([(.4, .68, "rate: 1.0"), (.68, 1, "rate: 4.0")], 310, 189, d, "code ok")]
 for k in range(4): t0 = round(.42 + k * .065, 3); b.append(packet("req", "M160,140 L296,140", t0, round(t0 + .04, 3), d))
@@ -2741,7 +2755,7 @@ svgs["Managed lifecycle nodes"] = svg(226, "A lifecycle talker starts unconfigur
 
 # ---------- Test your packages ----------
 d = "14s"
-b = [term(5, 5, 450, 210, "colcon test --packages-select workshop_runtime")]
+b = [term(5, 5, 450, 210, "colcon test --packages-select demo_py")]
 RUN = [("test_clamp.py::test_clamp_limits", .06, "PASSED"), ("test_flake8.py::test_flake8", .2, "PASSED"), ("test_pep257.py::test_pep257", .32, "PASSED"), ("test_copyright.py::test_copyright", .44, "PASSED")]
 for j, (n, t0, r) in enumerate(RUN):
     b += [shown(15, 44 + j * 20, n, t0, d), shown(370, 44 + j * 20, r, round(t0 + .06, 2), d, 1, "code ok")]
