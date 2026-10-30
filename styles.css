@@ -51,7 +51,8 @@ p, li { font-size: clamp(.92rem, 1.35vw, 1.4rem); line-height: 1.46; color: #dce
 .presenter-role { margin-top: .3rem !important; color: var(--muted); font: 500 clamp(.78rem, 1vw, 1rem)/1.4 "IBM Plex Mono", monospace; }
 .presenter-role a { color: var(--cyan); text-decoration: none; }
 .presenter-role a:hover { text-decoration: underline; }
-.cover-meta { display: flex; gap: 2rem; margin-top: 2rem; color: var(--muted); font: 500 .85rem "IBM Plex Mono", monospace; }
+.nowrap { white-space: nowrap; }
+.cover-meta { display: flex; flex-direction: column; gap: .5rem; margin-top: 2rem; color: var(--muted); font: 500 .85rem "IBM Plex Mono", monospace; }
 .cover-grid { position: absolute; inset: 3.65rem 0 0; opacity: .23; background-image: linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 4rem 4rem; mask-image: linear-gradient(to right, black, transparent 78%); }
 .orbit { position: absolute; width: min(43vw, 38rem); aspect-ratio: 1; right: 5vw; top: 17vh; border: 1px solid rgba(88,224,210,.45); border-radius: 50%; display: grid; place-items: center; }
 .orbit::before, .orbit::after { content: ""; position: absolute; border: 1px solid rgba(106,168,255,.27); border-radius: 50%; }
