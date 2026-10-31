@@ -930,6 +930,852 @@ const ROBOT_TYPES = [
     } },
 ];
 
+// ---------- The workshop's own robot: demo_arm, its table, tray, boxes and overhead RealSense ----------
+// Boxes with the sizes in ros2_workshop_code (demo_arm_description, demo_arm_gazebo/worlds/table.sdf), so the arm
+// here is the arm the labs simulate. RRBot colours: orange and black links, a grey palm.
+const DA = { orange: 0xe8892c, black: 0x262a35, grey: 0x8f9ab3, red: 0xe5484d, blue: 0x3f7fe0 };
+const DA_L2 = .30, DA_L3 = .25, DA_SHOULDER = .28, DA_WRIST_TO_TOOL = .06 + .055, DA_OPEN = .02, DA_SHUT = .0;
+function demoArm() {
+  const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: .55, metalness: .1 });
+  const part = (sx, sy, sz, c, z0 = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), mat(c)); m.position.z = z0 + sz / 2; return m; };
+  const joint = (parent, z) => { const g = new THREE.Group(); g.position.z = z; parent.add(g); return g; };
+  const root = new THREE.Group(), base = part(.14, .14, .2, DA.orange); root.add(base);
+  const j1 = joint(root, .2), l1 = part(.08, .08, .08, DA.orange); j1.add(l1);      // joint1: base yaw (z)
+  const j2 = joint(j1, .08), l2 = part(.05, .05, .30, DA.black); j2.add(l2);        // joint2: shoulder pitch (y)
+  const j3 = joint(j2, .30), l3 = part(.04, .04, .25, DA.orange); j3.add(l3);       // joint3: elbow pitch (y)
+  const j4 = joint(j3, .25), l4 = part(.035, .035, .06, DA.black); j4.add(l4);      // joint4: wrist pitch (y)
+  const j5 = joint(j4, .06), palm = part(.04, .11, .02, DA.grey); j5.add(palm);     // joint5: wrist roll (z)
+  const fingers = [1, -1].map(sg => { const f = part(.025, .012, .05, DA.black, .02); f.userData.sign = sg; j5.add(f); return f; });
+  const tool = joint(j5, .055);
+  const joints = [j1, j2, j3, j4, j5];
+  return { root, joints, links: { base, l1, l2, l3, l4, palm, fingers, tool }, q: [0, 0, 0, 0, 0], grip: DA_OPEN,
+    set(q, grip = this.grip) {
+      this.q = q.slice(); this.grip = grip;
+      j1.rotation.z = q[0]; j2.rotation.y = q[1]; j3.rotation.y = q[2]; j4.rotation.y = q[3]; j5.rotation.z = q[4];
+      fingers.forEach(f => (f.position.y = f.userData.sign * (grip + .006)));
+    } };
+}
+// Analytic IK for a tool pointing straight down: yaw from x, y; a planar two-link solve for the wrist; the
+// wrist pitch makes the three pitch joints add up to pi; the roll keeps the fingers square to the world.
+function demoArmIK([x, y, z], yaw = 0) {
+  const q1 = Math.atan2(y, x), r = Math.hypot(x, y), wz = z + DA_WRIST_TO_TOOL - DA_SHOULDER;
+  const q3 = Math.acos(clamp((r * r + wz * wz - DA_L2 * DA_L2 - DA_L3 * DA_L3) / (2 * DA_L2 * DA_L3), -1, 1));
+  const q2 = Math.atan2(r, wz) - Math.atan2(DA_L3 * Math.sin(q3), DA_L2 + DA_L3 * Math.cos(q3));
+  return [q1, q2, q3, Math.PI - q2 - q3, wrap(yaw - q1)];
+}
+const DA_HOME = demoArmIK([.25, 0, .42]);
+const DA_BOXES = { red: [.36, .10], blue: [.48, -.04] }, DA_TRAY = [.28, -.20], DA_TABLE_TOP = .10, DA_BOX = .04;
+// The cell from table.sdf and sensors.xacro. Returns the meshes the scenes animate.
+function demoCell(world, { stand = true } = {}) {
+  const mat = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: .7, ...o });
+  const top = box(.5, .6, .02, 0x3a4566); top.position.set(.4, 0, .09);
+  const legs = box(.44, .54, .08, 0x232a40); legs.position.set(.4, 0, .04);
+  const tray = new THREE.Group(); tray.position.set(DA_TRAY[0], DA_TRAY[1], DA_TABLE_TOP);
+  const trayBase = box(.12, .12, .004, C.green, .55); trayBase.position.z = .002; tray.add(trayBase);
+  for (const [x, y, sx, sy] of [[.058, 0, .004, .12], [-.058, 0, .004, .12], [0, .058, .12, .004], [0, -.058, .12, .004]]) { const w = box(sx, sy, .018, C.green, .8); w.position.set(x, y, .009); tray.add(w); }
+  const boxes = Object.fromEntries(Object.entries(DA_BOXES).map(([k, [x, y]]) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(DA_BOX, DA_BOX, DA_BOX), mat(DA[k], { emissive: 0x000000 }));
+    b.userData.home = [x, y, DA_TABLE_TOP + DA_BOX / 2]; b.position.set(...b.userData.home); return [k, b];
+  }));
+  world.add(top, legs, tray, ...Object.values(boxes));
+  const cell = { top, legs, tray, boxes };
+  if (stand) {
+    const post = box(.03, .03, 1.0, 0x5a6480); post.position.set(.4, -.55, .5);
+    const bar = box(.03, .58, .03, 0x5a6480); bar.position.set(.4, -.275, 1.055);
+    const cam = new THREE.Group(); cam.position.set(.4, 0, 1.0);
+    const body = box(.025, .09, .025, 0xb8c0d0); cam.add(body);
+    for (const y of [-.03, .03]) { const lens = new THREE.Mesh(new THREE.CylinderGeometry(.006, .006, .004, 16), mat(0x111111)); lens.rotation.x = Math.PI / 2; lens.position.set(0, y, -.014); cam.add(lens); }
+    world.add(post, bar, cam);
+    Object.assign(cell, { post, bar, cam });
+  }
+  const lidar = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .04, 24), mat(0x1b1e26)); lidar.rotation.x = Math.PI / 2; lidar.position.set(.1, 0, .05);
+  world.add(lidar); cell.lidar = lidar;
+  cell.reset = () => Object.values(boxes).forEach(b => { if (b.parent !== world) world.attach(b); b.position.set(...b.userData.home); b.rotation.set(0, 0, 0); });
+  return cell;
+}
+// One pick and place as timed joint-space segments. Each step: [name, q, grip, seconds, event].
+function pickPlan(color, slot = 0) {
+  const [x, y] = DA_BOXES[color], tz = DA_TABLE_TOP + DA_BOX / 2 + .005, pz = DA_TABLE_TOP + DA_BOX / 2 + .008;
+  const px = DA_TRAY[0] + (slot ? -.025 : .025), py = DA_TRAY[1];
+  const at = (a, b, z) => demoArmIK([a, b, z]);
+  return [['home', DA_HOME, DA_OPEN, .9], ['above the box', at(x, y, tz + .12), DA_OPEN, 1.3], ['down to the box', at(x, y, tz), DA_OPEN, .9],
+    ['close the gripper', at(x, y, tz), DA_SHUT + .0, .6, 'grab'], ['lift', at(x, y, tz + .14), DA_SHUT, .8], ['over the tray', at(px, py, pz + .14), DA_SHUT, 1.3],
+    ['down to the tray', at(px, py, pz), DA_SHUT, .8], ['open the gripper', at(px, py, pz), DA_OPEN, .5, 'drop'], ['up', at(px, py, pz + .12), DA_OPEN, .7], ['home', DA_HOME, DA_OPEN, 1]];
+}
+const planTime = plan => plan.reduce((s, p) => s + p[3], 0);
+// Pose at time x into a plan: interpolate from the previous step, and report which step is running.
+function planPose(plan, x) {
+  let k = 0; while (k < plan.length - 1 && x > plan[k][3]) x -= plan[k++][3];
+  const prev = k ? plan[k - 1] : plan[plan.length - 1], f = smooth(clamp(x / plan[k][3], 0, 1));
+  return { k, f, step: plan[k], q: prev[1].map((v, j) => lerp(v, plan[k][1][j], f)), grip: lerp(prev[2], plan[k][2], f),
+    held: plan.slice(0, k + 1).some(s => s[4] === 'grab') && !(plan[k][4] === 'grab' && f < .7) && !(plan.slice(0, k + 1).some(s => s[4] === 'drop') && !(plan[k][4] === 'drop' && f < .5)) };
+}
+// Keep a box in the hand while held, then leave it where the hand let go.
+function carry(arm, world, b, held) {
+  if (held && b.parent !== arm.links.tool) { world.updateMatrixWorld(true); arm.links.tool.attach(b); b.position.set(0, 0, DA_BOX / 2 - .03); b.rotation.set(0, 0, 0); }
+  if (!held && b.parent === arm.links.tool) { world.updateMatrixWorld(true); world.attach(b); b.position.z = DA_TABLE_TOP + DA_BOX / 2; b.rotation.set(0, 0, 0); }
+}
+function glow(obj, color, k) { obj.traverse(o => { if (o.isMesh && o.material.emissive) { o.material = o.userData.ownMat ??= o.material.clone(); o.material.emissive.set(color).multiplyScalar(k); } }); }
+// A camera's view cone, drawn as lines from the lens to the corners of the patch it sees on the table.
+function viewCone(color, from, half = [.3, .38], to = DA_TABLE_TOP) {
+  const [cx, cy, cz] = from, c = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, b]) => new THREE.Vector3(cx + a * half[0], cy + b * half[1], to + .002));
+  const pts = []; c.forEach((p, i) => pts.push(new THREE.Vector3(cx, cy, cz - .015), p, p, c[(i + 1) % 4]));
+  const g = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color, transparent: true, opacity: .55 }));
+  g.frustumCulled = false; return g;
+}
+function ring(color, r = .045) {
+  const m = new THREE.Mesh(new THREE.RingGeometry(r, r + .007, 4, 1, Math.PI / 4), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true }));
+  return m;
+}
+
+// ---------- Workshop outcomes: where the three days lead ----------
+SCENES['workshop-goal'] = async (panel) => {
+  const s = base3d({ cam: [1.3, 1.0, -1.05], target: [.3, .3, 0], grid: 0 });   // three.js coordinates: y up, z = -ROS y
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(1.4, 64), new THREE.MeshBasicMaterial({ color: C.cyan, transparent: true, opacity: .04 })); s.world.add(floor);
+  const arm = demoArm(), cell = demoCell(s.world); s.world.add(arm.root);
+  const pc = box(.12, .08, .06, C.blue, .9); pc.position.set(-.2, -.3, .03); s.world.add(pc);
+  const pcl = label('computer', 'small'); pcl.position.set(-.2, -.3, .1); s.world.add(pcl);
+  const cone = viewCone(C.cyan, [.4, 0, 1.0]); s.world.add(cone);
+  const axes = arm.joints.map(j => { const a = new THREE.AxesHelper(.07); a.material.depthTest = false; a.renderOrder = 3; j.add(a); return a; });
+  const path = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: C.orange, dashSize: .02, gapSize: .015 })); path.frustumCulled = false; s.world.add(path);
+  const msgs = [0, 1, 2].map(() => { const m = new THREE.Mesh(new THREE.SphereGeometry(.014, 14, 10), new THREE.MeshBasicMaterial({ color: C.cyan })); s.world.add(m); return m; });
+  const u = ui(panel);
+  u.text('By Wednesday afternoon, this arm finds the boxes with its camera and places them in the tray: the same code you run in the labs.', 'scene-hint');
+  const items = u.list([
+    '<b>Day 1 · make programs talk</b><br>nodes, topics, services, actions: camera → detector → planner → arm',
+    '<b>Day 2 · model and simulate</b><br>frames, URDF, Gazebo, simulated sensors',
+    '<b>Day 3 · plan and pick</b><br>ros2_control and MoveIt 2 move the arm around obstacles']);
+  const out = u.readout();
+  u.text('Every concept ends with something you can see in a terminal, RViz, or Gazebo.');
+  const plans = [pickPlan('red', 0), pickPlan('blue', 1)], T = plans.map(planTime), CYCLE = T[0] + T[1] + 1.5;
+  const pts = [], tmp = new THREE.Vector3(), camAt = new THREE.Vector3(.4, 0, .98), pcAt = new THREE.Vector3(-.2, -.3, .06);
+  return { ...s, sway: { amplitude: .3, period: 30 }, reset() { cell.reset(); }, update(t) {
+    const tc = t % CYCLE, day = Math.floor(tc / (CYCLE / 3));
+    if (tc < .05) cell.reset();
+    const which = tc < T[0] ? 0 : tc < T[0] + T[1] ? 1 : -1;
+    if (which >= 0) {
+      const p = planPose(plans[which], which ? tc - T[0] : tc); arm.set(p.q, p.grip);
+      carry(arm, s.world, cell.boxes[which ? 'blue' : 'red'], p.held);
+    } else arm.set(DA_HOME, DA_OPEN);
+    items.forEach((li, i) => li.classList.toggle('on', i === day));
+    // Day 1: messages flow camera → computer → arm. Day 2: frames on every joint and the camera's view. Day 3: the planned path.
+    msgs.forEach((m, i) => {
+      m.visible = day === 0; if (!m.visible) return;
+      const f = ((t * .7 + i / 3) % 1); arm.links.l4.getWorldPosition(tmp); s.world.worldToLocal(tmp);
+      if (f < .5) m.position.lerpVectors(camAt, pcAt, smooth(f * 2)); else m.position.lerpVectors(pcAt, tmp, smooth(f * 2 - 1));
+      m.material.color.set(f < .5 ? C.cyan : C.orange);
+    });
+    axes.forEach(a => (a.visible = day === 1)); cone.visible = day === 1;
+    path.visible = day === 2 && which >= 0;
+    if (path.visible && Math.floor(t * 4) !== path.userData.k) {
+      path.userData.k = Math.floor(t * 4); pts.length = 0;
+      const pl = plans[which], dur = T[which];
+      for (let x = 0; x <= dur; x += .08) { const pp = planPose(pl, x); arm.set(pp.q, pp.grip); s.world.updateMatrixWorld(true); arm.links.tool.getWorldPosition(tmp); pts.push(s.world.worldToLocal(tmp.clone())); }
+      const p = planPose(plans[which], which ? tc - T[0] : tc); arm.set(p.q, p.grip);
+      path.geometry.setFromPoints(pts); path.computeLineDistances();
+    }
+    out.innerHTML = ['<b>Day 1</b> /camera → object_detector → /detections → pick_and_place', '<b>Day 2</b> every joint has a frame; the RealSense sees the table', '<b>Day 3</b> MoveIt plans the path; ros2_control drives the joints'][day];
+  } };
+};
+
+// ---------- Inside a robot: the sense, think, act loop on our arm ----------
+SCENES['loop-arm'] = async (panel) => {
+  const s = base3d({ cam: [1.35, 1.1, -1.1], target: [.3, .32, 0], grid: 0 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x141b2e })); s.world.add(floor);
+  const arm = demoArm(), cell = demoCell(s.world); s.world.add(arm.root);
+  const pc = box(.12, .08, .06, C.blue, .9); pc.position.set(-.2, -.3, .03); s.world.add(pc);
+  const pcl = label('computer', 'small'); pcl.position.set(-.2, -.3, .1); s.world.add(pcl);
+  const cone = viewCone(C.cyan, [.4, 0, 1.0]); s.world.add(cone);
+  const camL = label('RealSense camera', 'small'); camL.position.set(.4, 0, 1.08); s.world.add(camL);
+  const seen = ring(C.cyan); s.world.add(seen); const seenL = label('', 'big'); s.world.add(seenL);
+  const path = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: C.blue, dashSize: .02, gapSize: .014 })); path.frustumCulled = false; s.world.add(path);
+  const stageL = label('', 'big'); stageL.position.set(.4, .42, .55); s.world.add(stageL);
+  const u = ui(panel);
+  const loopC = u.canvas(150);
+  const steps = u.list([
+    '<b>sense</b> the camera takes colour + depth images',
+    '<b>think</b> find the box, plan a path',
+    '<b>act</b> motors follow the path, gripper closes',
+    '<b>the world changes</b> so look again']);
+  let mode = 'auto', hold = -1;
+  const autoBtn = u.button('play', () => { mode = 'auto'; hold = -1; autoBtn.classList.add('on'); stepBtn.classList.remove('on'); }, true);
+  const stepBtn = u.button('one stage at a time', () => { mode = 'step'; stepBtn.classList.add('on'); autoBtn.classList.remove('on'); });
+  // "next" releases the pause and nudges past the stage boundary
+  const nextBtn = u.button('next stage →', () => { if (mode !== 'step') return; const k = Math.min(curStage + 1, STAGES.length); clock = STAGES.slice(0, k).reduce((x, st) => x + st[1], 0) + .001; hold = -2; });
+  u.row(autoBtn, stepBtn, nextBtn);
+  const out = u.readout();
+  // Stages for each box: sense 2.2 s, think 1.8 s, act (the plan), world 1.2 s.
+  const order = ['red', 'blue'], plans = order.map((c, i) => pickPlan(c, i));
+  const STAGES = order.flatMap((c, i) => [['sense', 2.2, c], ['think', 1.8, c, i], ['act', planTime(plans[i]), c, i], ['world', 1.4, c]]);
+  const TOTAL = STAGES.reduce((x, st) => x + st[1], 0);
+  let clock = 0, curStage = 0;
+  const tmp = new THREE.Vector3();
+  const KIND_I = { sense: 0, think: 1, act: 2, world: 3 };
+  function drawLoop(stage, f) {
+    const { ctx, w, h } = fit2d(loopC); ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2 + 6, R = Math.min(w * .32, h * .4);
+    const nodes = [['SENSE', CSS.cyan, -Math.PI / 2], ['THINK', CSS.blue, Math.PI / 6], ['ACT', CSS.orange, 5 * Math.PI / 6]];
+    ctx.strokeStyle = CSS.line; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.stroke();
+    // the dot travels sense → think → act, waits at act while the arm moves, then goes round to sense
+    const da = { sense: -Math.PI / 2, think: Math.PI / 6, act: 5 * Math.PI / 6, world: 5 * Math.PI / 6 }[stage] + (stage === 'act' ? 0 : (2 * Math.PI / 3) * f);
+    dot(ctx, cx + R * Math.cos(da), cy + R * Math.sin(da), 6, stage === 'world' ? CSS.ink : [CSS.cyan, CSS.blue, CSS.orange][KIND_I[stage]]);
+    nodes.forEach(([n, c, a], i) => {
+      const x = cx + R * Math.cos(a), y = cy + R * Math.sin(a), on = KIND_I[stage] === i;
+      ctx.fillStyle = on ? c : '#0d1426'; ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(x - 34, y - 13, 68, 26, 13); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = on ? '#080d19' : c; ctx.font = mono(11, 700); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(n, x, y);
+    });
+    ctx.fillStyle = stage === 'world' ? CSS.ink : CSS.muted; ctx.font = mono(10); ctx.fillText('the world changes', cx, cy + 4);
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  }
+  function setPath(i) {
+    const pts = [], pl = plans[i], dur = planTime(pl), keep = arm.q.slice(), g = arm.grip;
+    for (let x = 0; x <= dur; x += .06) { const pp = planPose(pl, x); arm.set(pp.q, pp.grip); s.world.updateMatrixWorld(true); arm.links.tool.getWorldPosition(tmp); pts.push(s.world.worldToLocal(tmp.clone())); }
+    arm.set(keep, g); path.geometry.setFromPoints(pts); path.computeLineDistances();
+  }
+  function reset() { clock = 0; hold = -1; path.userData.i = -1; cell.reset(); arm.set(DA_HOME, DA_OPEN); }
+  reset();
+  return { ...s, reset, update(t, dt) {
+    // in step mode the clock stops at the end of each stage until "next stage"
+    if (clock >= TOTAL) { clock = 0; hold = -1; cell.reset(); path.userData.i = -1; }
+    let i = 0, x = clock; while (i < STAGES.length - 1 && x > STAGES[i][1]) x -= STAGES[i++][1];
+    curStage = i;
+    if (mode === 'step' && hold !== i && STAGES[i][1] - x < dt + .02) hold = i;
+    if (!(mode === 'step' && hold === i)) clock += dt;
+    const [kind, dur, color, pi] = STAGES[i], f = clamp(x / dur, 0, 1), b = cell.boxes[color];
+    // sense: the cone pulses and the box gets a detection square
+    cone.visible = kind === 'sense'; cone.material.opacity = .25 + .35 * Math.abs(Math.sin(t * 5));
+    seen.visible = seenL.visible = kind === 'sense' && f > .35 || kind === 'think';
+    if (seen.visible) { b.getWorldPosition(tmp); s.world.worldToLocal(tmp); seen.position.set(tmp.x, tmp.y, DA_TABLE_TOP + .003); seenL.position.set(tmp.x, tmp.y, .2); seenL.element.textContent = `${color} box · x ${tmp.x.toFixed(2)} y ${tmp.y.toFixed(2)}`; }
+    // think: the computer glows and the planned path draws in
+    glow(pc, C.blue, kind === 'think' ? .5 + .4 * Math.sin(t * 9) : 0);
+    path.visible = kind === 'think' || kind === 'act';
+    if (kind === 'think' && path.userData.i !== pi) { setPath(pi); path.userData.i = pi; }
+    if (kind === 'think') path.geometry.setDrawRange(0, Math.floor(f * path.geometry.attributes.position.count));
+    else path.geometry.setDrawRange(0, Infinity);
+    if (kind === 'sense') path.userData.i = -1;
+    // act: run the plan, motors glow
+    if (kind === 'act') { const p = planPose(plans[pi], x); arm.set(p.q, p.grip); carry(arm, s.world, b, p.held); }
+    else arm.set(DA_HOME, DA_OPEN);
+    [arm.links.l1, arm.links.l2, arm.links.l3, arm.links.l4].forEach(l => glow(l, C.orange, kind === 'act' ? .35 : 0));
+    stageL.element.textContent = { sense: 'SENSE', think: 'THINK', act: 'ACT', world: 'the world changed: sense again' }[kind];
+    stageL.element.style.color = { sense: CSS.cyan, think: CSS.blue, act: CSS.orange, world: CSS.ink }[kind];
+    steps.forEach((li, k) => li.classList.toggle('on', k === KIND_I[kind]));
+    drawLoop(kind, f);
+    out.innerHTML = {
+      sense: () => `<b>sense</b> /camera/camera/color/image_raw + depth · 30 Hz`,
+      think: () => `<b>think</b> object_detector publishes /detections/${color}; MoveIt plans the motion`,
+      act: () => `<b>act</b> /arm_controller/follow_joint_trajectory → five joint motors · ${plans[pi][planPose(plans[pi], x).k][0]}`,
+      world: () => `<b>world</b> the ${color} box moved, so the next decision needs a new image`,
+    }[kind]() + (mode === 'step' && hold === i ? '<br><b>paused</b> press next stage' : '');
+  } };
+};
+
+// Narrow screens: lay the drawing out at a minimum width and scale it down, so labels never collide.
+function fitMin(canvas, minW) {
+  const { ctx, w, h } = fit2d(canvas), k = Math.min(1, w / minW);
+  ctx.clearRect(0, 0, w, h); ctx.scale(k, k);
+  return { ctx, w: w / k, h: h / k, k };
+}
+
+// ---------- Inside a robot · sense: how nine common sensors work ----------
+// Each draws its working principle in (x, y, w, h) and gives the signal the robot receives, as a function of time.
+function sensorBox(ctx, x, y, w, h, color = CSS.cyan, r = 4) { ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.stroke(); }
+function say(ctx, text, x, y, color = CSS.muted, size = 11, align = 'center') { ctx.fillStyle = color; ctx.font = mono(size); ctx.textAlign = align; ctx.fillText(text, x, y); ctx.textAlign = 'left'; }
+const SENSORS = [
+  { key: 'encoder', name: 'Encoder', where: 'inside', rate: '100–1000 Hz', msg: 'sensor_msgs/msg/JointState', arm: 'every joint: <code>/joint_states</code>',
+    what: 'how far a joint or wheel has turned', how: 'A slotted disc turns between an LED and a light sensor. Each slot that passes is one pulse; counting pulses gives the angle.',
+    unit: 'light sensor: pulses', signal: t => (Math.sin(12 * 1.6 * t) > 0 ? 1 : 0),
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .42, cy = y + h * .52, R = Math.min(w, h) * .36, a = 1.6 * t;
+      ctx.fillStyle = '#1b2236'; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill(); ctx.strokeStyle = CSS.muted; ctx.lineWidth = 1.5; ctx.stroke();
+      for (let k = 0; k < 12; k++) { const b = a + k * Math.PI / 6; ctx.fillStyle = '#080d19'; ctx.beginPath(); ctx.arc(cx, cy, R * .95, b - .1, b + .1); ctx.arc(cx, cy, R * .78, b + .1, b - .1, true); ctx.fill(); }
+      ctx.fillStyle = CSS.muted; ctx.beginPath(); ctx.arc(cx, cy, R * .12, 0, 7); ctx.fill();
+      const lit = Math.sin(12 * a) > 0, gx = cx, gy = cy - R * .87;
+      ctx.fillStyle = CSS.pink; ctx.fillRect(gx - 6, gy - R * .5, 12, 10); say(ctx, 'LED', gx + 22, gy - R * .5 + 9, CSS.pink, 10, 'left');
+      ctx.fillStyle = lit ? CSS.cyan : '#26304a'; ctx.fillRect(gx - 6, gy + R * .3, 12, 10); say(ctx, 'light sensor', gx + 22, gy + R * .3 + 9, lit ? CSS.cyan : CSS.muted, 10, 'left');
+      if (lit) { ctx.strokeStyle = CSS.pink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(gx, gy - R * .5 + 10); ctx.lineTo(gx, gy + R * .3); ctx.stroke(); }
+      const count = Math.floor(12 * 1.6 * t / Math.PI);
+      say(ctx, `pulses ${count} → angle ${(count * 15 % 360).toFixed(0)}°`, x + w * .82, cy, CSS.ink, 12);
+      say(ctx, '12 slots: 15° per pulse', x + w * .82, cy + 18, CSS.muted, 10);
+    } },
+  { key: 'imu', name: 'IMU', where: 'inside', rate: '100–1000 Hz', msg: 'sensor_msgs/msg/Imu', arm: 'in the gripper palm: <code>/imu</code>',
+    what: 'acceleration and rotation rate of the body it is on', how: 'Tiny MEMS structures on a chip: a spring-held mass shows acceleration (gravity too), a vibrating mass shows rotation rate.',
+    unit: 'gyro z: rad/s', range: [-.6, .6], signal: t => .5 * Math.cos(t),
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .4, cy = y + h * .5, th = .5 * Math.sin(t), s = Math.min(w, h) * .26;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(th);
+      ctx.fillStyle = '#1b2236'; ctx.strokeStyle = CSS.cyan; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(-s, -s * .6, 2 * s, 1.2 * s, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = CSS.cyan; ctx.fillRect(-s * .25, -s * .2, s * .5, s * .4); say(ctx, 'MEMS chip', 0, s * .45, CSS.muted, 10);
+      arrowTo(ctx, 0, 0, s * 1.2, 0, CSS.pink, 2); say(ctx, 'x', s * 1.3, 4, CSS.pink, 11);
+      ctx.restore();
+      arrowTo(ctx, cx, cy, cx, cy + s * 1.4, CSS.muted, 2); say(ctx, 'gravity', cx + 8, cy + s * 1.4, CSS.muted, 10, 'left');
+      ctx.strokeStyle = CSS.orange; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(cx, cy, s * 1.5, -Math.PI / 2 - .3, -Math.PI / 2 + .3); ctx.stroke();
+      say(ctx, `accel x  ${(9.81 * Math.sin(th)).toFixed(2)} m/s²`, x + w * .82, cy - 10, CSS.pink, 12);
+      say(ctx, `gyro z   ${(.5 * Math.cos(t)).toFixed(2)} rad/s`, x + w * .82, cy + 10, CSS.orange, 12);
+    } },
+  { key: 'lidar', name: 'Lidar', where: 'outside', rate: '5–40 Hz per turn', msg: 'sensor_msgs/msg/LaserScan', arm: 'front of the pedestal: <code>/scan</code>',
+    what: 'distance to everything around it, in a plane', how: 'A laser pulse goes out and bounces back. Distance = speed of light × round-trip time ÷ 2. A spinning mirror sweeps the beam all the way round.',
+    unit: 'range of the current beam: m', signal: t => lidarRange(t * 2.4) / 3,
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .5, cy = y + h * .52, S = Math.min(w, h) * .14, a = t * 2.4;
+      ctx.strokeStyle = '#3a4566'; ctx.lineWidth = 2; ctx.strokeRect(cx - 3 * S, cy - 2 * S, 6 * S, 4 * S);
+      ctx.fillStyle = '#3a4566'; ctx.fillRect(cx + 1.2 * S, cy - 1.1 * S, .9 * S, .9 * S); ctx.beginPath(); ctx.arc(cx - 1.4 * S, cy + .9 * S, .45 * S, 0, 7); ctx.fill();
+      for (let k = 0; k < 120; k++) { const b = a - k * .05; const r = lidarRange(b); ctx.globalAlpha = 1 - k / 120; dot(ctx, cx + r * S * Math.cos(b), cy - r * S * Math.sin(b), 2, CSS.pink); }
+      ctx.globalAlpha = 1; const r = lidarRange(a);
+      ctx.strokeStyle = CSS.pink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + r * S * Math.cos(a), cy - r * S * Math.sin(a)); ctx.stroke();
+      dot(ctx, cx, cy, 7, CSS.cyan); say(ctx, `beam ${((a * 180 / Math.PI) % 360).toFixed(0)}° · ${r.toFixed(2)} m`, cx, y + 14, CSS.ink, 12);
+    } },
+  { key: 'camera', name: 'Camera', where: 'outside', rate: '15–60 Hz', msg: 'sensor_msgs/msg/Image', arm: 'the RealSense colour stream: <code>/camera/camera/color/image_raw</code>',
+    what: 'colour and brightness of the scene, as pixels', how: 'A lens focuses light onto a grid of light sensors. Each sensor becomes one pixel; red, green and blue filters give colour.',
+    unit: 'brightness along one pixel row', signal: t => .55 + .4 * Math.sin(t * 2.1) * Math.cos(t * .7),
+    draw(ctx, x, y, w, h, t) {
+      const cy = y + h * .5, lx = x + w * .5, objX = x + w * .14, sx = x + w * .78, s = h * .2, bob = Math.sin(t) * s * .3;
+      ctx.fillStyle = CSS.orange; ctx.beginPath(); ctx.moveTo(objX, cy + s + bob); ctx.lineTo(objX - s * .5, cy + s * 1.6 + bob); ctx.lineTo(objX + s * .5, cy + s * 1.6 + bob); ctx.fill();
+      ctx.fillStyle = CSS.green; ctx.beginPath(); ctx.arc(objX, cy - s * .2 + bob, s * .55, 0, 7); ctx.fill(); ctx.fillStyle = '#6b4a2b'; ctx.fillRect(objX - 3, cy + s * .3 + bob, 6, s * .7);
+      ctx.strokeStyle = CSS.blue; ctx.lineWidth = 3; ctx.beginPath(); ctx.ellipse(lx, cy, 6, s * 1.2, 0, 0, 7); ctx.stroke(); say(ctx, 'lens', lx, cy + s * 1.5, CSS.blue, 10);
+      for (const [oy, c] of [[-s * .2, CSS.green], [s * 1.3, CSS.orange]]) { ctx.strokeStyle = c; ctx.globalAlpha = .5; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(objX, cy + oy + bob); ctx.lineTo(lx, cy); ctx.lineTo(sx, cy - (oy + bob) * .55); ctx.stroke(); ctx.globalAlpha = 1; }
+      const gx = sx, n = 8, cs = s * 2.4 / n;
+      for (let i = 0; i < n; i++) for (let j = 0; j < 3; j++) {
+        const py = cy - s * 1.2 + i * cs, img = cy - (py - cy) / .55 - bob;   // inverted image
+        const c = img > cy + s && img < cy + s * 1.7 ? CSS.orange : img > cy - s * .8 && img < cy + s * .4 ? CSS.green : '#1b2236';
+        ctx.fillStyle = c; ctx.fillRect(gx + j * cs, py, cs - 1, cs - 1);
+      }
+      say(ctx, 'pixels (upside down)', gx + cs * 1.5, cy + s * 1.6, CSS.muted, 10);
+    } },
+  { key: 'depth', name: 'Depth camera', where: 'outside', rate: '30–90 Hz', msg: 'sensor_msgs/msg/Image (depth), sensor_msgs/msg/PointCloud2', arm: 'the overhead RealSense D435: <code>/camera/camera/depth/color/points</code>',
+    what: 'the distance to every pixel: a 3D picture', how: 'The RealSense D435 projects an infrared dot pattern and sees it with two infrared cameras. A dot shifts less between the two views the farther away it is.',
+    unit: 'depth along one row: m', signal: t => { const u = (t * .25) % 1; return u > .38 && u < .62 ? .55 : .9; },
+    draw(ctx, x, y, w, h, t) {
+      const top = y + 22, tbl = y + h * .86, bx0 = x + w * .42, bx1 = x + w * .58, bTop = y + h * .6, cx = x + w * .5;
+      ctx.fillStyle = '#3a4566'; ctx.fillRect(x + w * .1, tbl, w * .8, 6); ctx.fillStyle = DA_CSS.red; ctx.fillRect(bx0, bTop, bx1 - bx0, tbl - bTop);
+      ctx.fillStyle = '#b8c0d0'; ctx.fillRect(cx - 50, top - 8, 100, 14);
+      [[-38, 'IR'], [0, 'dots'], [38, 'IR']].forEach(([dx, n]) => { dot(ctx, cx + dx, top + 6, 4, n === 'dots' ? CSS.pink : CSS.cyan); say(ctx, n, cx + dx, top - 12, n === 'dots' ? CSS.pink : CSS.cyan, 9); });
+      const N = 15, sweep = (t * .25) % 1;
+      for (let k = 0; k < N; k++) {
+        const px = x + w * (.14 + .72 * k / (N - 1)), onBox = px > bx0 && px < bx1, py = onBox ? bTop : tbl;
+        const near = k === Math.round(sweep * (N - 1));
+        ctx.strokeStyle = CSS.pink; ctx.globalAlpha = near ? .9 : .18; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, top + 6); ctx.lineTo(px, py); ctx.stroke();
+        ctx.globalAlpha = 1; dot(ctx, px, py, near ? 4 : 2.5, onBox ? CSS.orange : CSS.cyan);
+        if (near) { for (const dx of [-38, 38]) { ctx.strokeStyle = CSS.cyan; ctx.globalAlpha = .7; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(cx + dx, top + 6); ctx.stroke(); } ctx.globalAlpha = 1; say(ctx, `${onBox ? '0.55' : '0.90'} m`, px + 8, py - 8, CSS.ink, 11, 'left'); }
+      }
+      say(ctx, 'near: big shift between the two IR views · far: small shift', cx, y + h - 2, CSS.muted, 10);
+    } },
+  { key: 'ft', name: 'Force-torque', where: 'inside', rate: '100–1000 Hz', msg: 'geometry_msgs/msg/WrenchStamped', arm: 'at the wrist roll joint: <code>/wrist_ft</code>',
+    what: 'forces and twists pushing on the wrist: the weight it holds, a bump', how: 'Strain gauges glued to a metal flexure change resistance as it bends very slightly. Six readings give 3 forces and 3 torques.',
+    unit: 'force z: N', range: [0, 1.6], signal: t => { const u = t % 6; return u < 2 ? 0 : u < 2.4 ? (u - 2) / .4 * 1.4 : u < 4.6 ? .9 + .05 * Math.sin(u * 20) * Math.exp(-(u - 2.4) * 3) : u < 5 ? (5 - u) / .4 * .9 : 0; },
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .4, u = t % 6, hold = u > 2 && u < 5, lift = u < 2 ? 0 : u < 2.4 ? (u - 2) / .4 : u < 4.6 ? 1 : u < 5 ? (5 - u) / .4 : 0;
+      const wy = y + h * .2, bend = (hold ? 4 : 0) * lift;
+      ctx.fillStyle = DA_CSS.black; ctx.fillRect(cx - 14, y + 4, 28, wy - y);
+      ctx.fillStyle = '#c9d1e3'; ctx.beginPath(); ctx.moveTo(cx - 22, wy); ctx.quadraticCurveTo(cx, wy + 12 + bend, cx + 22, wy); ctx.lineTo(cx + 22, wy + 14); ctx.quadraticCurveTo(cx, wy + 26 + bend, cx - 22, wy + 14); ctx.fill();
+      ctx.fillStyle = CSS.cyan; ctx.fillRect(cx - 8, wy + 4 + bend * .6, 16, 5); say(ctx, 'strain gauge', cx + 30, wy + 12, CSS.cyan, 10, 'left');
+      ctx.fillStyle = DA_CSS.grey; ctx.fillRect(cx - 26, wy + 22, 52, 10);
+      for (const s of [-1, 1]) { ctx.fillStyle = DA_CSS.black; ctx.fillRect(cx + s * (hold ? 13 : 20) - 4, wy + 32, 8, 26); }
+      const by = hold ? wy + 38 : y + h * .82 - 22;
+      ctx.fillStyle = DA_CSS.red; ctx.fillRect(cx - 10, by, 20, 22);
+      ctx.fillStyle = '#3a4566'; ctx.fillRect(x + w * .1, y + h * .82, w * .6, 6);
+      if (lift > .05) { arrowTo(ctx, cx + 46, wy + 30, cx + 46, wy + 30 + 40 * lift, CSS.orange, 2.5); say(ctx, 'weight', cx + 52, wy + 54, CSS.orange, 10, 'left'); }
+      say(ctx, `force z ${this.signal(t).toFixed(2)} N`, x + w * .83, y + h * .45, CSS.ink, 12);
+    } },
+  { key: 'contact', name: 'Contact', where: 'outside', rate: 'on change, or 10–100 Hz', msg: 'a Bool, or ros_gz_interfaces/msg/Contacts in Gazebo', arm: 'both fingers: <code>/left_finger/contact</code>, <code>/right_finger/contact</code>',
+    what: 'whether something is touching: yes or no, sometimes how hard', how: 'A switch closes, or a pressure-sensitive pad changes resistance, when the finger presses on something.',
+    unit: 'touching: 0 or 1', signal: t => (Math.sin(t * 1.2) > .35 ? 1 : 0),
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .4, cy = y + h * .55, c = Math.sin(t * 1.2), touch = c > .35;
+      const gap = 24 + (1 - clamp((c + 1) / 1.35, 0, 1)) * 36;   // half the distance between the finger pads
+      ctx.fillStyle = DA_CSS.grey; ctx.fillRect(cx - 80, cy - 70, 160, 12);   // palm
+      ctx.fillStyle = DA_CSS.red; ctx.fillRect(cx - 24, cy - 24, 48, 48);    // box
+      for (const sg of [-1, 1]) {
+        const inner = cx + sg * gap, outer = inner + sg * 16;
+        ctx.fillStyle = DA_CSS.black; ctx.fillRect(Math.min(inner, outer), cy - 58, 16, 86);
+        ctx.fillStyle = touch ? CSS.cyan : '#3a4566'; ctx.fillRect(inner - (sg > 0 ? 0 : 5), cy - 16, 5, 32);   // pressure pad on the inner face
+        if (touch) { ctx.strokeStyle = CSS.cyan; ctx.globalAlpha = .35 + .25 * Math.sin(t * 9); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(inner, cy, 22, sg > 0 ? Math.PI / 2 : -Math.PI / 2, sg > 0 ? 3 * Math.PI / 2 : Math.PI / 2); ctx.stroke(); ctx.globalAlpha = 1; }
+      }
+      say(ctx, 'pressure pads', cx, cy + 50, CSS.muted, 10);
+      say(ctx, touch ? 'contact: true' : 'contact: false', x + w * .84, cy, touch ? CSS.cyan : CSS.muted, 13);
+    } },
+  { key: 'ultrasonic', name: 'Ultrasonic', where: 'outside', rate: '10–40 Hz', msg: 'sensor_msgs/msg/Range', arm: 'not on our arm; common on mobile robots and cars',
+    what: 'distance to the nearest object in a cone', how: 'It clicks at about 40 kHz and listens for the echo. Distance = speed of sound (343 m/s) × round-trip time ÷ 2.',
+    unit: 'echo: arrives after 2d / 343 s', signal: t => { const u = (t % 1.4) / 1.4; return Math.abs(u - .62) < .03 ? 1 : 0; },
+    draw(ctx, x, y, w, h, t) {
+      const sx = x + w * .12, cy = y + h * .5, wx = x + w * .78, u = (t % 1.4) / 1.4;
+      ctx.fillStyle = '#3a4566'; ctx.fillRect(wx, y + 10, 14, h - 20); say(ctx, 'wall 1.0 m', wx + 7, y + h - 2, CSS.muted, 10);
+      ctx.fillStyle = '#b8c0d0'; ctx.fillRect(sx - 18, cy - 22, 18, 44); for (const d of [-11, 11]) { ctx.fillStyle = '#1b2236'; ctx.beginPath(); ctx.arc(sx - 2, cy + d, 8, 0, 7); ctx.fill(); }
+      const go = u < .5, r = (go ? u / .5 : (u - .5) / .5) * (wx - sx);
+      ctx.strokeStyle = go ? CSS.cyan : CSS.orange; ctx.lineWidth = 2;
+      for (let k = 0; k < 3; k++) { const rr = r - k * 10; if (rr <= 0) continue; ctx.globalAlpha = 1 - k * .3; ctx.beginPath(); if (go) ctx.arc(sx, cy, rr, -.35, .35); else ctx.arc(wx, cy, rr, Math.PI - .35, Math.PI + .35); ctx.stroke(); }
+      ctx.globalAlpha = 1; say(ctx, go ? 'ping →' : '← echo', x + w * .45, y + 16, go ? CSS.cyan : CSS.orange, 12);
+      say(ctx, 'round trip 5.8 ms → 1.00 m', x + w * .45, y + h - 2, CSS.ink, 11);
+    } },
+  { key: 'gps', name: 'GPS', where: 'outside', rate: '1–10 Hz', msg: 'sensor_msgs/msg/NavSatFix', arm: 'not on our arm; outdoor robots, drones and cars',
+    what: 'latitude, longitude and height on Earth', how: 'Satellites send their time and position. The receiver measures how long each signal took; four or more give a position, to a few metres (centimetres with RTK).',
+    unit: 'signals received', signal: t => (Math.floor(t * 2) % 4 + 1) / 4,
+    draw(ctx, x, y, w, h, t) {
+      const ex = x + w * .5, ey = y + h * 1.9, R = h * 1.55;
+      ctx.strokeStyle = '#3a4566'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ex, ey, R, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke();
+      const rx = ex, ry = ey - R; dot(ctx, rx, ry, 6, CSS.cyan); say(ctx, 'receiver', rx, ry + 18, CSS.cyan, 10);
+      const sats = [[.14, .22], [.36, .1], [.64, .1], [.86, .22]];
+      sats.forEach(([sx, sy], i) => {
+        const px = x + w * sx, py = y + h * sy; ctx.fillStyle = CSS.blue; ctx.fillRect(px - 8, py - 5, 16, 10); ctx.fillStyle = '#26304a'; ctx.fillRect(px - 20, py - 2, 10, 4); ctx.fillRect(px + 10, py - 2, 10, 4);
+        const f = ((t * .8 + i * .25) % 1); ctx.strokeStyle = CSS.blue; ctx.globalAlpha = .6 * (1 - f); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py, f * Math.hypot(rx - px, ry - py), 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+        ctx.setLineDash([3, 4]); ctx.strokeStyle = CSS.line; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(rx, ry); ctx.stroke(); ctx.setLineDash([]);
+      });
+      say(ctx, '4 satellites → x, y, z and the clock error', x + w * .5, y + h * .45, CSS.ink, 11);
+    } },
+];
+const DA_CSS = { red: '#e5484d', black: '#262a35', grey: '#8f9ab3' };
+function lidarRange(b) {   // a 6 × 4 room with a box and a post, seen from the middle
+  const c = Math.cos(b), s = Math.sin(b); let r = Math.min(Math.abs(c) > 1e-6 ? 3 / Math.abs(c) : 99, Math.abs(s) > 1e-6 ? 2 / Math.abs(s) : 99);
+  const hit = (x0, y0, x1, y1) => { const tx = [x0 / c, x1 / c].sort((a, b2) => a - b2), ty = [y0 / s, y1 / s].sort((a, b2) => a - b2), t0 = Math.max(tx[0], ty[0]), t1 = Math.min(tx[1], ty[1]); return t1 >= t0 && t0 > 0 ? t0 : 99; };
+  r = Math.min(r, hit(1.2, .2, 2.1, 1.1));
+  const px = -1.4, py = -.9, rr = .45, bb = px * c + py * s, d = bb * bb - (px * px + py * py - rr * rr); if (d > 0 && bb - Math.sqrt(d) > 0) r = Math.min(r, bb - Math.sqrt(d));
+  return r;
+}
+SCENES['sensor-gallery'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let sel = 0, auto = true;
+  const btns = SENSORS.map((g, i) => u.button(g.name, () => choose(i, true), i === 0));
+  u.row(...btns);
+  const autoBtn = u.button('auto tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  const out = u.readout();
+  u.text('<b>Inside</b> sensors measure the robot itself; <b>outside</b> sensors measure the world. Every one reaches ROS 2 as a standard message.');
+  function choose(i, manual) {
+    sel = i; btns.forEach((b, k) => b.classList.toggle('on', k === i)); if (manual) { auto = false; autoBtn.classList.remove('on'); }
+    const g = SENSORS[i];
+    out.innerHTML = `<b>${g.name}</b> · ${g.where === 'inside' ? 'inside (proprioceptive)' : 'outside (exteroceptive)'}<br><b>measures</b> ${g.what}<br><b>how</b> ${g.how}<br><b>rate</b> ${g.rate}<br><b>ROS 2</b> ${g.msg}<br><b>on our arm</b> ${g.arm}`;
+  }
+  choose(0);
+  const PH = 9;
+  return { canvas, reset() { if (auto) choose(0); }, update(t) {
+    if (auto) { const i = Math.floor(t / PH) % SENSORS.length; if (i !== sel) choose(i); }
+    const { ctx, w, h } = fitMin(canvas, 620);
+    const g = SENSORS[sel], plotH = Math.min(90, h * .2), top = 40, ih = h - top - plotH - 34;
+    ctx.fillStyle = CSS.ink; ctx.font = sans(17, 700); ctx.fillText(g.name, 14, 26);
+    ctx.fillStyle = g.where === 'inside' ? CSS.cyan : CSS.orange; ctx.font = mono(11); ctx.fillText(g.where === 'inside' ? 'inside · the robot measures itself' : 'outside · the robot measures the world', 14 + ctx.measureText(g.name).width * 1.45 + 16, 26);
+    ctx.save(); g.draw(ctx, 10, top, w - 20, ih, t); ctx.restore();
+    // what the robot receives: the last 4 s of the signal
+    const py = h - plotH - 12;
+    ctx.strokeStyle = CSS.line; ctx.strokeRect(10.5, py + .5, w - 21, plotH);
+    say(ctx, `what the robot receives · ${g.unit}`, 16, py + 14, CSS.muted, 10, 'left');
+    ctx.strokeStyle = CSS.cyan; ctx.lineWidth = 2; ctx.beginPath();
+    const [lo, hi] = g.range || [0, 1.1];
+    for (let k = 0; k <= 200; k++) { const tt = t - 4 + 4 * k / 200, v = clamp(g.signal(tt), lo, hi), X = 12 + (w - 24) * k / 200, Y = py + plotH - 6 - (v - lo) / (hi - lo) * (plotH - 24); k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+    ctx.stroke();
+  } };
+};
+
+// ---------- Inside a robot · sense: the sensors on our arm, live ----------
+SCENES['arm-sensors'] = async (panel) => {
+  const s = base3d({ cam: [1.3, 1.0, -1.05], target: [.3, .28, 0], grid: 0 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x141b2e })); s.world.add(floor);
+  const arm = demoArm(), cell = demoCell(s.world); s.world.add(arm.root);
+  const cone = viewCone(C.cyan, [.4, 0, 1.0]); s.world.add(cone);
+  // point cloud: samples of the table and box tops, seen from the camera
+  const cloud = new THREE.Points(new THREE.BufferGeometry(), new THREE.PointsMaterial({ size: .008, vertexColors: true })); cloud.frustumCulled = false; s.world.add(cloud);
+  // lidar: a fan of rays in the plane of the puck
+  const NR = 90, rays = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: C.pink, transparent: true, opacity: .35 }));
+  rays.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(NR * 6), 3)); rays.frustumCulled = false; s.scene.add(rays);   // rays are in scene (y-up) coordinates
+  const imuAxes = new THREE.AxesHelper(.08); imuAxes.material.depthTest = false; imuAxes.renderOrder = 3; arm.joints[4].add(imuAxes);
+  const ftArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(), .1, C.orange, .03, .02); arm.joints[4].add(ftArrow);
+  const rings = arm.joints.map((j, i) => { const r = new THREE.Mesh(new THREE.TorusGeometry(i ? .045 : .07, .004, 8, 40), new THREE.MeshBasicMaterial({ color: C.cyan })); if (i === 0) r.position.z = .0; else if (i === 4) r.position.z = 0; else r.rotation.x = Math.PI / 2; j.add(r); return r; });
+  const SENS = [
+    ['camera', 'RealSense D435 · colour + depth', '/camera/camera/color/image_raw, /camera/camera/depth/color/points', 'sensor_msgs/msg/Image, PointCloud2 · 30 Hz'],
+    ['lidar', '2D lidar on the pedestal', '/scan', 'sensor_msgs/msg/LaserScan · 10 Hz'],
+    ['encoders', 'joint encoders on all five joints', '/joint_states', 'sensor_msgs/msg/JointState · 100 Hz'],
+    ['imu', 'IMU in the gripper palm', '/imu', 'sensor_msgs/msg/Imu · 100 Hz'],
+    ['ft', 'force-torque sensor at the wrist', '/wrist_ft', 'geometry_msgs/msg/WrenchStamped · 100 Hz'],
+    ['contact', 'contact sensors on both fingers', '/left_finger/contact, /right_finger/contact', 'ros_gz_interfaces/msg/Contacts · on touch'],
+  ];
+  const u = ui(panel);
+  let sel = 'camera', auto = true;
+  const SHORT = { camera: 'camera', lidar: 'lidar', encoders: 'encoders', imu: 'IMU', ft: 'force-torque', contact: 'contact' };
+  const btns = SENS.map(([k]) => u.button(SHORT[k], () => choose(k, true), k === sel));
+  u.row(...btns);
+  const autoBtn = u.button('auto tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  const camC = u.canvas(110);
+  const out = u.readout();
+  u.text('These are the topics <b>ros2 topic list</b> shows when the Day 2 simulation runs (<code>demo_arm_gazebo</code>). The camera topics match the real RealSense driver.');
+  function choose(k, manual) { sel = k; btns.forEach((b, i) => b.classList.toggle('on', SENS[i][0] === k)); if (manual) { auto = false; autoBtn.classList.remove('on'); } }
+  const plans = [pickPlan('red', 0), pickPlan('blue', 1)], T = plans.map(planTime), CYCLE = T[0] + T[1] + 1;
+  const tmp = new THREE.Vector3(), rc = new THREE.Raycaster(), origin = new THREE.Vector3(), dir = new THREE.Vector3();
+  const solids = [cell.legs, cell.top, arm.links.base];
+  let held = null;
+  function drawCam() {   // the colour image from above: table, tray, boxes, with the detector's boxes
+    const { ctx, w, h } = fit2d(camC); ctx.clearRect(0, 0, w, h);
+    const sc = Math.min(w / .76, h / .6), ox = w / 2, oy = h / 2;   // camera at x .4 looks down: image x = -world y, image y = -world x
+    const P = (x, y) => [ox - (y - 0) * sc, oy - (x - .4) * sc];
+    ctx.fillStyle = '#3a4566'; const [a0, b0] = P(.65, .3), [a1, b1] = P(.15, -.3); ctx.fillRect(a0, b0, a1 - a0, b1 - b0);
+    const [tx, ty] = P(DA_TRAY[0], DA_TRAY[1]); ctx.strokeStyle = CSS.green; ctx.lineWidth = 2; ctx.strokeRect(tx - .06 * sc, ty - .06 * sc, .12 * sc, .12 * sc);
+    Object.entries(cell.boxes).forEach(([k, b]) => { b.getWorldPosition(tmp); s.world.worldToLocal(tmp); const [bx, by] = P(tmp.x, tmp.y), z = (DA_BOX / 2) * sc * (1 + (tmp.z - .12) * 2); ctx.fillStyle = DA_CSS[k]; ctx.fillRect(bx - z, by - z, 2 * z, 2 * z); if (b.parent === s.world) { ctx.strokeStyle = CSS.cyan; ctx.strokeRect(bx - z - 3, by - z - 3, 2 * z + 6, 2 * z + 6); say(ctx, k, bx, by - z - 6, CSS.cyan, 9); } });
+    arm.links.palm.getWorldPosition(tmp); s.world.worldToLocal(tmp); const [hx, hy] = P(tmp.x, tmp.y); ctx.fillStyle = DA_CSS.grey; ctx.fillRect(hx - 5, hy - 12, 10, 24);
+    say(ctx, 'colour image + detections', 6, 12, CSS.muted, 9, 'left');
+  }
+  return { ...s, reset() { cell.reset(); }, update(t) {
+    if (auto) { const k = SENS[Math.floor(t / 6) % SENS.length][0]; if (k !== sel) choose(k); }
+    const tc = t % CYCLE; if (tc < .05) cell.reset();
+    const which = tc < T[0] ? 0 : tc < T[0] + T[1] ? 1 : -1; held = null;
+    if (which >= 0) { const p = planPose(plans[which], which ? tc - T[0] : tc); arm.set(p.q, p.grip); const b = cell.boxes[which ? 'blue' : 'red']; carry(arm, s.world, b, p.held); if (p.held) held = b; }
+    else arm.set(DA_HOME, DA_OPEN);
+    s.scene.updateMatrixWorld(true);
+    cone.visible = cloud.visible = sel === 'camera';
+    if (cloud.visible && Math.floor(t * 6) !== cloud.userData.k) {
+      cloud.userData.k = Math.floor(t * 6); const pos = [], col = [];
+      for (let i = 0; i < 1400; i++) {
+        const x = .12 + Math.random() * .56, y = -.34 + Math.random() * .68; let z = DA_TABLE_TOP + .001, c = [.35, .42, .6];
+        if (x < .15 || x > .65 || Math.abs(y) > .3) { z = 0; c = [.2, .24, .35]; }
+        for (const [k, b] of Object.entries(cell.boxes)) { b.getWorldPosition(tmp); s.world.worldToLocal(tmp); if (Math.abs(x - tmp.x) < DA_BOX / 2 && Math.abs(y - tmp.y) < DA_BOX / 2) { z = tmp.z + DA_BOX / 2; c = k === 'red' ? [.9, .3, .3] : [.25, .5, .9]; } }
+        pos.push(x, y, z); col.push(...c);
+      }
+      cloud.geometry.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); cloud.geometry.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    }
+    rays.visible = sel === 'lidar';
+    if (rays.visible) {
+      cell.lidar.getWorldPosition(origin); const rp = rays.geometry.attributes.position.array, spin = t * 3;
+      for (let i = 0; i < NR; i++) { const a = spin + i * 2 * Math.PI / NR; dir.set(Math.cos(a), 0, -Math.sin(a)); rc.set(origin, dir); rc.far = 1.2; const hit = rc.intersectObjects(solids, false)[0], r = hit ? hit.distance : 1.2; rp.set([origin.x, origin.y, origin.z, origin.x + dir.x * r, origin.y, origin.z + dir.z * r], i * 6); }
+      rays.geometry.attributes.position.needsUpdate = true;
+    }
+    rings.forEach(r => (r.visible = sel === 'encoders'));
+    imuAxes.visible = sel === 'imu';
+    const load = held ? .05 * 9.81 : 0;
+    ftArrow.visible = sel === 'ft'; ftArrow.setLength(.04 + load * .12, .025, .018); ftArrow.setDirection(new THREE.Vector3(0, 0, 1));
+    arm.links.fingers.forEach(f => glow(f, C.cyan, sel === 'contact' && held ? .9 : 0));
+    camC.style.display = sel === 'camera' ? '' : 'none'; if (sel === 'camera') drawCam();
+    const [, name, topic, type] = SENS.find(x => x[0] === sel), q = arm.q.map(v => v.toFixed(2)).join(', ');
+    const live = { camera: 'red and blue boxes found in the colour image', lidar: 'distances to the table legs and the pedestal, 360°',
+      encoders: `position [${q}] rad`, imu: `angular_velocity changes as the wrist turns`, ft: `force.z ${(load).toFixed(2)} N ${held ? '(holding a 50 g box)' : ''}`,
+      contact: held ? 'both fingers touching the box' : 'no contact' }[sel];
+    out.innerHTML = `<b>${name}</b><br><b>topic</b> ${topic}<br><b>type</b> ${type}<br><b>now</b> ${live}`;
+  } };
+};
+
+// ---------- Inside a robot · think: the computers in a robot, fastest and smallest first ----------
+const BRAINS = [
+  ['Microcontroller', 'STM32, ESP32, Arduino, motor driver chips', 'firmware, no operating system (or a small RTOS)', '1–20 kHz', 'exact timing: motor current, PWM, reading encoders', 'chip', 2400],
+  ['Single-board computer', 'Raspberry Pi, NVIDIA Jetson', 'Linux + ROS 2', '10–100 Hz', 'sensor drivers, ros2_control, light perception', 'board', 300],
+  ['PC with a GPU', 'laptop, workstation, industrial PC', 'Linux + ROS 2', '1–30 Hz', 'MoveIt planning, vision models, RViz, Gazebo', 'pc', 60],
+  ['Cloud', 'servers in a data centre', 'anything', 'seconds to hours', 'fleet dashboards, shared maps, training models, logs', 'cloud', 6],
+];
+const BRAIN_LINKS = ['UART, USB, CAN, EtherCAT', 'Ethernet, Wi-Fi, ROS 2', 'internet'];
+const BRAIN_MAPS = {
+  'our arm': ['a real arm: motor drivers per joint (in the labs, Gazebo plays this part)', 'not needed in simulation', 'your laptop: Gazebo, ros2_control, MoveIt 2, object_detector, RViz', 'not used'],
+  'TurtleBot3': ['OpenCR: wheel motors, encoders, IMU', 'Raspberry Pi: turtlebot3_node, lidar driver', 'laptop: Nav2, SLAM, RViz, teleop', 'not used'],
+  'self-driving car': ['ECUs: brakes, steering, engine', 'sensor front-ends', 'in-car computer: Autoware on ROS 2', 'HD maps, training data'],
+};
+function brainIcon(ctx, kind, x, y, s, color, t) {
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 1.5;
+  if (kind === 'chip') { ctx.strokeRect(x - s * .5, y - s * .5, s, s); for (let k = -2; k <= 2; k++) for (const sg of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x + k * s * .18, y + sg * s * .5); ctx.lineTo(x + k * s * .18, y + sg * s * .68); ctx.moveTo(x + sg * s * .5, y + k * s * .18); ctx.lineTo(x + sg * s * .68, y + k * s * .18); ctx.stroke(); } }
+  if (kind === 'board') { ctx.strokeRect(x - s * .75, y - s * .45, s * 1.5, s * .9); ctx.strokeRect(x - s * .25, y - s * .2, s * .4, s * .4); for (let k = 0; k < 3; k++) ctx.strokeRect(x + s * .3, y - s * .35 + k * s * .25, s * .3, s * .18); }
+  if (kind === 'pc') { ctx.strokeRect(x - s * .75, y - s * .55, s * 1.5, s * .9); ctx.beginPath(); ctx.moveTo(x, y + s * .35); ctx.lineTo(x, y + s * .55); ctx.moveTo(x - s * .35, y + s * .6); ctx.lineTo(x + s * .35, y + s * .6); ctx.stroke(); }
+  if (kind === 'cloud') { ctx.beginPath(); ctx.arc(x - s * .35, y + s * .05, s * .3, Math.PI * .5, Math.PI * 1.5); ctx.arc(x, y - s * .15, s * .4, Math.PI, 0); ctx.arc(x + s * .4, y + s * .05, s * .3, Math.PI * 1.5, Math.PI * .5); ctx.closePath(); ctx.stroke(); }
+  void t;
+}
+SCENES['brains'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let sel = 0, robot = 'our arm', auto = true, regions = [];
+  const robotBtns = Object.keys(BRAIN_MAPS).map(k => u.button(k, () => { robot = k; robotBtns.forEach(b => b.classList.toggle('on', b.textContent === k)); }, k === robot));
+  u.row(...robotBtns);
+  const autoBtn = u.button('auto tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  const out = u.readout();
+  u.text('Small and fast near the motors, big and slow far from them. A robot usually has <b>several</b> computers; ROS 2 connects the ones that run Linux.');
+  const choose = (i, manual) => { sel = i; if (manual) { auto = false; autoBtn.classList.remove('on'); } };
+  tappable(canvas, () => regions, g => choose(g.i, true));
+  return { canvas, update(t) {
+    if (auto) sel = Math.floor(t / 4) % BRAINS.length;
+    const { ctx, w, h, k: zoom } = fitMin(canvas, 680);
+    const n = BRAINS.length, gap = 14, cw = (w - 28 - gap * (n - 1)) / n, top = 40, ch = h * .5;
+    say(ctx, '← closer to the motors · faster loops', 14, 24, CSS.orange, 11, 'left'); say(ctx, 'more computing power · slower loops →', w - 14, 24, CSS.blue, 11, 'right');
+    regions = BRAINS.map(([name, ex, os, rate, good, kind, hz], i) => {
+      const x = 14 + i * (cw + gap), on = i === sel, c = on ? CSS.blue : CSS.muted;
+      ctx.fillStyle = on ? 'rgba(106,168,255,.08)' : 'rgba(255,255,255,.02)'; ctx.fillRect(x, top, cw, ch); sensorBox(ctx, x, top, cw, ch, on ? CSS.blue : CSS.line, 6);
+      brainIcon(ctx, kind, x + cw / 2, top + ch * .3, Math.min(cw * .32, 46), c, t);
+      ctx.fillStyle = on ? CSS.ink : CSS.muted; ctx.font = sans(cw < 150 ? 11 : 13, 700); ctx.textAlign = 'center'; ctx.fillText(name, x + cw / 2, top + ch * .62);
+      say(ctx, rate, x + cw / 2, top + ch * .62 + 18, CSS.orange, cw < 150 ? 9 : 11);
+      // a heartbeat: one tick per loop, slowed so 20 kHz and 6 Hz both show
+      const ty = top + ch * .88, rate2 = Math.log10(hz) * 2.2;
+      ctx.strokeStyle = CSS.line; ctx.beginPath(); ctx.moveTo(x + 8, ty); ctx.lineTo(x + cw - 8, ty); ctx.stroke();
+      const ticks = [36, 18, 9, 3][i];
+      for (let k = 0; k < ticks; k++) { const ph = ((t * rate2 / 40 + k / ticks) % 1), px = x + 8 + (cw - 16) * ph; ctx.strokeStyle = on ? CSS.blue : '#3a4566'; ctx.beginPath(); ctx.moveTo(px, ty - 7); ctx.lineTo(px, ty + 7); ctx.stroke(); }
+      if (i < n - 1) {   // the link to the next computer, with a packet going each way
+        const lx = x + cw, ly = top + ch * .3, f = (t * .8 + i * .3) % 1;
+        ctx.strokeStyle = CSS.line; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + gap, ly); ctx.stroke(); ctx.setLineDash([]);
+        dot(ctx, lx + gap * f, ly - 3, 2.5, CSS.cyan); dot(ctx, lx + gap * (1 - f), ly + 3, 2.5, CSS.orange);
+      }
+      return { x: x * zoom, y: top * zoom, w: cw * zoom, h: ch * zoom, i };   // in CSS pixels for tappable
+    });
+    ctx.textAlign = 'left';
+    // what runs where on the chosen robot
+    const my = top + ch + 18;
+    say(ctx, `on ${robot === 'our arm' ? 'our arm (the labs)' : 'a ' + robot}:`, 14, my, CSS.ink, 12, 'left');
+    BRAIN_MAPS[robot].forEach((txt, i) => {
+      const x = 14 + i * (cw + gap), y0 = my + 12, none = /not (used|needed)/.test(txt);
+      ctx.fillStyle = none ? 'rgba(255,255,255,.02)' : 'rgba(88,224,210,.07)'; ctx.fillRect(x, y0, cw, h - y0 - 10); sensorBox(ctx, x, y0, cw, h - y0 - 10, none ? CSS.line : 'rgba(88,224,210,.5)', 6);
+      ctx.fillStyle = none ? CSS.muted : CSS.ink; ctx.font = mono(cw < 150 ? 9 : 11); wrapText(ctx, txt, x + 8, y0 + 18, cw - 16, cw < 150 ? 12 : 15);
+    });
+    const [name, ex, os, rate, good] = BRAINS[sel];
+    out.innerHTML = `<b>${name}</b><br><b>examples</b> ${ex}<br><b>runs</b> ${os}<br><b>loop</b> ${rate}<br><b>good at</b> ${good}${sel < BRAINS.length - 1 ? `<br><b>talks to the next one over</b> ${BRAIN_LINKS[sel]}` : ''}`;
+  } };
+};
+function wrapText(ctx, text, x, y, maxW, lh) {
+  let line = ''; for (const word of text.split(' ')) { const test = line ? line + ' ' + word : word; if (ctx.measureText(test).width > maxW && line) { ctx.fillText(line, x, y); line = word; y += lh; } else line = test; }
+  if (line) ctx.fillText(line, x, y);
+}
+
+// ---------- Inside a robot · act: how seven actuators move ----------
+function gear(ctx, x, y, r, teeth, a, color) {
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.beginPath();
+  for (let k = 0; k <= teeth * 2; k++) { const b = a + k * Math.PI / teeth, rr = k % 2 ? r : r * .86; ctx.lineTo(x + rr * Math.cos(b), y + rr * Math.sin(b)); }
+  ctx.closePath(); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + r * .7 * Math.cos(a), y + r * .7 * Math.sin(a)); ctx.stroke();
+}
+const SERVO_TARGETS = [0, 60, -40, 90, -80];
+const servoTarget = t => SERVO_TARGETS[Math.floor(t / 1.6) % SERVO_TARGETS.length] * Math.PI / 180;
+function servoAngle(t) { const k = Math.floor(t / 1.6), u = t - k * 1.6, a = servoTarget(t - 1.6 < 0 ? 0 : t - 1.6), b = servoTarget(t); const e = 1 - Math.exp(-u * 6) * (Math.cos(u * 9) + .7 * Math.sin(u * 9)); return a + (b - a) * e; }
+const ACTUATORS = [
+  { name: 'DC motor + gearbox', cmd: 'a voltage, usually as PWM', ros: 'velocity or effort', where: 'wheels, small arms, toys',
+    how: 'Current through coils in a magnetic field makes the shaft spin, thousands of rpm with little force. A gearbox trades speed for force: 50:1 gives 1/50 of the speed and about 50 times the torque.',
+    unit: 'motor (dashed) and output shaft speed', plot: t => [.9, .9 / 5],
+    draw(ctx, x, y, w, h, t) {
+      const cy = y + h * .5, mx = x + w * .22, a = t * 10;
+      ctx.fillStyle = '#26304a'; ctx.fillRect(mx - 70, cy - 32, 90, 64); ctx.strokeStyle = CSS.orange; ctx.strokeRect(mx - 70, cy - 32, 90, 64);
+      say(ctx, 'motor', mx - 25, cy + 50, CSS.orange, 11); say(ctx, '3000 rpm', mx - 25, cy - 42, CSS.muted, 10);
+      ctx.strokeStyle = '#8f9ab3'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(mx + 20, cy); ctx.lineTo(mx + 46, cy); ctx.stroke();
+      gear(ctx, mx + 60, cy, 16, 8, a, CSS.orange); gear(ctx, mx + 60 + 16 + 46, cy, 52, 26, -a / 3.25 + .12, CSS.orange);
+      say(ctx, 'gearbox', mx + 120, cy + 74, CSS.orange, 11);
+      ctx.strokeStyle = '#8f9ab3'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(mx + 122, cy); ctx.lineTo(x + w * .82, cy); ctx.stroke();
+      const wx = x + w * .86; ctx.strokeStyle = CSS.ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(wx, cy, 34, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(wx, cy); ctx.lineTo(wx + 34 * Math.cos(-a / 50), cy + 34 * Math.sin(-a / 50)); ctx.stroke();
+      say(ctx, 'wheel · 60 rpm', wx, cy + 52, CSS.ink, 11); say(ctx, '50:1 → 1/50 speed, ~50× torque', x + w * .55, y + 14, CSS.ink, 12);
+    } },
+  { name: 'Servo', cmd: 'a target angle (a pulse width, or a serial packet for smart servos)', ros: 'position', where: 'hobby robots, small arms; TurtleBot3 uses DYNAMIXEL smart servos',
+    how: 'A motor, gearbox, position sensor and a small controller in one box. You send an angle; the controller drives the motor until the sensor says it is there.',
+    unit: 'target (dashed) and actual angle', range: [-1.7, 1.7], plot: t => [servoTarget(t), servoAngle(t)],
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .42, cy = y + h * .55, tg = servoTarget(t), a = servoAngle(t);
+      ctx.fillStyle = '#1b2236'; ctx.fillRect(cx - 110, cy - 40, 220, 80); ctx.strokeStyle = CSS.orange; ctx.lineWidth = 1.5; ctx.strokeRect(cx - 110, cy - 40, 220, 80);
+      for (const [lbl, dx, c] of [['motor', -80, CSS.orange], ['gears', -30, CSS.orange], ['sensor', 22, CSS.cyan], ['control', 76, CSS.blue]]) say(ctx, lbl, cx + dx, cy + 30, c, 10);
+      const hx = cx + 30, hy = cy - 40;
+      ctx.setLineDash([4, 4]); ctx.strokeStyle = CSS.muted; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + 70 * Math.sin(tg), hy - 70 * Math.cos(tg)); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = CSS.orange; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + 62 * Math.sin(a), hy - 62 * Math.cos(a)); ctx.stroke(); ctx.lineCap = 'butt';
+      dot(ctx, hx, hy, 6, CSS.ink);
+      say(ctx, `target ${(tg * 180 / Math.PI).toFixed(0)}° · now ${(a * 180 / Math.PI).toFixed(0)}°`, x + w * .82, cy - 10, CSS.ink, 12);
+      say(ctx, 'sensor → controller → motor', x + w * .82, cy + 10, CSS.cyan, 10);
+    } },
+  { name: 'Stepper motor', cmd: 'step and direction pulses', ros: 'position, usually without feedback', where: '3D printers, CNC machines, small gantries',
+    how: 'Coils are switched on one after another and the rotor snaps to each one: a fixed step, often 1.8° (200 per turn). Count the steps to know the angle, as long as it never skips one.',
+    unit: 'angle: moves in steps', range: [0, 1], plot: t => [(Math.floor(t * 4) % 24) / 24, (Math.floor(t * 4) % 24) / 24],
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .4, cy = y + h * .52, R = Math.min(w, h) * .3, step = Math.floor(t * 4), a = step * Math.PI / 12, on = step % 4;
+      for (let k = 0; k < 4; k++) { const b = k * Math.PI / 2, lit = k === on; ctx.fillStyle = lit ? CSS.orange : '#26304a'; ctx.save(); ctx.translate(cx + R * 1.2 * Math.cos(b), cy + R * 1.2 * Math.sin(b)); ctx.rotate(b); ctx.fillRect(-12, -18, 24, 36); ctx.restore(); say(ctx, 'ABCD'[k], cx + R * 1.62 * Math.cos(b), cy + R * 1.62 * Math.sin(b) + 4, lit ? CSS.orange : CSS.muted, 11); }
+      ctx.fillStyle = '#3a4566'; ctx.beginPath(); ctx.arc(cx, cy, R * .8, 0, 7); ctx.fill();
+      for (let k = 0; k < 12; k++) { const b = a + k * Math.PI / 6; ctx.fillStyle = '#8f9ab3'; ctx.beginPath(); ctx.arc(cx + R * .8 * Math.cos(b), cy + R * .8 * Math.sin(b), 5, 0, 7); ctx.fill(); }
+      ctx.strokeStyle = CSS.ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * .7 * Math.cos(a), cy + R * .7 * Math.sin(a)); ctx.stroke();
+      say(ctx, `step ${step % 24} · ${((step % 24) * 15).toFixed(0)}°`, x + w * .82, cy, CSS.ink, 12); say(ctx, '(15° steps here; real ones are 1.8°)', x + w * .82, cy + 18, CSS.muted, 10);
+    } },
+  { name: 'Brushless joint motor', cmd: 'a position, velocity or torque, sent to a motor driver over CAN or EtherCAT', ros: 'position, velocity or effort', where: 'robot arm joints (Franka Panda, UR), drones, legged robots',
+    how: 'No brushes: a driver switches three coil phases in turn so the field leads the magnets. Strong for its size; inside an arm joint it sits with a compact high-ratio gear and an encoder.',
+    unit: 'phase currents A, B, C', range: [-1.1, 1.1], plot: t => [Math.sin(t * 3), Math.sin(t * 3 - 2.09), Math.sin(t * 3 + 2.09)],
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .4, cy = y + h * .52, R = Math.min(w, h) * .3, a = t * 3;
+      const ph = [Math.sin(a), Math.sin(a - 2.09), Math.sin(a + 2.09)], cols = [CSS.orange, CSS.cyan, CSS.pink];
+      for (let k = 0; k < 6; k++) { const b = k * Math.PI / 3, p = ph[k % 3] * (k < 3 ? 1 : -1); ctx.fillStyle = cols[k % 3]; ctx.globalAlpha = .2 + .8 * Math.max(0, p); ctx.save(); ctx.translate(cx + R * 1.15 * Math.cos(b), cy + R * 1.15 * Math.sin(b)); ctx.rotate(b); ctx.fillRect(-10, -14, 20, 28); ctx.restore(); }
+      ctx.globalAlpha = 1;
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(a - Math.PI / 2);
+      ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.arc(0, 0, R * .75, -Math.PI / 2, Math.PI / 2); ctx.fill(); ctx.fillStyle = '#2f6fd0'; ctx.beginPath(); ctx.arc(0, 0, R * .75, Math.PI / 2, 3 * Math.PI / 2); ctx.fill();
+      say(ctx, 'N', R * .4, 4, CSS.ink, 12); say(ctx, 'S', -R * .4, 4, CSS.ink, 12); ctx.restore();
+      say(ctx, 'the driver rotates the field;', x + w * .82, cy - 8, CSS.ink, 11); say(ctx, 'the magnets follow it', x + w * .82, cy + 10, CSS.ink, 11);
+    } },
+  { name: 'Linear actuator', cmd: 'a position or a speed', ros: 'position or velocity (a prismatic joint)', where: 'lifts, presses, adjustable tables, some grippers',
+    how: 'A motor turns a lead screw; a nut on the screw cannot turn, so it slides, pushing a rod in and out. Turning becomes straight-line motion.',
+    unit: 'rod position', range: [0, 1], plot: t => { const v = .5 - .5 * Math.cos(t * .9); return [v, v]; },
+    draw(ctx, x, y, w, h, t) {
+      const cy = y + h * .5, x0 = x + w * .12, ext = (.5 - .5 * Math.cos(t * .9)) * w * .26, spin = t * .9;
+      ctx.fillStyle = '#26304a'; ctx.fillRect(x0, cy - 26, 60, 52); ctx.strokeStyle = CSS.orange; ctx.strokeRect(x0, cy - 26, 60, 52); say(ctx, 'motor', x0 + 30, cy + 44, CSS.orange, 10);
+      ctx.fillStyle = '#1b2236'; ctx.fillRect(x0 + 60, cy - 18, w * .36, 36); ctx.strokeStyle = CSS.muted; ctx.strokeRect(x0 + 60, cy - 18, w * .36, 36);
+      for (let k = 0; k < 40; k++) { const px = x0 + 66 + ((k * 9 + spin * 30) % (w * .34)); ctx.strokeStyle = '#8f9ab3'; ctx.beginPath(); ctx.moveTo(px, cy - 8); ctx.lineTo(px + 5, cy + 8); ctx.stroke(); }
+      const nx = x0 + 60 + 20 + ext; ctx.fillStyle = CSS.orange; ctx.fillRect(nx, cy - 14, 18, 28);
+      ctx.fillStyle = '#c9d1e3'; ctx.fillRect(nx + 18, cy - 7, w * .3, 14); ctx.fillStyle = CSS.ink; ctx.fillRect(nx + 18 + w * .3, cy - 16, 8, 32);
+      say(ctx, `rod out ${(ext / (w * .26) * 100).toFixed(0)} mm`, x + w * .5, y + 16, CSS.ink, 12); say(ctx, 'screw turns → nut slides', x + w * .5, y + h - 4, CSS.muted, 10);
+    } },
+  { name: 'Two-jaw gripper', cmd: 'a finger opening (or a force)', ros: 'position of the finger joints', where: 'our arm: left_finger_joint and right_finger_joint, 0–0.04 m each',
+    how: 'One motor drives both fingers in opposite directions so they meet in the middle. Our gripper is two prismatic joints driven by gripper_controller.',
+    unit: 'commanded (dashed) and real finger opening: m', range: [0, .045], plot: t => { const o = .02 + .02 * Math.cos(t * 1.1); return [o, Math.max(o, .02)]; },   // command, and the fingers stopped by the box
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .42, cy = y + h * .58, o = .02 + .02 * Math.cos(t * 1.1), gap = Math.max(o, .02) * 1400 + 6;
+      ctx.fillStyle = DA_CSS.grey; ctx.fillRect(cx - 90, cy - 70, 180, 14);
+      ctx.fillStyle = DA_CSS.red; ctx.fillRect(cx - 28, cy - 28, 56, 56);
+      for (const sg of [-1, 1]) { ctx.fillStyle = DA_CSS.black; ctx.fillRect(cx + sg * gap - (sg < 0 ? 16 : 0), cy - 56, 16, 80); arrowTo(ctx, cx + sg * (gap + 30), cy - 80, cx + sg * (gap + 30) + sg * (Math.sin(t * 1.1) > 0 ? -1 : 1) * 16, cy - 80, CSS.orange, 2); }
+      say(ctx, `opening ${(Math.max(o, .02) * 1000).toFixed(0)} mm per finger`, x + w * .82, cy - 10, CSS.ink, 12);
+      say(ctx, o < .02 ? 'stopped by the 40 mm box' : '', x + w * .82, cy + 10, CSS.cyan, 10);
+    } },
+  { name: 'Suction cup', cmd: 'on or off: a digital output to a valve or pump', ros: 'a GPIO or a service, not a joint', where: 'warehouse picking, packaging, flat or smooth parts',
+    how: 'A pump or a venturi pulls air out of a soft cup pressed on the part. The air outside pushes harder than the air inside, so the part sticks until the valve lets air back in.',
+    unit: 'vacuum: on or off', range: [0, 1.1], plot: t => { const u = t % 5; const v = u > 1.4 && u < 3.8 ? 1 : 0; return [v, v]; },
+    draw(ctx, x, y, w, h, t) {
+      const cx = x + w * .42, u = t % 5, z = u < 1.4 ? u / 1.4 : u < 2.6 ? 1 - (u - 1.4) / 1.2 * .6 : u < 3.8 ? .4 + (u - 2.6) / 1.2 * .6 : 1 - (u - 3.8) / 1.2, vac = u > 1.4 && u < 3.8;
+      const tbl = y + h * .85, cupY = y + 30 + z * (h * .5), carried = vac && u > 1.6;
+      ctx.fillStyle = '#3a4566'; ctx.fillRect(x + w * .15, tbl, w * .55, 6);
+      const by = carried ? cupY + 26 : tbl - 44; ctx.fillStyle = CSS.blue; ctx.fillRect(cx - 40, by, 80, 44);
+      ctx.fillStyle = '#8f9ab3'; ctx.fillRect(cx - 5, y + 4, 10, cupY - y);
+      ctx.fillStyle = vac ? CSS.orange : '#5a6480'; ctx.beginPath(); ctx.moveTo(cx - 6, cupY); ctx.lineTo(cx + 6, cupY); ctx.lineTo(cx + 26, cupY + 26); ctx.lineTo(cx - 26, cupY + 26); ctx.fill();
+      if (vac) for (let k = 0; k < 3; k++) { const f = ((t * 1.5 + k / 3) % 1); dot(ctx, cx, cupY + 20 - f * (cupY - y - 4) * .5, 2.5, CSS.cyan); }
+      say(ctx, vac ? 'vacuum on: air pulled out' : 'valve open: no grip', x + w * .82, y + h * .5, vac ? CSS.orange : CSS.muted, 12);
+    } },
+];
+SCENES['actuator-gallery'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let sel = 0, auto = true;
+  const btns = ACTUATORS.map((g, i) => u.button(g.name, () => choose(i, true), i === 0));
+  u.row(...btns);
+  const autoBtn = u.button('auto tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  const out = u.readout();
+  u.text('Each one turns a <b>command</b> into motion. ros2_control talks to all of them through the same <b>command interfaces</b>: position, velocity or effort.');
+  function choose(i, manual) {
+    sel = i; btns.forEach((b, k) => b.classList.toggle('on', k === i)); if (manual) { auto = false; autoBtn.classList.remove('on'); }
+    const g = ACTUATORS[i];
+    out.innerHTML = `<b>${g.name}</b><br><b>how</b> ${g.how}<br><b>you send</b> ${g.cmd}<br><b>ros2_control</b> ${g.ros}<br><b>used in</b> ${g.where}`;
+  }
+  choose(0);
+  return { canvas, reset() { if (auto) choose(0); }, update(t) {
+    if (auto) { const i = Math.floor(t / 9) % ACTUATORS.length; if (i !== sel) choose(i); }
+    const { ctx, w, h } = fitMin(canvas, 620);
+    const g = ACTUATORS[sel], plotH = Math.min(84, h * .19), top = 40, ih = h - top - plotH - 34;
+    ctx.fillStyle = CSS.ink; ctx.font = sans(17, 700); ctx.fillText(g.name, 14, 26);
+    ctx.save(); g.draw(ctx, 10, top, w - 20, ih, t); ctx.restore();
+    const py = h - plotH - 12, [lo, hi] = g.range || [0, 1];
+    ctx.strokeStyle = CSS.line; ctx.lineWidth = 1; ctx.strokeRect(10.5, py + .5, w - 21, plotH);
+    say(ctx, g.unit, 16, py + 14, CSS.muted, 10, 'left');
+    const n = g.plot(t).length, cols = n === 3 ? [CSS.orange, CSS.cyan, CSS.pink] : [CSS.muted, CSS.orange];
+    for (let s2 = 0; s2 < n; s2++) {
+      ctx.strokeStyle = cols[s2]; ctx.lineWidth = 2; ctx.setLineDash(n === 2 && s2 === 0 ? [5, 4] : []); ctx.beginPath();
+      for (let k = 0; k <= 200; k++) { const tt = t - 4 + 4 * k / 200, v = clamp(g.plot(tt)[s2], lo, hi), X = 12 + (w - 24) * k / 200, Y = py + plotH - 6 - (v - lo) / (hi - lo) * (plotH - 24); k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+  } };
+};
+
+// ---------- Inside a robot · act: from a command to a moving joint, and back ----------
+SCENES['drive-chain'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let ratio = 100;
+  u.slider('gear ratio', 10, 160, 1, ratio, v => (ratio = v), v => `${(+v).toFixed(0)}:1`);
+  const out = u.readout();
+  const steps = u.list([
+    '<b>controller</b> ros2_control compares target and encoder, 100–1000 times a second',
+    '<b>motor driver</b> turns the command into current for the coils',
+    '<b>motor</b> spins fast with little torque',
+    '<b>gearbox</b> slows it down, multiplies the torque',
+    '<b>joint</b> the link moves',
+    '<b>encoder</b> measures the joint and reports back']);
+  u.text('One joint of our arm, end to end. Drag the gear ratio: a bigger ratio means more torque at the joint, but the motor must spin faster for the same joint speed.');
+  const MOTOR_TORQUE = .3, MOTOR_MAX = 6000, EFF = .8;   // N·m and rpm of a small motor; gearbox efficiency
+  return { canvas, update(t) {
+    const { ctx, w, h } = fitMin(canvas, 660);
+    const BL = ['controller', 'motor driver', 'motor', 'gearbox', 'joint'], cols = [CSS.blue, CSS.blue, CSS.orange, CSS.orange, CSS.orange];
+    const n = BL.length, gap = 18, bw = (w - 28 - gap * (n - 1)) / n, by = 34, bh = 54;
+    const target = .9 * Math.sin(t * .6), jointVel = .9 * .6 * Math.cos(t * .6), motorRpm = Math.abs(jointVel) * ratio * 60 / (2 * Math.PI);
+    const phase = (t * 1.2) % 1, active = Math.min(n - 1, Math.floor(phase * (n + 1)));
+    BL.forEach((name, i) => {
+      const x = 14 + i * (bw + gap), on = i === active;
+      ctx.fillStyle = on ? 'rgba(255,177,90,.08)' : 'rgba(255,255,255,.02)'; ctx.fillRect(x, by, bw, bh); sensorBox(ctx, x, by, bw, bh, on ? cols[i] : CSS.line, 6);
+      ctx.fillStyle = on ? CSS.ink : CSS.muted; ctx.font = sans(bw < 110 ? 10 : 12, 700); ctx.textAlign = 'center'; ctx.fillText(name, x + bw / 2, by + 22);
+      const sub = [`target ${target.toFixed(2)} rad`, 'current', `${motorRpm.toFixed(0)} rpm`, `${ratio.toFixed(0)}:1`, `${(target).toFixed(2)} rad`][i];
+      say(ctx, sub, x + bw / 2, by + 40, cols[i], bw < 110 ? 9 : 10);
+      if (i < n - 1) { arrowTo(ctx, x + bw + 2, by + bh / 2, x + bw + gap - 2, by + bh / 2, CSS.orange, 1.5, 6); if (i === Math.floor(phase * (n + 1)) - 0) dot(ctx, x + bw + gap * ((phase * (n + 1)) % 1), by + bh / 2, 3.5, CSS.orange); }
+    });
+    // feedback from the joint's encoder back to the controller
+    const fy = by + bh + 22, x0 = 14 + bw / 2, x1 = 14 + (n - 1) * (bw + gap) + bw / 2;
+    ctx.strokeStyle = CSS.cyan; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x1, by + bh); ctx.lineTo(x1, fy); ctx.lineTo(x0, fy); ctx.stroke(); arrowTo(ctx, x0, fy, x0, by + bh + 2, CSS.cyan, 1.5, 6);
+    const fb = (t * .9) % 1; dot(ctx, x1 + (x0 - x1) * fb, fy, 3.5, CSS.cyan); say(ctx, 'encoder: the measured angle goes back', (x0 + x1) / 2, fy + 16, CSS.cyan, 10);
+    // the hardware: motor rotor (fast), gear pair, and the arm link (slow)
+    const hy = fy + 40, hh = h - hy - 10, cy = hy + hh * .55, mx = w * .22, gx = w * .48, jx = w * .76;
+    const motorA = t * motorRpm / 60 * .25;   // slowed down to watch
+    const mr = Math.min(w * .08, hh * .3), gr = Math.min(w * .07, hh * .28);
+    ctx.fillStyle = '#26304a'; ctx.beginPath(); ctx.arc(mx, cy, mr, 0, 7); ctx.fill();
+    ctx.strokeStyle = CSS.orange; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(mx, cy); ctx.lineTo(mx + mr * .85 * Math.cos(motorA), cy + mr * .85 * Math.sin(motorA)); ctx.stroke();
+    gear(ctx, gx - gr * .9, cy, gr * .32, 6, motorA, CSS.orange); gear(ctx, gx + gr * .3, cy, gr, 18, -motorA / 3 + .2, CSS.orange);
+    say(ctx, 'fast, weak', mx, cy + mr + 16, CSS.muted, 10); say(ctx, 'slow, strong', jx, cy + mr + 16, CSS.muted, 10);
+    const L = Math.min(hh * .6, (w - jx - 16) / Math.sin(.9)), jy = cy + 20;
+    ctx.fillStyle = DA_CSS.black; ctx.fillRect(jx - 14, jy, 28, 16); ctx.strokeStyle = '#e8892c'; ctx.lineWidth = 10; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(jx, jy); ctx.lineTo(jx + L * Math.sin(target), jy - L * Math.cos(target)); ctx.stroke(); ctx.lineCap = 'butt'; dot(ctx, jx, jy, 6, CSS.ink);
+    ctx.textAlign = 'left';
+    const jointTorque = MOTOR_TORQUE * ratio * EFF, maxJointSpeed = MOTOR_MAX / ratio * 2 * Math.PI / 60;
+    out.innerHTML = `<b>joint torque</b> up to ${jointTorque.toFixed(0)} N·m (0.3 N·m motor × ${ratio.toFixed(0)} × 80%)<br><b>top joint speed</b> ${maxJointSpeed.toFixed(2)} rad/s (motor 6000 rpm ÷ ${ratio.toFixed(0)})<br><b>motor now</b> ${motorRpm.toFixed(0)} rpm for ${Math.abs(jointVel).toFixed(2)} rad/s at the joint`;
+    steps.forEach((li, k) => li.classList.toggle('on', k === (active < n ? active : 5) || (k === 5 && fb < .5 && active === n - 1)));
+  } };
+};
+
+// ---------- Inside a robot · together: an exploded demo_arm, every part tagged sense, think or act ----------
+const ARM_PARTS = {
+  camera: ['RealSense D435', 'sensor', 'Colour and depth camera on a stand 1 m above the table, looking straight down. Publishes <code>/camera/camera/color/image_raw</code> and a point cloud.'],
+  lidar: ['2D lidar', 'sensor', 'On the front of the pedestal: a 360° scan at table-leg height, <code>/scan</code>.'],
+  encoders: ['Joint encoders × 5', 'sensor', 'One in every joint, measuring its angle: <code>/joint_states</code>. Without them the controller would be blind.'],
+  imu: ['IMU', 'sensor', 'In the gripper palm: acceleration and rotation rate of the hand, <code>/imu</code>.'],
+  ft: ['Force-torque sensor', 'sensor', 'Between the wrist and the palm: feels the weight of a held box, or a bump, <code>/wrist_ft</code>.'],
+  contact: ['Finger contact pads', 'sensor', 'On both fingers: do they touch something? <code>/left_finger/contact</code>, <code>/right_finger/contact</code>.'],
+  computer: ['Computer', 'brain', 'Your laptop in the labs: Gazebo, ros2_control, MoveIt 2, the box detector and RViz, all talking over ROS 2.'],
+  drivers: ['Motor drivers', 'brain', 'Turn joint commands into motor current. In Gazebo, the gz_ros2_control plugin plays this part.'],
+  motors: ['Joint motors × 5', 'actuator', 'Base yaw, shoulder, elbow, wrist pitch, wrist roll: five revolute joints, commanded by <code>arm_controller</code>.'],
+  gripper: ['Two-jaw gripper', 'actuator', 'Two prismatic fingers, 0–40 mm each, commanded by <code>gripper_controller</code>.'],
+  links: ['Links', 'body', 'The rigid parts between joints: 0.30 m upper arm, 0.25 m forearm; about 0.7 m reach. Orange and black, like RRBot.'],
+  base: ['Pedestal', 'body', 'Holds the arm to the floor: 0.14 × 0.14 × 0.20 m.'],
+};
+SCENES['anatomy-arm'] = async (panel) => {
+  const s = base3d({ cam: [.55, 1.2, -1.5], target: [.24, .56, 0], grid: 0 });   // from the arm's left side
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x141b2e })); s.world.add(floor);
+  const arm = demoArm(), cell = demoCell(s.world); s.world.add(arm.root);
+  Object.values(cell.boxes).forEach(b => (b.visible = false)); cell.tray.visible = false;
+  const mat = c => new THREE.MeshStandardMaterial({ color: c, roughness: .5, metalness: .1 });
+  const tag = (o, k) => { o.traverse(m => { if (m.isMesh) { m.userData.part = k; m.material = m.material.clone(); } }); return o; };
+  tag(arm.links.base, 'base'); ['l1', 'l2', 'l3', 'l4', 'palm'].forEach(k => tag(arm.links[k], 'links')); arm.links.fingers.forEach(f => tag(f, 'gripper'));
+  tag(cell.cam, 'camera'); tag(cell.lidar, 'lidar'); [cell.post, cell.bar, cell.top, cell.legs].forEach(o => o.traverse(m => m.isMesh && (m.userData.part = null)));
+  // parts the plain arm does not draw: motors and encoders at each joint, wrist sensor, IMU, pads, drivers, computer
+  arm.joints.forEach((j, i) => {
+    const yaw = i === 0 || i === 4, m = new THREE.Mesh(new THREE.CylinderGeometry(i ? .028 : .05, i ? .028 : .05, yaw ? .02 : .07, 24), mat(C.orange));
+    if (!yaw) m.rotation.z = 0; else m.rotation.x = Math.PI / 2;   // cylinder axis: y for pitch joints, z for yaw and roll
+    if (yaw) m.position.z = i ? -.012 : -.012; j.add(tag(m, 'motors'));
+    const r = new THREE.Mesh(new THREE.TorusGeometry(i ? .034 : .056, .005, 8, 32), mat(C.cyan)); if (!yaw) r.rotation.x = Math.PI / 2; r.position.y = yaw ? 0 : .04; if (yaw) r.position.z = -.012; j.add(tag(r, 'encoders'));
+  });
+  const ft = new THREE.Mesh(new THREE.CylinderGeometry(.026, .026, .012, 24), mat(C.cyan)); ft.rotation.x = Math.PI / 2; ft.position.z = -.004; arm.joints[4].add(tag(ft, 'ft'));
+  const imu = box(.016, .016, .006, C.cyan); imu.position.set(0, .035, .024); arm.joints[4].add(tag(imu, 'imu'));
+  arm.links.fingers.forEach(f => { const pad = box(.02, .003, .03, C.cyan); pad.position.set(0, -f.userData.sign * .0075, .055 - .025); f.add(tag(pad, 'contact')); });
+  const drivers = box(.05, .1, .07, C.blue); drivers.position.set(-.1, 0, .1); s.world.add(tag(drivers, 'drivers'));
+  const pc = new THREE.Group(); const screen = box(.16, .01, .11, C.blue); screen.position.set(0, 0, .09); const kb = box(.16, .1, .008, 0x5a6480); kb.position.set(0, -.05, .004); pc.add(screen, kb); pc.position.set(-.25, .3, 0); pc.rotation.z = -.6; s.world.add(tag(pc, 'computer'));
+  const KEYS = Object.keys(ARM_PARTS), lbl = {};
+  const anchors = { camera: cell.cam, lidar: cell.lidar, encoders: arm.joints[2], imu: arm.joints[4], ft: arm.joints[4], contact: arm.links.fingers[0], computer: pc, drivers, motors: arm.joints[1], gripper: arm.links.tool, links: arm.links.l2, base: arm.links.base };
+  const OFF = { camera: [0, 0, .06], computer: [0, 0, .2], imu: [0, .09, .03], ft: [0, -.09, 0], contact: [0, 0, .09] };
+  for (const k of KEYS) { const l = label(ARM_PARTS[k][0], 'small'); anchors[k].add(l); l.position.set(...(OFF[k] || [0, 0, .05])); lbl[k] = l; }
+  const meshes = []; s.world.traverse(o => { if (o.isMesh && o.userData.part) meshes.push(o); });
+  const base0 = arm.joints.map(j => j.position.z), cam0 = cell.cam.position.z, lid0 = cell.lidar.position.x;
+  const u = ui(panel);
+  let sel = 'camera', explode = 0, auto = true;
+  const btns = KEYS.map(k => u.button(ARM_PARTS[k][0].replace(' × 5', ''), () => select(k, true), k === sel));
+  u.row(...btns);
+  const ex = u.slider('explode', 0, 1, .01, 0, v => { explode = v; stopAuto(); });
+  const autoBtn = u.button('auto tour', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  const out = u.readout();
+  u.text('Our arm, <b>demo_arm</b>, part by part. Colours: <b style="color:#58e0d2">sense</b>, <b style="color:#6aa8ff">think</b>, <b style="color:#ffb15a">act</b>. Click a part in 3D or a button.');
+  function stopAuto() { auto = false; autoBtn.classList.remove('on'); }
+  function select(k, manual) {
+    sel = k; if (manual) stopAuto(); btns.forEach((b, i) => b.classList.toggle('on', KEYS[i] === k));
+    const [name, kind, text] = ARM_PARTS[k];
+    out.innerHTML = `<b>${name}</b> · ${{ sensor: 'sense', brain: 'think', actuator: 'act', body: 'structure' }[kind]}<br>${text}`;
+    for (const m of meshes) { const on = m.userData.part === k; m.material.emissive?.set(on ? (KIND[ARM_PARTS[k][1]] ?? '#556') : '#000').multiplyScalar(on ? .55 : 1); }
+  }
+  select(sel);
+  const POSE = demoArmIK([.42, .05, .3]);
+  return { ...s, sway: { amplitude: .35, period: 28 }, pick(ray) {
+    const hit = ray.intersectObjects(meshes, false)[0]; if (hit) select(hit.object.userData.part, true);
+  }, update(t) {
+    if (auto) { explode = .5 - .5 * Math.cos(t * .45); ex.set(explode); const k = KEYS[Math.floor(t / 3.4) % KEYS.length]; if (k !== sel) select(k); }
+    arm.joints.forEach((j, i) => (j.position.z = base0[i] + explode * (i ? .07 : .09)));
+    cell.cam.position.z = cam0 + explode * .12; cell.lidar.position.x = lid0 + explode * .14; drivers.position.x = -.1 - explode * .12; pc.position.x = -.25 - explode * .1;
+    arm.set([POSE[0] + .25 * Math.sin(t * .4), POSE[1], POSE[2], POSE[3], POSE[4]], .012 + .008 * Math.sin(t * .8));
+    for (const [k, l] of Object.entries(lbl)) l.visible = k === sel || explode > .9;
+  } };
+};
+
 // ---------- Inside a robot: six robots, same three ingredients ----------
 SCENES['robot-types'] = async (panel) => {
   const canvas = document.createElement('canvas');

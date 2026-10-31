@@ -1665,25 +1665,6 @@ def ellipse_node(cx, cy, name, rx=64, ry=20, cls="node"):
 def turtle_icon(x, y, rot=0):
     return f'<g transform="translate({x} {y}) rotate({rot})">{TURTLE}</g>'
 
-# ---------- Workshop outcomes: read a graph, build a model, plan motion ----------
-d = "15s"
-b = []
-for i, x0 in enumerate((0, 305, 610)):
-    s0, e0 = round(i / 3, 3), round((i + 1) / 3, 3)
-    b += [f'<rect class="node" x="{x0}" y="0" width="290" height="160" rx="8"/>', f'<rect x="{x0}" y="0" width="290" height="160" rx="8" fill="none" stroke="var(--cyan)" stroke-width="3" opacity="0">{vis(s0 or .001, e0, d)}</rect>']
-# 1: a graph appears and data flows
-G = [(60, 50, "/camera"), (230, 50, "/detector"), (145, 120, "/planner")]
-for k, (x, y, n) in enumerate(G): b.append(at(ellipse_node(x, y, n, 52, 17), round(.01 + k * .03, 3), 1, d))
-for k in range(4): t0 = round(.12 + k * .05, 3); b += [packet("req", "M112,50 L178,50", t0, t0 + .03, d), packet("req", "M230,67 L170,104", t0 + .025, t0 + .055, d)]
-# 2: a robot model assembles, link by link, with frames
-for k, (x, y, w, h) in enumerate(((395, 130, 110, 14), (440, 70, 20, 60), (440, 40, 90, 14), (520, 44, 14, 40))):
-    b.append(at(f'<rect class="arm" x="{x}" y="{y}" width="{w}" height="{h}" rx="5"/>', round(.36 + k * .06, 3), 1, d))
-for k, (x, y) in enumerate(((450, 130), (450, 70), (525, 47))): b.append(at(f'<line class="ax-x" x1="{x}" y1="{y}" x2="{x + 22}" y2="{y}"/><line class="ax-y" x1="{x}" y1="{y}" x2="{x}" y2="{y - 22}"/>', round(.4 + k * .06, 3), 1, d))
-# 3: an arm plans around an obstacle
-b += ['<rect x="760" y="70" width="40" height="70" fill="#3a4566"/>', '<circle cx="850" cy="128" r="9" fill="var(--orange)"/>',
-      f'<path d="M660,128 C680,30 820,20 850,118" fill="none" stroke="var(--cyan)" stroke-width="3" stroke-dasharray="1 1" pathLength="1" stroke-dashoffset="1"><animate attributeName="stroke-dashoffset" dur="{d}" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;.7;.82;1"/></path>',
-      f'<g opacity="0"><circle r="8" fill="var(--ink)"/><animateMotion dur="{d}" repeatCount="indefinite" path="M660,128 C680,30 820,20 850,118" keyPoints="0;0;1;1" keyTimes="0;.82;.96;1"/>{vis(.82, 1, d)}</g>']
-svgs["Workshop outcomes"] = svg(165, "Three panels light up in turn. Read the graph: three nodes appear and messages flow between them. Build a robot model: links stack up with a coordinate frame at each joint. Plan useful motion: a path curves over an obstacle to a target and a tool follows it.", "".join(b))
 
 # ---------- Three-day programme: twelve blocks build one robot system ----------
 d = "14s"
@@ -2044,7 +2025,7 @@ for k in range(len(SEQ)):
 b += [term(5, 124, 450, 106, "--feedback"), at('<text class="code ok" x="250" y="152">succeed()</text>', .74, 1, d), packet("res", "M282,46 L150,46", .76, .84, d), at(f'<text class="code ok" x="250" y="176">result: {SEQ}</text>', .84, 1, d)]
 b = b[:5] + [b[-4]] + b[5:-4] + b[-3:]
 svgs["Write an action server"] = svg(236, "A goal with order 5 reaches the /fibonacci server. execute starts the sequence at 0, 1 and appends one number per second, 1, 2, 3 and 5, publishing feedback each time. Then succeed is called and the result 0, 1, 1, 2, 3, 5 returns.", "".join(b), vb_w=460,
-                                trace=[(0, "8-10"), (.04, 12), (.1, 13)] + [x for k in range(4) for x in ((round(.14 + k * .14, 2), 14), (round(.16 + k * .14, 2), "18-19"), (round(.2 + k * .14, 2), 20), (round(.23 + k * .14, 2), 21))] + [(.72, 22), (.78, 23)])
+                                trace=[(0, "8-10"), (.04, 15), (.1, 16)] + [x for k in range(4) for x in ((round(.14 + k * .14, 2), 17), (round(.16 + k * .14, 2), "21-22"), (round(.2 + k * .14, 2), 23), (round(.23 + k * .14, 2), 24))] + [(.72, 25), (.78, 26)])
 
 # ---------- Write an action client: every callback on a timeline ----------
 d = "16s"
