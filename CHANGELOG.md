@@ -3,6 +3,34 @@
 To publish a release: add a section for the new version at the top, set `VERSION` to it,
 and push to `main`. The Release workflow tags the commit and attaches a zip of the deck.
 
+## v1.2: labs, perception and the review fixes (2026-10-31)
+
+192 slides. Every fix from the full review, and a simpler slide 4.
+
+- **How the workshop works** (slide 4): three steps per block (see it, watch it, do it),
+  what to do when stuck, where the code is, and the keys
+- **Labs match the repository:** every lab slide is numbered like `labs/NN_*.md`, quotes
+  its commands (checked by `tools/check_code.py`), and shows the file as a label. Rewritten:
+  Lab 7 (model the arm), Lab 8 in two parts (spawn the arm, read every sensor), Lab 7 part 2
+  (joint and task space), Lab 9 (ros2_control), Lab 10 (MoveIt and the OctoMap), Lab 12. New:
+  Lab 3 (write your own nodes) and Lab 11 (find the boxes with OpenCV). Lab 2 now follows
+  the turtlesim topic demo
+- **Day 3 perception:** "From pixels to a pose" walks object_detector.py step by step on the
+  camera image, with a hue slider that shows the orange arm being mistaken for the red box;
+  "The detector in code"; "The camera builds a map for MoveIt" (OctoMap on and off). The
+  block is now Perception, Cartesian motion and grasping
+- **Day 2:** new "A depth camera: images and point clouds" for the arm's RealSense
+- **Panda and our arm:** the pick-and-place 3D scene runs on demo_arm with the Lab 12 log
+  lines; the degrees-of-freedom slide compares 7 joints with our 5 and explains pick_ik;
+  the remaining Panda scenes say so
+- **Agenda:** a 2-hour pre-session before Day 1 for the primer, overview and install check;
+  the notes list which Optional slides to skip when a block runs late
+- **Resources:** the workshop code and resources page first, Lyrical and Gazebo Jetty added;
+  the resources page is now deployed with the slides
+- **Closing slide:** presenter, slides and code links, and a QR code to the slides
+- Polish: lab titles on one line, a larger URDF diagram, shorter labels on the mental-model
+  slide, and two animation labels that overlapped
+
 ## v1.1: Inside a robot, rebuilt around sense, think, act (2026-10-31)
 
 The primer before Day 1 now tells one story on one robot: our own `demo_arm`, the arm the

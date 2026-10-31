@@ -741,36 +741,23 @@ SCENES['cartesian'] = async (panel) => {
 
 // ---------- Day 3: pick and place with planning-scene attach / detach ----------
 SCENES['pick'] = async (panel) => {
-  const s = base3d({ cam: [1.7, 1.2, 1.4], target: [.3, .3, 0] });
-  const r = await panda(); s.world.add(r);
-  const K = await ik();
-  const table = box(.5, 1.0, .04, 0x2a3350); table.position.set(.5, 0, .02); s.world.add(table);
-  const pad = box(.09, .09, .004, C.green, .6); pad.position.set(.45, -.3, .042); s.world.add(pad);
-  const objMat = new THREE.MeshStandardMaterial({ color: C.green }), obj = new THREE.Mesh(new THREE.BoxGeometry(.05, .05, .05), objMat);
-  const PICK = [.5, .25, .065], PLACE = [.45, -.3, .065], TCP = .105;   // hand frame to fingertip centre
-  const above = (p, dz) => K.down([p[0], p[1], p[2] + TCP + dz]);
-  const solveSeq = (poses) => { let q = HOME; return poses.map(P => (q = K.solveIK(P, q, { iters: 200 }).q)); };
-  const [qPre, qGrasp, qLift, qPlacePre, qPlace, qRetreat] = solveSeq([above(PICK, .12), above(PICK, 0), above(PICK, .15), above(PLACE, .15), above(PLACE, 0), above(PLACE, .12)]);
-  const OPEN = .04, CLOSED = .025;
-  const STEPS = [['home', HOME, OPEN, 1.2], ['pre-grasp', qPre, OPEN, 1.6], ['approach (Cartesian)', qGrasp, OPEN, 1.2], ['close gripper · attach', qGrasp, CLOSED, .8],
-                 ['lift', qLift, CLOSED, 1.2], ['move to place', qPlacePre, CLOSED, 1.8], ['lower', qPlace, CLOSED, 1.2], ['open gripper · detach', qPlace, OPEN, .8], ['retreat', qRetreat, OPEN, 1.2], ['home', HOME, OPEN, 1.6]];
-  const total = STEPS.reduce((a, s_) => a + s_[3], 0);
-  const u = ui(panel), items = u.list(STEPS.map(x => x[0])), out = u.readout();
+  // our arm and the lab's table: the same steps and log lines as pick_and_place.py (Lab 12)
+  const s = base3d({ cam: [1.3, 1.0, -1.05], target: [.3, .3, 0], grid: 0 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x141b2e })); s.world.add(floor);
+  const arm = demoArm(), cell = demoCell(s.world); s.world.add(arm.root);
+  const plan = pickPlan('red', 0), total = planTime(plan), box_ = cell.boxes.red;
+  const NAMES = ['home', 'pre-grasp (OMPL)', 'approach, straight down (Pilz LIN)', 'close gripper · attach', 'lift (LIN)', 'over the tray (OMPL)', 'lower (LIN)', 'open gripper · detach', 'retreat (LIN)', 'home'];
+  const u = ui(panel), items = u.list(NAMES), out = u.readout();
   u.text('The planning scene must change with the gripper: attach after closing, detach after opening, or MoveIt plans as if the box were still on the table.');
-  let attached = false;
-  const reset = () => { if (obj.parent !== s.world) s.world.attach(obj); obj.position.set(...PICK); obj.rotation.set(0, 0, 0); attached = false; objMat.color.set(C.green); };
+  const reset = () => cell.reset();
   reset();
   return { ...s, reset, update(t) {
-    let tc = t % (total + 1), i = 0; while (i < STEPS.length - 1 && tc > STEPS[i][3]) tc -= STEPS[i++][3];
-    const f = smooth(clamp(tc / STEPS[i][3], 0, 1)), prev = i ? STEPS[i - 1] : STEPS[STEPS.length - 1];
-    setArm(r, prev[1].map((v, j) => lerp(v, STEPS[i][1][j], f)), lerp(prev[2], STEPS[i][2], f));
-    s.scene.updateMatrixWorld(true);
-    const shouldAttach = i >= 3 && i <= 6 && !(i === 3 && f < .9);
-    if (i === 0 && tc < .05) reset();   // each cycle starts with the box back on the table
-    if (shouldAttach && !attached) { r.links.panda_hand.attach(obj); attached = true; objMat.color.set(C.orange); }
-    if (!shouldAttach && attached) { s.world.attach(obj); attached = false; objMat.color.set(C.green); }
-    items.forEach((li, k) => li.classList.toggle('on', k === i));
-    out.innerHTML = attached ? '<b>planning scene</b><br>world objects: table<br>attached to panda_hand: <b>box</b>' : '<b>planning scene</b><br>world objects: table, <b>box</b><br>attached: none';
+    const tc = t % (total + 1); if (tc < .05) reset();
+    const p = planPose(plan, Math.min(tc, total));
+    arm.set(p.q, p.grip); carry(arm, s.world, box_, p.held);
+    glow(box_, C.orange, p.held ? .5 : 0);
+    items.forEach((li, k) => li.classList.toggle('on', k === p.k));
+    out.innerHTML = p.held ? '<b>planning scene</b><br>world objects: table<br>attached to link5: <b>red_box</b> (it may touch the fingers)' : '<b>planning scene</b><br>world objects: table, <b>red_box</b><br>attached: none';
   } };
 };
 
@@ -2673,6 +2660,199 @@ SCENES['why-ros2'] = async (panel) => {
       msg('Jazzy Tier 1: Ubuntu 24.04 and Windows 10 · macOS builds from source', w / 2, h - 8);
     }
     ctx.textAlign = 'left';
+  } };
+};
+
+// ---------- Day 2 and Day 3 · the overhead RealSense: one synthetic image, computed from the cell ----------
+// The simulated D435 (gazebo.xacro): 640 × 480, 1.204 rad horizontal field of view, so fx = fy = 320 / tan(0.602) ≈ 465,
+// mounted at (0.40, 0, 1.0) looking straight down. Optical frame: image right = world -y, image down = world -x.
+const CAM = { fx: 320 / Math.tan(1.204 / 2), cx: 320, cy: 240, W: 640, H: 480, x: .4, z: 1.0, step: 4 };
+const camToWorld = (xo, yo, zo) => [CAM.x - yo, -xo, CAM.z - zo];
+const pixToCam = (u, v, zo) => [(u - CAM.cx) * zo / CAM.fx, (v - CAM.cy) * zo / CAM.fx, zo];
+// What the camera sees, as flat tops at a height (highest first). The arm is parked at home: its forearm lies over x 0..0.25.
+const CAM_WORLD = [
+  { name: 'arm (orange forearm)', x: [0, .25], y: [-.02, .02], top: .44, rgb: [232, 137, 44] },
+  { name: 'arm (black upper arm)', x: [-.025, .025], y: [-.025, .025], top: .58, rgb: [38, 42, 53] },
+  { name: 'red box', x: [.34, .38], y: [.08, .12], top: .14, rgb: [229, 72, 77] },
+  { name: 'blue box', x: [.46, .50], y: [-.06, -.02], top: .14, rgb: [63, 127, 224] },
+  { name: 'tray', x: [.22, .34], y: [-.26, -.14], top: .104, rgb: [100, 190, 105] },
+  { name: 'table', x: [.15, .65], y: [-.3, .3], top: .10, rgb: [70, 82, 118] },
+];
+let camImg;
+function cameraImage() {   // low resolution (160 × 120): colour, depth and what each pixel belongs to
+  if (camImg) return camImg;
+  const w = CAM.W / CAM.step, h = CAM.H / CAM.step, rgb = new Uint8ClampedArray(w * h * 3), depth = new Float32Array(w * h), who = new Int8Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const u = (i + .5) * CAM.step, v = (j + .5) * CAM.step, k = j * w + i;
+    let hit = -1;
+    for (let o = 0; o < CAM_WORLD.length && hit < 0; o++) { const ob = CAM_WORLD[o], [x, y] = camToWorld(...pixToCam(u, v, CAM.z - ob.top)); if (x >= ob.x[0] && x <= ob.x[1] && y >= ob.y[0] && y <= ob.y[1]) hit = o; }
+    const top = hit >= 0 ? CAM_WORLD[hit].top : 0, c = hit >= 0 ? CAM_WORLD[hit].rgb : [22, 27, 42];
+    const shade = .92 + .08 * Math.sin(i * 1.7 + j * 2.3);   // a little texture
+    rgb.set(c.map(x => x * shade), k * 3); depth[k] = CAM.z - top; who[k] = hit;
+  }
+  return (camImg = { w, h, rgb, depth, who });
+}
+function hsvCV(r, g, b) {   // OpenCV's HSV: H 0-180, S and V 0-255
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let hh = 0;
+  if (d) hh = mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  if (hh < 0) hh += 360;
+  return [hh / 2, mx ? d / mx * 255 : 0, mx];
+}
+function redMask(hMax) {   // params.yaml: red is H 0..10 or 170..180, S ≥ 120, V ≥ 70; hMax replaces the 10
+  const im = cameraImage(), m = new Uint8Array(im.w * im.h);
+  for (let k = 0; k < m.length; k++) { const [H, S, V] = hsvCV(im.rgb[k * 3], im.rgb[k * 3 + 1], im.rgb[k * 3 + 2]); m[k] = (H <= hMax || H >= 170) && S >= 120 && V >= 70 ? 1 : 0; }
+  return m;
+}
+function largestBlob(m, w, h) {   // 4-connected components; the biggest one, with its centre and box
+  const seen = new Uint8Array(m.length); let best = null;
+  for (let k0 = 0; k0 < m.length; k0++) {
+    if (!m[k0] || seen[k0]) continue;
+    const stack = [k0], pix = []; seen[k0] = 1;
+    while (stack.length) { const k = stack.pop(), i = k % w, j = (k - i) / w; pix.push(k);
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const ii = i + di, jj = j + dj, kk = jj * w + ii; if (ii >= 0 && ii < w && jj >= 0 && jj < h && m[kk] && !seen[kk]) { seen[kk] = 1; stack.push(kk); } } }
+    if (!best || pix.length > best.pix.length) best = { pix };
+  }
+  if (!best) return null;
+  let su = 0, sv = 0, u0 = 1e9, v0 = 1e9, u1 = -1, v1 = -1;
+  for (const k of best.pix) { const i = k % w, j = (k - i) / w; su += i; sv += j; u0 = Math.min(u0, i); v0 = Math.min(v0, j); u1 = Math.max(u1, i); v1 = Math.max(v1, j); }
+  const n = best.pix.length, S = CAM.step;
+  return { area: n * S * S, u: (su / n + .5) * S, v: (sv / n + .5) * S, box: [u0 * S, v0 * S, (u1 + 1) * S, (v1 + 1) * S], k: best.pix[Math.floor(n / 2)] };
+}
+function drawCamImage(ctx, x, y, w, h, mode, { mask, blob, hMax } = {}) {
+  const im = cameraImage(), off = drawCamImage.off ??= document.createElement('canvas'); off.width = im.w; off.height = im.h;
+  const oc = off.getContext('2d'), data = oc.createImageData(im.w, im.h);
+  for (let k = 0; k < im.w * im.h; k++) {
+    let c;
+    if (mode === 'mask') c = mask[k] ? [255, 255, 255] : [10, 12, 20];
+    // depth: colour over the table's depth band (0.8–1.0 m) so the boxes stand out; near is yellow, far is dark blue
+    else if (mode === 'depth') { const d = clamp((im.depth[k] - .8) / (1.0 - .8), 0, 1); c = [255 * (1 - d) + 20 * d, 200 * (1 - d) * (1 - d) + 40 * d, 60 + 140 * d]; }   // near: yellow, far: dark blue
+    else c = [im.rgb[k * 3], im.rgb[k * 3 + 1], im.rgb[k * 3 + 2]];
+    data.data.set([...c, 255], k * 4);
+  }
+  oc.putImageData(data, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(off, x, y, w, h);
+  ctx.strokeStyle = CSS.line; ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
+  const sx = w / CAM.W, sy = h / CAM.H;
+  if (blob) {
+    const [u0, v0, u1, v1] = blob.box; ctx.strokeStyle = CSS.cyan; ctx.lineWidth = 2; ctx.strokeRect(x + u0 * sx, y + v0 * sy, (u1 - u0) * sx, (v1 - v0) * sy);
+    const px = x + blob.u * sx, py = y + blob.v * sy; ctx.strokeStyle = CSS.ink; ctx.beginPath(); ctx.moveTo(px - 9, py); ctx.lineTo(px + 9, py); ctx.moveTo(px, py - 9); ctx.lineTo(px, py + 9); ctx.stroke();
+  }
+  void hMax;
+}
+
+// ---------- Day 2 · Sensors: what a depth camera publishes ----------
+SCENES['camera-data'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let showFrame = true;
+  u.row(u.button('optical frame', b => { showFrame = !showFrame; b.classList.toggle('on', showFrame); }, true));
+  const out = u.readout();
+  u.text('Colour and depth are <b>aligned</b>: the same pixel (u, v) in both images is the same point on the table. That is what makes pixels → 3D possible on Day 3.');
+  const fx = CAM.fx.toFixed(1);
+  out.innerHTML = `<b>/camera/camera/color/image_raw</b> sensor_msgs/msg/Image · 640 × 480 · 30 Hz<br><b>/camera/camera/aligned_depth_to_color/image_raw</b> Image, metres per pixel<br><b>/camera/camera/color/camera_info</b> CameraInfo: k = [${fx}, 0, 320, 0, ${fx}, 240, 0, 0, 1]<br><b>/camera/camera/depth/color/points</b> sensor_msgs/msg/PointCloud2`;
+  const im = cameraImage();
+  return { canvas, update(t) {
+    const { ctx, w, h } = fitMin(canvas, 640);
+    const gap = 12, pw = (w - 3 * gap) / 2, ph = pw * .75, top = 30;
+    say(ctx, 'colour image', 12, top - 8, CSS.ink, 12, 'left'); drawCamImage(ctx, gap, top, pw, ph, 'colour');
+    say(ctx, 'depth image (near = warm)', 2 * gap + pw, top - 8, CSS.ink, 12, 'left'); drawCamImage(ctx, 2 * gap + pw, top, pw, ph, 'depth');
+    if (showFrame) {   // optical frame: x right, y down, z into the image
+      const ox = gap + 24, oy = top + 24; arrowTo(ctx, ox, oy, ox + 46, oy, CSS.pink, 2); arrowTo(ctx, ox, oy, ox, oy + 46, CSS.green, 2);
+      ctx.strokeStyle = CSS.blue; ctx.beginPath(); ctx.arc(ox, oy, 5, 0, 7); ctx.stroke(); dot(ctx, ox, oy, 1.6, CSS.blue);
+      say(ctx, 'x', ox + 52, oy + 4, CSS.pink, 11); say(ctx, 'y', ox + 4, oy + 60, CSS.green, 11, 'left'); say(ctx, 'z (into the image)', ox + 10, oy - 9, CSS.blue, 10, 'left');
+    }
+    // the point cloud, seen from the side: every pixel back-projected, world x along, height up
+    const cy = top + ph + 34, ch = h - cy - 14;
+    say(ctx, 'point cloud, seen from the side (x forward →, height ↑)', 12, cy - 8, CSS.ink, 12, 'left');
+    ctx.strokeStyle = CSS.line; ctx.strokeRect(gap + .5, cy + .5, w - 2 * gap - 1, ch);
+    const X = x => gap + 10 + (x + .1) / .85 * (w - 2 * gap - 20), Y = z => cy + ch - 8 - z / .65 * (ch - 16);
+    const sweep = Math.min(1, (t * .6) % 2.4);   // fill in row by row, then hold
+    for (let k = 0; k < im.w * im.h; k += 3) {
+      const i = k % im.w, j = (k - i) / im.w, [x, , z] = camToWorld(...pixToCam((i + .5) * CAM.step, (j + .5) * CAM.step, im.depth[k]));
+      if (j / im.h > sweep + .02) continue;
+      ctx.fillStyle = `rgb(${im.rgb[k * 3]},${im.rgb[k * 3 + 1]},${im.rgb[k * 3 + 2]})`; ctx.fillRect(X(x), Y(z), 2, 2);
+    }
+    dot(ctx, X(CAM.x), Y(.62), 5, CSS.cyan); say(ctx, 'camera ↓ (1.0 m)', X(CAM.x) + 10, Y(.62) + 4, CSS.cyan, 10, 'left');
+  } };
+};
+
+// ---------- Day 3 · Perception: from pixels to a pose, as object_detector.py does it ----------
+SCENES['pixels-to-pose'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  const STEPS = ['colour image', 'HSV mask', 'largest blob', 'depth at the centre', 'back-project', 'into the world frame'];
+  let stage = 0, auto = true, hMax = 10;
+  const btns = STEPS.map((n, i) => u.button(`${i + 1} ${n}`, () => { stage = i; auto = false; autoBtn.classList.remove('on'); }, i === 0));
+  u.row(...btns);
+  const autoBtn = u.button('auto', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  u.slider('red: H up to', 2, 30, 1, hMax, v => (hMax = v), v => `${(+v).toFixed(0)}`);
+  const out = u.readout();
+  u.text('Drag the hue limit past 15: the orange arm joins the mask, the biggest blob is now the arm, and the "red box" lands in the wrong place. That is why <code>params.yaml</code> keeps red tight.');
+  const im = cameraImage();
+  return { canvas, update(t) {
+    if (auto) stage = Math.floor(t / 3.2) % STEPS.length;
+    btns.forEach((b, i) => b.classList.toggle('on', i === stage));
+    const mask = redMask(hMax), blob = largestBlob(mask, im.w, im.h);
+    const { ctx, w, h } = fitMin(canvas, 600);
+    const iw = Math.min(w - 24, (h - 120) / .75), ih = iw * .75, ix = (w - iw) / 2, iy = 34;
+    say(ctx, `${stage + 1} · ${STEPS[stage]}`, 12, 22, CSS.ink, 13, 'left');
+    drawCamImage(ctx, ix, iy, iw, ih, stage === 1 || stage === 2 ? 'mask' : stage === 3 ? 'depth' : 'colour', { mask, blob: stage >= 2 ? blob : null });
+    const fy = iy + ih + 22; ctx.font = mono(12); ctx.fillStyle = CSS.ink;
+    if (!blob) { out.innerHTML = '<b>no red pixels</b> in the mask'; return; }
+    const z = im.depth[blob.k], [xo, yo] = pixToCam(blob.u, blob.v, z), [wx, wy, wz] = camToWorld(xo, yo, z), wrong = im.who[blob.k] !== 2;
+    const lines = [
+      'cv2.cvtColor(image, cv2.COLOR_BGR2HSV): hue, saturation, value per pixel',
+      `cv2.inRange: H 0–${hMax} or 170–180, S ≥ 120, V ≥ 70 → white pixels`,
+      `largest contour: ${blob.area} px, centre (u, v) = (${blob.u.toFixed(0)}, ${blob.v.toFixed(0)})`,
+      `median depth around (u, v): z = ${z.toFixed(3)} m`,
+      `x = (u − cx)·z / fx = ${xo.toFixed(3)} m   y = (v − cy)·z / fy = ${yo.toFixed(3)} m`,
+      `tf2 → world: (${wx.toFixed(2)}, ${wy.toFixed(2)}, ${(wz - .02).toFixed(2)}) after half a box down`];
+    say(ctx, lines[stage], w / 2, fy, wrong && stage >= 2 ? CSS.pink : CSS.ink, 12);
+    out.innerHTML = `<b>/detections/red</b> ${wrong ? '<span style="color:#ff729f">wrong blob: the orange arm</span>' : `(${wx.toFixed(2)}, ${wy.toFixed(2)}, ${(wz - .02).toFixed(2)})`}<br><b>truth</b> (0.36, 0.10, 0.12) in worlds/table.sdf<br><b>intrinsics</b> fx = fy = ${CAM.fx.toFixed(1)}, cx = 320, cy = 240`;
+  } };
+};
+
+// ---------- Day 3 · Perception: the camera builds an occupancy map, MoveIt plans around it ----------
+SCENES['octomap'] = async (panel) => {
+  const s = base3d({ cam: [1.3, 1.0, -1.05], target: [.32, .26, 0], grid: 0 });
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshStandardMaterial({ color: 0x141b2e })); s.world.add(floor);
+  const arm = demoArm(), cell = demoCell(s.world); s.world.add(arm.root);
+  const OB = { x: .42, y: -.1, w: .06, hgt: .22 };   // a bottle the planner was never told about
+  const bottle = new THREE.Mesh(new THREE.CylinderGeometry(OB.w / 2, OB.w / 2, OB.hgt, 24), new THREE.MeshStandardMaterial({ color: 0xc9d1e3, roughness: .3 }));
+  bottle.rotation.x = Math.PI / 2; bottle.position.set(OB.x, OB.y, DA_TABLE_TOP + OB.hgt / 2); s.world.add(bottle);
+  const bl = label('unknown obstacle', 'warn'); bl.position.set(OB.x, OB.y, DA_TABLE_TOP + OB.hgt + .05); s.world.add(bl);
+  // voxels at 2 cm (MoveIt uses 1 cm here), from the camera's view: tops of the table, boxes and the obstacle
+  const V = .02, cells = [];
+  for (let x = .16; x < .65; x += V) for (let y = -.29; y < .3; y += V) {
+    let top = DA_TABLE_TOP;
+    if (Math.hypot(x - OB.x, y - OB.y) < OB.w / 2 + .005) { for (let z = DA_TABLE_TOP + V / 2; z < DA_TABLE_TOP + OB.hgt; z += V) cells.push([x, y, z, 1]); continue; }
+    for (const [bx, by] of Object.values(DA_BOXES)) if (Math.abs(x - bx) < .025 && Math.abs(y - by) < .025) top = DA_TABLE_TOP + DA_BOX;
+    cells.push([x, y, top - V / 2, top > DA_TABLE_TOP ? 2 : 0]);
+  }
+  const vox = new THREE.InstancedMesh(new THREE.BoxGeometry(V * .92, V * .92, V * .92), new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: .8 }), cells.length);
+  const m4 = new THREE.Matrix4(), col = new THREE.Color();
+  cells.forEach(([x, y, z, k], i) => { m4.makeTranslation(x, y, z); vox.setMatrixAt(i, m4); vox.setColorAt(i, col.set(k === 1 ? C.orange : k === 2 ? C.cyan : 0x9aa8d0)); });
+  s.world.add(vox);
+  const path = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: C.blue, dashSize: .02, gapSize: .014 })); path.frustumCulled = false; s.world.add(path);
+  const u = ui(panel);
+  let vision = true;
+  const vb = u.button('3D vision on', b => { vision = !vision; b.textContent = vision ? '3D vision on' : '3D vision off'; b.classList.toggle('on', vision); }, true); u.row(vb);
+  const out = u.readout(), flash = u.text('', 'scene-flash');
+  u.text('<code>realsense_octomap.yaml</code>: the point cloud on <code>/camera/camera/depth/color/points</code> fills an OctoMap in the planning scene, 1 cm voxels, at most 2 updates a second. Points on the robot itself are filtered out first.');
+  // move the hand from above the red box to above the tray: straight across without vision, over the obstacle with it
+  const A = [.36, .1, .26], Bp = [.28, -.2, .26];
+  const pts = (over) => { const out = []; for (let k = 0; k <= 40; k++) { const f = k / 40, x = lerp(A[0], Bp[0], f), y = lerp(A[1], Bp[1], f), lift = over ? .2 * Math.sin(Math.PI * f) : 0; out.push([x, y, A[2] + lift]); } return out; };
+  const tmp = new THREE.Vector3();
+  return { ...s, update(t) {
+    vox.visible = vision;
+    const P = pts(vision), f = (t % 6) / 4, k = Math.min(40, Math.floor(clamp(f, 0, 1) * 40)), q = demoArmIK(P[k]);
+    arm.set(q, DA_OPEN);
+    path.geometry.setFromPoints(P.map(p => tmp.set(...p).clone())); path.computeLineDistances(); path.material.color.set(vision ? C.blue : C.pink);
+    s.scene.updateMatrixWorld(true); arm.links.tool.getWorldPosition(tmp); s.world.worldToLocal(tmp);
+    const hit = !vision && Math.hypot(tmp.x - OB.x, tmp.y - OB.y) < OB.w / 2 + .03;
+    glow(bottle, C.pink, hit ? .8 : 0);
+    flash.textContent = vision ? 'the plan goes over the obstacle the camera saw' : hit ? 'collision: MoveIt did not know the obstacle was there' : 'without 3D vision, the planning scene has only the table';
+    flash.classList.toggle('bad', !vision);
+    out.innerHTML = `<b>planning scene</b> table${vision ? ' + OctoMap (' + cells.length + ' voxels shown)' : ' only'}<br><b>path</b> ${vision ? 'lifted 20 cm over the obstacle' : 'straight through it'}`;
   } };
 };
 

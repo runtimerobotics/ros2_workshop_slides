@@ -3,7 +3,7 @@
 Check that every code block on the slides matches the workshop code repository.
 
 A block marked <pre data-src="path/in/repo"> must be an excerpt of that file: every
-line of the block appears in the file, in the same order. Leading spaces and blank
+line of the block appears in the file, in the same order. Spacing and blank
 lines are ignored (slides de-indent fragments and use single blank lines); a line
 that is just "..." (or "...,") stands for lines left out. data-src-lines="3-9" checks only those
 lines of the block, for blocks that mix code with commands.
@@ -17,7 +17,7 @@ from pathlib import Path
 
 
 def norm(line):
-    return line.strip()
+    return ' '.join(line.split())   # spacing may differ: slides drop the column alignment of comments
 
 
 def blocks(deck):
