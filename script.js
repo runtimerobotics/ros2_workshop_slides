@@ -237,7 +237,7 @@
       };
       let shown = '';
       const tick = () => {
-        const dur = cycleOf(svg), fr = dur ? (svg.getCurrentTime() % dur) / dur : 1;
+        const dur = cycleOf(svg), now = svg.getCurrentTime(), fr = !dur ? 1 : 'once' in svg.dataset ? Math.min(now / dur, 1) : (now % dur) / dur;
         let cur = null; for (const e of spec) if (fr >= e[0]) cur = e;
         const key = cur && cur[1] > 0 ? `${cur[1]}-${cur[2]}-${pre.clientWidth}x${pre.clientHeight}` : '';
         if (key !== shown) {

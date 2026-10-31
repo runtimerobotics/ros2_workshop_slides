@@ -2766,6 +2766,23 @@ def section_bounds(html, title):
     return start, end + 1 if html[end:end + 1] == "\n" else end
 
 
+# Slides whose animation plays once and holds its last frame (arriving on the slide or R replays it).
+ONCE = {"ROS 1 vs ROS 2 software stack"}
+
+
+def play_once(section):
+    def keep(m):   # drop the loop's reset at the very end (…;1;0 at ≥ 95 %), so what is built stays on screen
+        vals, times = m.group(1).split(';'), m.group(2).split(';')
+        if len(vals) == len(times) >= 3 and vals[-1] == '0' and vals[-2] == '1' and float(times[-1]) >= .95:
+            return m.group(0).replace(f'values="{m.group(1)}"', f'values="{";".join(vals[:-1])}"').replace(f'keyTimes="{m.group(2)}"', f'keyTimes="{";".join(times[:-1])}"')
+        return m.group(0)
+
+    def once(m):
+        svg_ = m.group(0).replace('<svg class="ros-anim', '<svg data-once class="ros-anim', 1).replace('repeatCount="indefinite"', 'repeatCount="1" fill="freeze"')
+        return re.sub(r'<animate attributeName="opacity"[^>]*?values="([^"]*)" keyTimes="([^"]*)"[^>]*>', keep, svg_)
+    return re.sub(r'<svg class="ros-anim.*?</svg>', once, section, count=1, flags=re.S)
+
+
 def build(html):
     for section in list(out.values()) + list(demo.values()):
         title = re.search(r'data-title="([^"]*)"', section).group(1)
@@ -2779,6 +2796,9 @@ def build(html):
                          lambda m: diagram, html[start:end], count=1, flags=re.S)
         assert n == 1, f"no diagram found on slide {title!r}"
         html = html[:start] + new + html[end:]
+    for title in ONCE:
+        start, end = section_bounds(html, title)
+        html = html[:start] + play_once(html[start:end]) + html[end:]
     return html
 
 
