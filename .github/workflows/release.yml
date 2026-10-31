@@ -1,0 +1,34 @@
+name: Release
+
+# Bump VERSION (and add its section to CHANGELOG.md) on main to publish a release:
+# a tag, release notes, and a zip of the deck that runs offline.
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Tag and publish the version in VERSION
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(tr -d '[:space:]' < VERSION)
+          if gh release view "$v" > /dev/null 2>&1; then echo "$v is already released"; exit 0; fi
+          # Release notes: the CHANGELOG.md section that starts with "## $v"
+          awk -v v="## $v" 'index($0, v) == 1 {on = 1; sub(/^## /, ""); print > "title.txt"; next} /^## / {on = 0} on' CHANGELOG.md > notes.md
+          [[ -s title.txt ]] || { echo "CHANGELOG.md has no section for $v" >&2; exit 1; }
+          dir="ros2_workshop_slides-$v"
+          mkdir "$dir"
+          cp index.html styles.css script.js scenes3d.js favicon.svg workshop-resources.html "$dir"/
+          cp -r vendor assets "$dir"/
+          zip -qr "$dir.zip" "$dir"
+          gh release create "$v" "$dir.zip" --target "$GITHUB_SHA" --title "$(cat title.txt)" --notes-file notes.md
