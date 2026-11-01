@@ -1763,6 +1763,82 @@ SCENES['anatomy-arm'] = async (panel) => {
   } };
 };
 
+// ---------- Inside a robot → ROS 2: what the robot's programs need from each other ----------
+const NEEDS = [
+  ['Find each other', 'which programs are running, on which computer, and who wants which data?', 'discovery: nodes find each other automatically (DDS)', 'Day 1 · 09:30 architecture'],
+  ['Agree what the data means', 'raw bytes mean nothing; every program must read the same fields the same way', 'message interfaces: .msg, .srv, .action', 'Day 1 · 11:15 topics and messages'],
+  ['Talk in the right way', 'a stream of images, a quick question, a long task with progress', 'topics, services, actions', 'Day 1 · 11:15 and 13:30'],
+  ['Deliver it the right way', 'a lost camera frame is fine, a lost stop command is not', 'Quality of Service (QoS)', 'Day 1 · 09:30 architecture'],
+  ['See inside', 'when the arm does not move, which link is broken?', 'ros2 CLI, rqt, RViz, ros2 bag', 'all three days'],
+];
+SCENES['program-needs'] = async (panel) => {
+  const canvas = document.createElement('canvas');
+  const u = ui(panel);
+  let sel = 0, auto = true;
+  const btns = NEEDS.map((n, i) => u.button(`${i + 1} ${n[0].toLowerCase()}`, () => { sel = i; auto = false; autoBtn.classList.remove('on'); }, i === 0));
+  u.row(...btns);
+  const autoBtn = u.button('auto', b => { auto = !auto; b.classList.toggle('on', auto); }, true); u.row(autoBtn);
+  const out = u.readout();
+  u.text('Every robot program needs these five things. Building them by hand for every pair of programs is the mess on the last slide; <b>ROS 2 provides all five</b>, and the workshop teaches them in this order.');
+  const PH = 7;
+  return { canvas, update(t) {
+    if (auto) sel = Math.floor(t / PH) % NEEDS.length;
+    btns.forEach((b, i) => b.classList.toggle('on', i === sel));
+    const f = (t % PH) / PH, [need, why, answer, when] = NEEDS[sel];
+    out.innerHTML = `<b>need</b> ${need.toLowerCase()}: ${why}<br><b>ROS 2</b> ${answer}<br><b>in the workshop</b> ${when}`;
+    const { ctx, w, h } = fitMin(canvas, 620);
+    // two computers, four programs: camera driver → object detector → motion planner → motor controller
+    const top = 46, bh = h - top - 96, cw = w * .44;
+    const comps = [[14, 'robot computer'], [w - 14 - cw, 'laptop']];
+    comps.forEach(([x, n]) => { ctx.setLineDash([5, 5]); sensorBox(ctx, x, top, cw, bh, CSS.line, 8); ctx.setLineDash([]); say(ctx, n, x + 10, top + 16, CSS.muted, 11, 'left'); });
+    const bw = Math.min(150, cw * .78), bhh = 42;
+    const P = { cam: [comps[0][0] + cw / 2, top + bh * .3], det: [comps[1][0] + cw / 2, top + bh * .3], plan: [comps[1][0] + cw / 2, top + bh * .76], ctl: [comps[0][0] + cw / 2, top + bh * .76] };
+    const NAMES = { cam: 'camera driver', det: 'object detector', plan: 'motion planner', ctl: 'motor controller' };
+    const at = (a, b, k) => [lerp(P[a][0], P[b][0], k), lerp(P[a][1], P[b][1], k)];
+    const edge = (a, b, col = CSS.line, dash = [4, 4]) => { ctx.strokeStyle = col; ctx.setLineDash(dash); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(...P[a]); ctx.lineTo(...P[b]); ctx.stroke(); ctx.setLineDash([]); };
+    // the steps of each need
+    if (sel === 0) {   // discovery: rings go out, then the links that match appear
+      for (const k of Object.keys(P)) { const r = ((f * 3) % 1) * 70; ctx.strokeStyle = CSS.cyan; ctx.globalAlpha = (1 - r / 70) * .7; ctx.beginPath(); ctx.arc(...P[k], 24 + r, 0, 7); ctx.stroke(); ctx.globalAlpha = 1; }
+      if (f > .4) { edge('cam', 'det', CSS.cyan, []); } if (f > .55) edge('det', 'plan', CSS.cyan, []); if (f > .7) edge('plan', 'ctl', CSS.cyan, []);
+      say(ctx, f < .4 ? '"I publish images" · "I want images" · ...' : 'matched: every publisher finds its subscribers', w / 2, top + bh + 26, CSS.ink, 12);
+    } else if (sel === 1) {   // meaning: the same bytes, before and after a shared type
+      edge('cam', 'det', CSS.line, []); const k = (f * 2) % 1, typed = f >= .5, [x, y] = at('cam', 'det', k);
+      ctx.fillStyle = typed ? CSS.cyan : CSS.pink; ctx.fillRect(x - 9, y - 9, 18, 18);
+      const msg = typed ? ['sensor_msgs/msg/Image', 'height: 480  width: 640', 'encoding: rgb8  data: [...]'] : ['89 50 4E 47 0D 0A 1A 0A', '00 00 01 E0 00 00 02 80 ...', 'what is this?'];
+      ctx.fillStyle = 'rgba(8,13,25,.92)'; ctx.fillRect(w / 2 - 150, top + bh + 6, 300, 54); sensorBox(ctx, w / 2 - 150, top + bh + 6, 300, 54, typed ? CSS.cyan : CSS.pink, 6);
+      msg.forEach((l, i) => say(ctx, l, w / 2, top + bh + 24 + i * 15, typed ? CSS.ink : CSS.pink, 11));
+    } else if (sel === 2) {   // three ways to talk
+      edge('cam', 'det'); edge('det', 'plan'); edge('plan', 'ctl');
+      for (let i = 0; i < 4; i++) dot(ctx, ...at('cam', 'det', ((f * 4 + i / 4) % 1)), 4, CSS.cyan);
+      const q = (f * 2) % 1; dot(ctx, ...at('plan', 'det', q < .5 ? q * 2 : 2 - q * 2), 5, q < .5 ? CSS.blue : CSS.green);
+      const g = clamp(f * 1.4, 0, 1), [gx, gy] = at('plan', 'ctl', .5);
+      ctx.fillStyle = '#26304a'; ctx.fillRect(gx - 40, gy + 12, 80, 7); ctx.fillStyle = CSS.orange; ctx.fillRect(gx - 40, gy + 12, 80 * g, 7);
+      say(ctx, 'topic: a stream', ...at('cam', 'det', .5).map((v, i) => v + (i ? -14 : 0)), CSS.cyan, 11);
+      say(ctx, 'service: ask, get one answer', at('det', 'plan', .5)[0] - 12, at('det', 'plan', .5)[1] + 4, CSS.blue, 11, 'right');
+      say(ctx, `action: a goal, ${Math.round(g * 100)} % done`, gx, gy - 8, CSS.orange, 11);
+    } else if (sel === 3) {   // QoS: drop camera frames, resend the command
+      edge('cam', 'det'); edge('plan', 'ctl');
+      for (let i = 0; i < 5; i++) { const k = (f * 3 + i / 5) % 1, lost = i === 2; if (lost && k > .5) { const [x, y] = at('cam', 'det', .5); ctx.strokeStyle = CSS.pink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 6, y - 6); ctx.lineTo(x + 6, y + 6); ctx.moveTo(x + 6, y - 6); ctx.lineTo(x - 6, y + 6); ctx.stroke(); continue; } dot(ctx, ...at('cam', 'det', k), 4, CSS.cyan); }
+      const r = (f * 2) % 1, first = f < .5; dot(ctx, ...at('plan', 'ctl', first ? Math.min(r * 2, .5) : r), 5, first && r > .25 ? CSS.pink : CSS.orange);
+      say(ctx, 'best effort: a lost frame is fine', at('cam', 'det', .5)[0], at('cam', 'det', .5)[1] - 34, CSS.cyan, 11);
+      say(ctx, first ? 'reliable: lost… resend' : 'reliable: delivered', at('plan', 'ctl', .5)[0], at('plan', 'ctl', .5)[1] + 22, CSS.orange, 11);
+    } else {   // see inside
+      edge('cam', 'det', CSS.cyan, []); edge('det', 'plan', CSS.cyan, []); edge('plan', 'ctl', CSS.cyan, []);
+      for (const [a, b] of [['cam', 'det'], ['det', 'plan'], ['plan', 'ctl']]) dot(ctx, ...at(a, b, (f * 2) % 1), 4, CSS.cyan);
+      const tx = w / 2 - 170, ty = top + bh + 4, lines = ['$ ros2 node list', '/camera  /object_detector  /move_group  /arm_controller', '$ ros2 topic echo /detections/red', 'position: {x: 0.36, y: 0.10, z: 0.12}'];
+      ctx.fillStyle = '#080d19'; ctx.fillRect(tx, ty, 340, 64); sensorBox(ctx, tx, ty, 340, 64, CSS.line, 6);
+      lines.forEach((l, i) => { if (f * 5 > i) say(ctx, l, tx + 10, ty + 16 + i * 14, i % 2 ? CSS.muted : CSS.ink, 10, 'left'); });
+    }
+    for (const [k, [x, y]] of Object.entries(P)) {   // the programs on top
+      ctx.fillStyle = '#0d1426'; ctx.fillRect(x - bw / 2, y - bhh / 2, bw, bhh); sensorBox(ctx, x - bw / 2, y - bhh / 2, bw, bhh, CSS.blue, 6);
+      ctx.fillStyle = CSS.ink; ctx.font = sans(12, 600); ctx.textAlign = 'center'; ctx.fillText(NAMES[k], x, y + 4); ctx.textAlign = 'left';
+    }
+    // headline: the need, then its ROS 2 answer
+    ctx.fillStyle = CSS.ink; ctx.font = sans(17, 700); ctx.fillText(`${sel + 1}. ${need}`, 14, 26);
+    if (f > .35) { ctx.fillStyle = CSS.cyan; ctx.font = mono(12, 600); ctx.textAlign = 'right'; ctx.fillText(`ROS 2: ${answer.split(':')[0]}`, w - 14, 26); ctx.textAlign = 'left'; }
+  } };
+};
+
 // ---------- Inside a robot: six robots, same three ingredients ----------
 SCENES['robot-types'] = async (panel) => {
   const canvas = document.createElement('canvas');

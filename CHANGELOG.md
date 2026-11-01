@@ -3,6 +3,20 @@
 To publish a release: add a section for the new version at the top, set `VERSION` to it,
 and push to `main`. The Release workflow tags the commit and attaches a zip of the deck.
 
+## v1.3: a clear bridge into ROS 2 (2026-11-01)
+
+193 slides. The primer now ends on the problem that ROS 2 solves.
+
+- The two quick checks move before "Many programs, many computers", so the chapter ends on
+  the problem; the first quiz's ROS question becomes one about the loop
+- New: **What robot programs need from each other**: four programs on two computers, five
+  needs animated in turn (find each other, agree what the data means, talk in the right
+  way, deliver it the right way, see inside), each with its ROS 2 answer and the block that
+  teaches it
+- The ROS 2 overview opens with "ROS 2: one answer to all five"; the ROS equation's notes
+  tie its plumbing layer back to the five needs
+- Slide 34 (ROS 1 vs ROS 2 software stack) plays once and holds the finished stacks
+
 ## v1.2: labs, perception and the review fixes (2026-10-31)
 
 192 slides. Every fix from the full review, and a simpler slide 4.
